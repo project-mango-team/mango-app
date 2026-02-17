@@ -1,4 +1,5 @@
 import Transaction from '../models/Transaction.js';
+import { buildUserQuery } from '../utils/userQuery.js';
 
 // Helper function to build date filters
 const buildDateFilter = (year) => {
@@ -17,7 +18,8 @@ const buildDateFilter = (year) => {
 export const getStats = async (req, res, next) => {
   try {
     const { year } = req.query;
-    const query = buildDateFilter(year);
+    const dateFilter = buildDateFilter(year);
+    const query = buildUserQuery(req, dateFilter);
 
     const transactions = await Transaction.find(query);
 
@@ -47,7 +49,8 @@ export const getStats = async (req, res, next) => {
 export const getGastosByCategoria = async (req, res, next) => {
   try {
     const { year } = req.query;
-    const matchFilter = { tipo: 'Gasto', ...buildDateFilter(year) };
+    const dateFilter = buildDateFilter(year);
+    const matchFilter = buildUserQuery(req, { tipo: 'Gasto', ...dateFilter });
     
     const gastos = await Transaction.aggregate([
       { $match: matchFilter },
@@ -84,7 +87,7 @@ export const getMonthlySummary = async (req, res, next) => {
     ];
 
     const gastos = await Transaction.aggregate([
-      { $match: { tipo: 'Gasto', ...dateFilter } },
+      { $match: buildUserQuery(req, { tipo: 'Gasto', ...dateFilter }) },
       {
         $group: {
           _id: '$mes',
@@ -94,7 +97,7 @@ export const getMonthlySummary = async (req, res, next) => {
     ]);
 
     const ingresos = await Transaction.aggregate([
-      { $match: { tipo: 'Ingreso', ...dateFilter } },
+      { $match: buildUserQuery(req, { tipo: 'Ingreso', ...dateFilter }) },
       {
         $group: {
           _id: '$mes',
@@ -131,7 +134,8 @@ export const getMonthlySummary = async (req, res, next) => {
 // Get available years
 export const getAvailableYears = async (req, res, next) => {
   try {
-    const transactions = await Transaction.find({}, { fecha: 1 });
+    const query = buildUserQuery(req);
+    const transactions = await Transaction.find(query, { fecha: 1 });
     const years = [...new Set(
       transactions.map(t => {
         const parts = t.fecha.split('/');

@@ -6,8 +6,13 @@ import { SantanderParser } from '../parsers/SantanderParser.js';
 import { DolarService } from '../services/dolarService.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
+import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from '../utils/userQuery.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// All upload routes require authentication
+router.use(requireAuth);
 
 // Helper function to ensure valid numbers
 const safeNumber = (value) => {
@@ -242,7 +247,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     const timestamp = new Date();
 
     // Transform transactions to MongoDB format and save
-    const transactionsToSave = transactions.map(t => ({
+    const transactionsToSave = addUserToTransactionData(req, transactions.map(t => ({
       fecha: normalizeDate(t.fecha),
       mes: getMonthName(normalizeDate(t.fecha)),
       categoria: t.categoria,
@@ -256,7 +261,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       batch_id: batchId,
       batch_filename: sourceFilename,
       batch_timestamp: timestamp
-    }));
+    })));
 
     // Calculate totals
     const gastos = transactionsToSave.filter(t => t.tipo === 'Gasto').reduce((sum, t) => sum + (t.importe || 0), 0);
@@ -266,7 +271,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     const result = await Transaction.insertMany(transactionsToSave, { ordered: false });
 
     // Create operation record with safe numeric values
-    await Operation.create({
+    await Operation.create(addUserToOperationData(req, {
       operation_id: operationId,
       type: 'upload',
       status: 'completed',
@@ -282,7 +287,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
         transacciones_procesadas: transactions.length
       },
       created_at: timestamp
-    });
+    }));
 
     res.json({
       success: true,
@@ -314,8 +319,9 @@ router.post('/', upload.single('file'), async (req, res, next) => {
 // Get import history (batches)
 router.get('/history', async (req, res, next) => {
   try {
-    // Get operations of type 'upload'
-    const operations = await Operation.find({ type: 'upload' })
+    // Get operations of type 'upload' for current user
+    const query = buildUserQuery(req, { type: 'upload' });
+    const operations = await Operation.find(query)
       .sort({ created_at: -1 })
       .limit(20);
 
@@ -343,22 +349,22 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
   try {
     const { batchId } = req.params;
 
-    // Try to find by operation_id first (new way), then by batch_id (old way)
-    let operation = await Operation.findOne({ operation_id: batchId });
+    // Try to find by operation_id first (new way), then by batch_id (old way) - user scoped
+    let operation = await Operation.findOne(buildUserQuery(req, { operation_id: batchId }));
     
     if (!operation) {
-      // Try finding by batch_id in metadata (backward compatibility)
-      operation = await Operation.findOne({ 'metadata.batch_id': batchId });
+      // Try finding by batch_id in metadata (backward compatibility) - user scoped
+      operation = await Operation.findOne(buildUserQuery(req, { 'metadata.batch_id': batchId }));
     }
 
     if (!operation) {
-      // Last resort: find transaction and get operation_id
-      const transaction = await Transaction.findOne({ 
+      // Last resort: find transaction and get operation_id - user scoped
+      const transaction = await Transaction.findOne(buildUserQuery(req, { 
         $or: [
           { operation_id: batchId },
           { batch_id: batchId }
         ]
-      });
+      }));
 
       if (!transaction) {
         return res.status(404).json({
@@ -367,8 +373,8 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
         });
       }
 
-      // Get the operation
-      operation = await Operation.findOne({ operation_id: transaction.operation_id });
+      // Get the operation - user scoped
+      operation = await Operation.findOne(buildUserQuery(req, { operation_id: transaction.operation_id }));
     }
 
     if (!operation) {
@@ -386,8 +392,9 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
       });
     }
 
-    // Delete all transactions with this operation_id
-    const result = await Transaction.deleteMany({ operation_id: operation.operation_id });
+    // Delete all transactions with this operation_id - user scoped
+    const deleteQuery = buildUserQuery(req, { operation_id: operation.operation_id });
+    const result = await Transaction.deleteMany(deleteQuery);
 
     // Update operation status
     operation.status = 'rolled_back';

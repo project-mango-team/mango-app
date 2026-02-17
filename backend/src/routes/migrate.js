@@ -3,8 +3,13 @@ import multer from 'multer';
 import { ExcelMigrator } from '../parsers/ExcelMigrator.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
+import { requireAuth } from '../middleware/auth.js';
+import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from '../utils/userQuery.js';
 
 const router = express.Router();
+
+// All migration routes require authentication
+router.use(requireAuth);
 
 // Helper function to ensure valid numbers
 const safeNumber = (value) => {
@@ -119,13 +124,14 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       .filter(s => s !== null)
       .reduce((sum, s) => sum + (s.importe_ingresos || 0), 0);
 
-    // Bulk insert into MongoDB
-    const result = await Transaction.insertMany(transactionsToSave, { 
+    // Add user_id to all transactions and bulk insert into MongoDB
+    const transactionsWithUser = addUserToTransactionData(req, transactionsToSave);
+    const result = await Transaction.insertMany(transactionsWithUser, { 
       ordered: false // Continue on duplicate errors
     });
 
     // Create operation record with safe numeric values
-    await Operation.create({
+    await Operation.create(addUserToOperationData(req, {
       operation_id: operationId,
       type: 'migration',
       status: 'completed',
@@ -141,7 +147,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
         sheet_stats: sheetStats
       },
       created_at: timestamp
-    });
+    }));
 
     res.json({
       success: true,
@@ -179,8 +185,9 @@ router.post('/', upload.single('file'), async (req, res, next) => {
  */
 router.get('/history', async (req, res, next) => {
   try {
-    // Get operations of type 'migration'
-    const operations = await Operation.find({ type: 'migration' })
+    // Get operations of type 'migration' for current user
+    const query = buildUserQuery(req, { type: 'migration' });
+    const operations = await Operation.find(query)
       .sort({ created_at: -1 })
       .limit(20);
 
@@ -209,22 +216,22 @@ router.delete('/:migrationId', async (req, res, next) => {
   try {
     const { migrationId } = req.params;
 
-    // Try to find by operation_id first (new way), then by migration_id (old way)
-    let operation = await Operation.findOne({ operation_id: migrationId });
+    // Try to find by operation_id first (new way), then by migration_id (old way) - user scoped
+    let operation = await Operation.findOne(buildUserQuery(req, { operation_id: migrationId }));
     
     if (!operation) {
-      // Try finding by migration_id in metadata (backward compatibility)
-      operation = await Operation.findOne({ 'metadata.migration_id': migrationId });
+      // Try finding by migration_id in metadata (backward compatibility) - user scoped
+      operation = await Operation.findOne(buildUserQuery(req, { 'metadata.migration_id': migrationId }));
     }
 
     if (!operation) {
-      // Last resort: find transaction and get operation_id
-      const transaction = await Transaction.findOne({ 
+      // Last resort: find transaction and get operation_id - user scoped
+      const transaction = await Transaction.findOne(buildUserQuery(req, { 
         $or: [
           { operation_id: migrationId },
           { migration_id: migrationId }
         ]
-      });
+      }));
 
       if (!transaction) {
         return res.status(404).json({
@@ -233,8 +240,8 @@ router.delete('/:migrationId', async (req, res, next) => {
         });
       }
 
-      // Get the operation
-      operation = await Operation.findOne({ operation_id: transaction.operation_id });
+      // Get the operation - user scoped
+      operation = await Operation.findOne(buildUserQuery(req, { operation_id: transaction.operation_id }));
     }
 
     if (!operation) {
@@ -252,8 +259,9 @@ router.delete('/:migrationId', async (req, res, next) => {
       });
     }
 
-    // Delete all transactions with this operation_id
-    const result = await Transaction.deleteMany({ operation_id: operation.operation_id });
+    // Delete all transactions with this operation_id - user scoped
+    const deleteQuery = buildUserQuery(req, { operation_id: operation.operation_id });
+    const result = await Transaction.deleteMany(deleteQuery);
 
     // Update operation status
     operation.status = 'rolled_back';

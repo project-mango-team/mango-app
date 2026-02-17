@@ -7,8 +7,12 @@ import {
   deleteTransaction,
   deleteTransactions
 } from '../controllers/transactionController.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// All transaction routes require authentication
+router.use(requireAuth);
 
 router.route('/')
   .get(getTransactions)

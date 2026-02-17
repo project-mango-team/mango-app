@@ -1,8 +1,13 @@
 import express from 'express';
 import Operation from '../models/Operation.js';
 import Transaction from '../models/Transaction.js';
+import { requireAuth } from '../middleware/auth.js';
+import { buildUserQuery } from '../utils/userQuery.js';
 
 const router = express.Router();
+
+// All operation routes require authentication
+router.use(requireAuth);
 
 /**
  * GET /api/operations
@@ -12,10 +17,11 @@ router.get('/', async (req, res, next) => {
   try {
     const { type, status, limit = 50 } = req.query;
     
-    const query = {};
-    if (type) query.type = type;
-    if (status) query.status = status;
+    const filters = {};
+    if (type) filters.type = type;
+    if (status) filters.status = status;
 
+    const query = buildUserQuery(req, filters);
     const operations = await Operation.find(query)
       .sort({ created_at: -1 })
       .limit(parseInt(limit));
@@ -38,7 +44,8 @@ router.get('/:operationId', async (req, res, next) => {
   try {
     const { operationId } = req.params;
 
-    const operation = await Operation.findOne({ operation_id: operationId });
+    const query = buildUserQuery(req, { operation_id: operationId });
+    const operation = await Operation.findOne(query);
 
     if (!operation) {
       return res.status(404).json({
@@ -47,8 +54,9 @@ router.get('/:operationId', async (req, res, next) => {
       });
     }
 
-    // Get sample transactions for this operation
-    const sampleTransactions = await Transaction.find({ operation_id: operationId })
+    // Get sample transactions for this operation - user scoped
+    const sampleTransactionQuery = buildUserQuery(req, { operation_id: operationId });
+    const sampleTransactions = await Transaction.find(sampleTransactionQuery)
       .limit(10);
 
     res.json({
@@ -71,8 +79,9 @@ router.post('/:operationId/rollback', async (req, res, next) => {
   try {
     const { operationId } = req.params;
 
-    // Find the operation
-    const operation = await Operation.findOne({ operation_id: operationId });
+    // Find the operation - user scoped
+    const query = buildUserQuery(req, { operation_id: operationId });
+    const operation = await Operation.findOne(query);
 
     if (!operation) {
       return res.status(404).json({
@@ -89,8 +98,9 @@ router.post('/:operationId/rollback', async (req, res, next) => {
       });
     }
 
-    // Delete all transactions with this operation_id
-    const deleteResult = await Transaction.deleteMany({ operation_id: operationId });
+    // Delete all transactions with this operation_id - user scoped
+    const deleteQuery = buildUserQuery(req, { operation_id: operationId });
+    const deleteResult = await Transaction.deleteMany(deleteQuery);
 
     // Update operation status
     operation.status = 'rolled_back';
@@ -119,11 +129,14 @@ router.post('/:operationId/rollback', async (req, res, next) => {
  */
 router.get('/stats/summary', async (req, res, next) => {
   try {
-    const totalOperations = await Operation.countDocuments();
-    const completedOperations = await Operation.countDocuments({ status: 'completed' });
-    const rolledBackOperations = await Operation.countDocuments({ status: 'rolled_back' });
+    const userFilter = buildUserQuery(req);
+    
+    const totalOperations = await Operation.countDocuments(userFilter);
+    const completedOperations = await Operation.countDocuments(buildUserQuery(req, { status: 'completed' }));
+    const rolledBackOperations = await Operation.countDocuments(buildUserQuery(req, { status: 'rolled_back' }));
     
     const operationsByType = await Operation.aggregate([
+      { $match: userFilter },
       {
         $group: {
           _id: '$type',

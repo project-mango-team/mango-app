@@ -5,8 +5,12 @@ import {
   getMonthlySummary,
   getAvailableYears
 } from '../controllers/statsController.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// All stats routes require authentication 
+router.use(requireAuth);
 
 router.get('/', getStats);
 router.get('/categorias', getGastosByCategoria);

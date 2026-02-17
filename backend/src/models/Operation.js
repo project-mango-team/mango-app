@@ -6,6 +6,12 @@ import mongoose from 'mongoose';
  * Used for tracking history and enabling rollback functionality
  */
 const operationSchema = new mongoose.Schema({
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true
+  },
   operation_id: {
     type: String,
     required: true,
@@ -65,6 +71,11 @@ const operationSchema = new mongoose.Schema({
 // Índices adicionales
 operationSchema.index({ status: 1, created_at: -1 });
 operationSchema.index({ type: 1, created_at: -1 });
+
+// Compound indexes for multi-tenancy
+operationSchema.index({ user_id: 1, created_at: -1 });
+operationSchema.index({ user_id: 1, type: 1, created_at: -1 });
+operationSchema.index({ user_id: 1, status: 1 });
 
 const Operation = mongoose.model('Operation', operationSchema);
 

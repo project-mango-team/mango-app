@@ -1,5 +1,6 @@
 import Transaction from '../models/Transaction.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { buildUserQuery, addUserToTransactionData } from '../utils/userQuery.js';
 
 // Get all transactions with filters
 export const getTransactions = async (req, res, next) => {
@@ -16,25 +17,27 @@ export const getTransactions = async (req, res, next) => {
       skip = 0
     } = req.query;
     
-    const query = {};
+    const filters = {};
 
-    if (tipo) query.tipo = tipo;
-    if (mes) query.mes = mes;
-    if (categoria) query.categoria = categoria;
-    if (moneda) query.moneda = moneda;
-    if (origen) query.origen = origen;
+    if (tipo) filters.tipo = tipo;
+    if (mes) filters.mes = mes;
+    if (categoria) filters.categoria = categoria;
+    if (moneda) filters.moneda = moneda;
+    if (origen) filters.origen = origen;
     
     // Year filter (matches dates ending with /YYYY)
     if (year && year !== 'all') {
       const yearNum = parseInt(year);
       if (!isNaN(yearNum)) {
-        query.fecha = { $regex: `\\/${yearNum}$` };
+        filters.fecha = { $regex: `\\/${yearNum}$` };
       }
     }
     
     if (search) {
-      query.detalle = { $regex: search, $options: 'i' };
+      filters.detalle = { $regex: search, $options: 'i' };
     }
+
+    const query = buildUserQuery(req, filters);
 
     const transactions = await Transaction.find(query)
       .sort({ fecha: -1 })
@@ -57,7 +60,8 @@ export const getTransactions = async (req, res, next) => {
 // Get single transaction
 export const getTransaction = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findById(req.params.id);
+    const query = buildUserQuery(req, { _id: req.params.id });
+    const transaction = await Transaction.findOne(query);
 
     if (!transaction) {
       throw new AppError('Transaction not found', 404);
@@ -75,7 +79,8 @@ export const getTransaction = async (req, res, next) => {
 // Create transactions (bulk)
 export const createTransactions = async (req, res, next) => {
   try {
-    const transactions = await Transaction.insertMany(req.body.transactions);
+    const transactionsWithUser = addUserToTransactionData(req, req.body.transactions);
+    const transactions = await Transaction.insertMany(transactionsWithUser);
 
     res.status(201).json({
       success: true,
@@ -90,8 +95,9 @@ export const createTransactions = async (req, res, next) => {
 // Update transaction
 export const updateTransaction = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findByIdAndUpdate(
-      req.params.id,
+    const query = buildUserQuery(req, { _id: req.params.id });
+    const transaction = await Transaction.findOneAndUpdate(
+      query,
       req.body,
       { new: true, runValidators: true }
     );
@@ -112,7 +118,8 @@ export const updateTransaction = async (req, res, next) => {
 // Delete transaction
 export const deleteTransaction = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findByIdAndDelete(req.params.id);
+    const query = buildUserQuery(req, { _id: req.params.id });
+    const transaction = await Transaction.findOneAndDelete(query);
 
     if (!transaction) {
       throw new AppError('Transaction not found', 404);
@@ -131,7 +138,8 @@ export const deleteTransaction = async (req, res, next) => {
 export const deleteTransactions = async (req, res, next) => {
   try {
     const { ids } = req.body;
-    const result = await Transaction.deleteMany({ _id: { $in: ids } });
+    const query = buildUserQuery(req, { _id: { $in: ids } });
+    const result = await Transaction.deleteMany(query);
 
     res.json({
       success: true,
