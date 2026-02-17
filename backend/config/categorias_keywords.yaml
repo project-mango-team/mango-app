@@ -1,0 +1,85 @@
+# Keywords para inferencia automática de categorías
+# Cada categoría tiene una lista de palabras clave que se buscan en la descripción
+
+Transferencia:
+  - Transferencia
+
+Transporte:
+  - YPF
+  - Puma Energy
+  - Shell
+  - Axion
+  - SUBE
+  - Cabify
+  - Uber
+  - Taxi
+  - EMOVA
+  - Subte
+  - Enzo Escobar
+
+Salud:
+  - Farmacia
+  - FarmaPlus
+  - Farmacity
+  - Hospital
+  - Clinica
+  - Medico
+
+Supermercado:
+  - Coto
+  - Carrefour
+  - Dia
+  - Disco
+  - Jumbo
+  - Walmart
+  - Supermercado
+  - Market
+
+Comida:
+  - Restaurant
+  - Cafe
+  - Bar
+  - Delivery
+  - Pedidos Ya
+  - pedidosya
+  - Rappi
+  - McDonald
+  - Burger
+  - Pizza
+  - Fernando Gomes
+  - Mc donalds
+
+Servicios:
+  - Netflix
+  - Spotify
+  - youtube
+  - Prime
+  - Disney+
+  - HBO
+  - Internet
+  - Telefono
+  - Luz
+  - Gas
+  - Agua
+
+Ocio:
+  - Cine
+  - Teatro
+  - Juego
+  - Steam
+  - PlayStation
+  - Xbox
+
+Ropa:
+  - Zara
+  - H&M
+  - Nike
+  - Adidas
+  - Ropa
+  - Lacoste
+
+Mantenimiento:
+  - Taller
+  - Mecanico
+  - Lavadero
+  - Gomeria
