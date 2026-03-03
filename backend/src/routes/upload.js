@@ -192,9 +192,9 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     let transactions = [];
     let sourceFilename = filename;
 
-    // Check if we have pre-edited transactions (from editor)
+    // Check if we have pre-edited transactions (from editor or manual entry)
     if (editedTransactions) {
-      // Transactions sent from editor (either as string or already parsed)
+      // Transactions sent from editor or manual entry (either as string or already parsed)
       try {
         transactions = typeof editedTransactions === 'string' 
           ? JSON.parse(editedTransactions) 
@@ -204,6 +204,11 @@ router.post('/', upload.single('file'), async (req, res, next) => {
           success: false,
           message: 'Error al parsear las transacciones editadas'
         });
+      }
+      
+      // For manual entry, set filename if not provided
+      if (tipo === 'manual' && !sourceFilename) {
+        sourceFilename = 'Carga Manual';
       }
     } else if (req.file) {
       // Legacy path: parse from uploaded file

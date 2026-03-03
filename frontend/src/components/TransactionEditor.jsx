@@ -16,7 +16,7 @@ const CATEGORIAS = [
 
 const MONEDAS = ['ARS', 'USD']
 
-const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
+const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false }) => {
   const [transactions, setTransactions] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
 
@@ -81,23 +81,25 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-white">Verificar y Editar Datos</h3>
-        <button
-          onClick={handleAddRow}
-          className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-        >
-          + Agregar Fila
-        </button>
-      </div>
+      {!isManualMode && (
+        <>
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-semibold text-white">Verificar y Editar Datos</h3>
+            <button
+              onClick={handleAddRow}
+              className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+            >
+              + Agregar Fila
+            </button>
+          </div>
 
-      {/* Totals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 bg-gray-800/50 rounded">
-          <p className="text-xs text-gray-400 mb-1">Gastos en Pesos</p>
-          <p className="text-lg font-semibold text-red-400">
-            ${totals.gastosARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+          {/* Totals */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 bg-gray-800/50 rounded">
+              <p className="text-xs text-gray-400 mb-1">Gastos en Pesos</p>
+              <p className="text-lg font-semibold text-red-400">
+                ${totals.gastosARS.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
         </div>
         <div className="p-3 bg-gray-800/50 rounded">
           <p className="text-xs text-gray-400 mb-1">Gastos en Dólares</p>
@@ -118,6 +120,8 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
           </p>
         </div>
       </div>
+      </>
+      )}
 
       {/* Editable Table */}
       <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
@@ -146,11 +150,22 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
                   />
                 </td>
                 <td className="py-2 px-3">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                    t.tipo === 'Gasto' ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'
-                  }`}>
-                    {t.tipo}
-                  </span>
+                  {isManualMode ? (
+                    <select
+                      value={t.tipo}
+                      onChange={(e) => handleCellChange(t._id, 'tipo', e.target.value)}
+                      className="w-full bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="Gasto">Gasto</option>
+                      <option value="Ingreso">Ingreso</option>
+                    </select>
+                  ) : (
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                      t.tipo === 'Gasto' ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'
+                    }`}>
+                      {t.tipo}
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 px-3">
                   <select
@@ -213,6 +228,20 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
                 </td>
               </tr>
             ))}
+            {isManualMode && (
+              <tr>
+                <td colSpan="8" className="py-3 px-3">
+                  <button
+                    onClick={handleAddRow}
+                    className="text-gray-400 hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -225,18 +254,20 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel }) => {
 
       {/* Action Buttons */}
       <div className="flex gap-4 justify-end pt-4 border-t border-gray-700">
-        <button
-          onClick={onCancel}
-          className="px-6 py-2 text-gray-300 hover:text-white transition-colors"
-        >
-          Cancelar
-        </button>
+        {!isManualMode && (
+          <button
+            onClick={onCancel}
+            className="px-6 py-2 text-gray-300 hover:text-white transition-colors"
+          >
+            Cancelar
+          </button>
+        )}
         <button
           onClick={handleSave}
           className="px-6 py-2 bg-primary hover:bg-primary/80 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={transactions.length === 0}
         >
-          Guardar {transactions.length} transacciones
+          {isManualMode ? 'Guardar Transacciones' : `Guardar ${transactions.length} transacciones`}
         </button>
       </div>
     </div>

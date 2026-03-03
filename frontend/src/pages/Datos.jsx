@@ -28,10 +28,8 @@ const Datos = () => {
   // Galicia-specific states
   const [tipoResumen, setTipoResumen] = useState('')
   
-  // Manual entry states
-  const [manualTransactions, setManualTransactions] = useState([
-    { id: 1, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
-  ])
+  // Manual entry key for resetting
+  const [manualKey, setManualKey] = useState(0)
   
   // Editor states
   const [previewData, setPreviewData] = useState(null)
@@ -65,12 +63,19 @@ const Datos = () => {
     }
   }
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0])
+  const handleFileChange = async (e) => {
+    const newFile = e.target.files[0]
+    setFile(newFile)
     setMessage(null)
-    // Reset card selection when file changes
-    setAvailableCards([])
-    setSelectedCards([])
+    
+    // If Santander and cardType already selected, detect cards
+    if (newFile && tipo === 'santander' && cardType) {
+      await detectCards(cardType, newFile)
+    } else {
+      // Reset card selection when file changes
+      setAvailableCards([])
+      setSelectedCards([])
+    }
   }
 
   const handleTipoChange = (newTipo) => {
@@ -84,21 +89,20 @@ const Datos = () => {
   const handleCardTypeChange = async (newCardType) => {
     setCardType(newCardType)
     setSelectedCards([])
+    setAvailableCards([])
     
-    // Detect cards when card type is selected
+    // If file already loaded, detect cards
     if (newCardType && file && tipo === 'santander') {
-      await detectCards(newCardType)
-    } else {
-      setAvailableCards([])
+      await detectCards(newCardType, file)
     }
   }
 
-  const detectCards = async (cardTypeToDetect) => {
+  const detectCards = async (cardTypeToDetect, fileToDetect = file) => {
     try {
       setDetectingCards(true)
       setMessage(null)
       
-      const response = await uploadService.detectCards(file, cardTypeToDetect)
+      const response = await uploadService.detectCards(fileToDetect, cardTypeToDetect)
       
       if (response.data.cards && response.data.cards.length > 0) {
         setAvailableCards(response.data.cards)
@@ -273,30 +277,9 @@ const Datos = () => {
     setPreviewData(null)
   }
 
-  // Manual transaction handlers
-  const addManualRow = () => {
-    const newId = Math.max(...manualTransactions.map(t => t.id), 0) + 1
-    setManualTransactions([
-      ...manualTransactions,
-      { id: newId, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
-    ])
-  }
-
-  const removeManualRow = (id) => {
-    if (manualTransactions.length > 1) {
-      setManualTransactions(manualTransactions.filter(t => t.id !== id))
-    }
-  }
-
-  const updateManualTransaction = (id, field, value) => {
-    setManualTransactions(manualTransactions.map(t => 
-      t.id === id ? { ...t, [field]: value } : t
-    ))
-  }
-
-  const saveManualTransactions = async () => {
+  const saveManualTransactions = async (formattedTransactions) => {
     // Validate transactions
-    const validTransactions = manualTransactions.filter(t => 
+    const validTransactions = formattedTransactions.filter(t => 
       t.fecha && t.detalle && t.importe && parseFloat(t.importe) > 0
     )
 
@@ -305,24 +288,12 @@ const Datos = () => {
       return
     }
 
-    // Format transactions for backend
-    const formattedTransactions = validTransactions.map(t => ({
-      fecha: t.fecha.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
-      categoria: t.categoria || 'Sin categoría',
-      detalle: t.detalle,
-      importe: parseFloat(t.importe),
-      tipo: t.tipo,
-      moneda: 'ARS',
-      monto_original: parseFloat(t.importe),
-      origen: 'Carga Manual'
-    }))
-
     try {
       setSaving(true)
       setMessage(null)
       
       const response = await uploadService.saveTransactions(
-        formattedTransactions,
+        validTransactions,
         'manual',
         'Carga Manual'
       )
@@ -332,10 +303,8 @@ const Datos = () => {
         text: response.message 
       })
       
-      // Reset manual transactions
-      setManualTransactions([
-        { id: 1, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
-      ])
+      // Reset manual transactions by changing key
+      setManualKey(prev => prev + 1)
       
       // Reload history
       loadHistory()
@@ -380,7 +349,7 @@ const Datos = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Importar Transacciones</h1>
-        <p className="text-gray-400">Importá tus extractos de Mercado Pago, Santander o Banco Galicia (cuenta o tarjeta)</p>
+        <p className="text-gray-400">Importá extractos bancarios o cargá transacciones manualmente</p>
       </div>
 
       {/* Messages */}
@@ -411,185 +380,228 @@ const Datos = () => {
 
       {/* Upload Form - only show when editor is not active */}
       {!showEditor && (
-        <div className="card max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Tipo de origen */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Origen de datos
-            </label>
-            <select
-              value={tipo}
-              onChange={(e) => handleTipoChange(e.target.value)}
-              className="input-field w-full"
-            >
-              <option value="">Seleccionar...</option>
-              <option value="mercadopago">Mercado Pago</option>
-              <option value="santander">Santander</option>
-              <option value="galicia">Galicia</option>
-            </select>
-          </div>
-
-          {/* Tipo de tarjeta (solo para Santander) */}
-          {tipo === 'santander' && (
+        <div className={`card ${origenDatos === 'manual' ? '' : 'max-w-2xl'}`}>
+          <div className="space-y-6">
+            {/* Origen de datos */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Tipo de tarjeta
+                Origen de datos
               </label>
               <select
-                value={cardType}
-                onChange={(e) => handleCardTypeChange(e.target.value)}
-                className="input-field w-full"
-                disabled={!file}
-              >
-                <option value="">Seleccionar...</option>
-                <option value="visa">Visa</option>
-                <option value="amex" disabled>Amex (próximamente)</option>
-              </select>
-              {!file && (
-                <p className="text-xs text-gray-500 mt-1">Primero selecciona un archivo</p>
-              )}
-            </div>
-          )}
-
-          {/* Tipo de resumen (solo para Galicia) */}
-          {tipo === 'galicia' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Tipo de resumen
-              </label>
-              <select
-                value={tipoResumen}
-                onChange={(e) => setTipoResumen(e.target.value)}
+                value={origenDatos}
+                onChange={(e) => {
+                  setOrigenDatos(e.target.value)
+                  setTipo('')
+                  setMessage(null)
+                }}
                 className="input-field w-full"
               >
                 <option value="">Seleccionar...</option>
-                <option value="cuenta">Movimientos en Caja de Ahorro (CSV)</option>
-                <option value="tarjeta">Tarjeta Visa (TXT copiado de PDF)</option>
+                <option value="manual">Carga manual</option>
+                <option value="resumen">Resumen de cuenta</option>
               </select>
             </div>
-          )}
 
-          {/* Tarjetas detectadas (solo para Santander) */}
-          {tipo === 'santander' && cardType && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Tarjetas a importar
-              </label>
-              {detectingCards ? (
-                <div className="text-sm text-gray-400">Detectando tarjetas...</div>
-              ) : availableCards.length > 0 ? (
-                <div className="space-y-2">
-                  {availableCards.map(card => (
-                    <label key={card} className="flex items-center p-2 rounded hover:bg-gray-700/30 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedCards.includes(card)}
-                        onChange={() => handleCardSelection(card)}
-                        className="mr-3 w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded focus:ring-primary focus:ring-2"
-                      />
-                      <span className="text-sm text-gray-300">{card}</span>
-                    </label>
-                  ))}
+            {/* Resumen de cuenta form */}
+            {origenDatos === 'resumen' && (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Banco/Fuente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Banco / Fuente
+                  </label>
+                  <select
+                    value={tipo}
+                    onChange={(e) => handleTipoChange(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="santander">Santander</option>
+                    <option value="galicia">Galicia</option>
+                  </select>
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500">No se detectaron tarjetas</p>
-              )}
-            </div>
-          )}
 
-          {/* Valor dólar (solo para Santander y Galicia Tarjeta) */}
-          {(tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta')) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Dólar Tarjeta
-              </label>
-              <input
-                type="number"
-                value={valorDolar}
-                onChange={(e) => setValorDolar(e.target.value)}
-                className="input-field w-full"
-                step="0.01"
+                {/* Tipo de tarjeta (solo para Santander) */}
+                {tipo === 'santander' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Tipo de tarjeta
+                    </label>
+                    <select
+                      value={cardType}
+                      onChange={(e) => handleCardTypeChange(e.target.value)}
+                      className="input-field w-full"
+                    >
+                      <option value="">Seleccionar...</option>
+                      <option value="visa">Visa</option>
+                      <option value="amex" disabled>Amex (próximamente)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Tipo de resumen (solo para Galicia) */}
+                {tipo === 'galicia' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Tipo de resumen
+                    </label>
+                    <select
+                      value={tipoResumen}
+                      onChange={(e) => setTipoResumen(e.target.value)}
+                      className="input-field w-full"
+                    >
+                      <option value="">Seleccionar...</option>
+                      <option value="cuenta">Movimientos en Caja de Ahorro (CSV)</option>
+                      <option value="tarjeta">Tarjeta Visa (TXT copiado de PDF)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Tarjetas detectadas (solo para Santander) */}
+                {tipo === 'santander' && cardType && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Tarjetas a importar
+                    </label>
+                    {detectingCards ? (
+                      <div className="text-sm text-gray-400">Detectando tarjetas...</div>
+                    ) : availableCards.length > 0 ? (
+                      <div className="space-y-2">
+                        {availableCards.map(card => (
+                          <label key={card} className="flex items-center p-2 rounded hover:bg-gray-700/30 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedCards.includes(card)}
+                              onChange={() => handleCardSelection(card)}
+                              className="mr-3 w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded focus:ring-primary focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-300">{card}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No se detectaron tarjetas</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Valor dólar (solo para Santander y Galicia Tarjeta) */}
+                {(tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta')) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Dólar Tarjeta
+                    </label>
+                    <input
+                      type="number"
+                      value={valorDolar}
+                      onChange={(e) => setValorDolar(e.target.value)}
+                      className="input-field w-full"
+                      step="0.01"
+                    />
+                  </div>
+                )}
+
+                {/* Ayuda para Galicia Tarjeta */}
+                {tipo === 'galicia' && tipoResumen === 'tarjeta' && (
+                  <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar desde PDF</h4>
+                    <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+                      <li>Abrí tu resumen de tarjeta en PDF</li>
+                      <li>Seleccioná con el mouse toda la tabla "DETALLE DEL CONSUMO"</li>
+                      <li>Copiá el texto (Ctrl+C)</li>
+                      <li>Pegá en un archivo de texto (.txt) y guardalo</li>
+                      <li>Subí ese archivo .txt acá</li>
+                    </ol>
+                  </div>
+                )}
+
+                {/* File upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Archivo
+                  </label>
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      isDragging 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-gray-600 hover:border-primary'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      accept={tipo === 'galicia' && tipoResumen === 'tarjeta' ? '.txt,.pdf' : '.csv,.xlsx,.pdf'}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <p className="text-gray-400 mb-2">
+                        {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: TXT (texto copiado del PDF)' : 'Formatos: CSV, XLSX, PDF'}
+                      </p>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Botones */}
+                <div className="flex gap-4">
+                  <button 
+                    type="submit" 
+                    className="btn-primary flex-1"
+                    disabled={loading || !file}
+                  >
+                    {loading ? 'Analizando...' : 'Analizar Datos'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFile(null)
+                      setTipo('')
+                      setCardType('')
+                      setAvailableCards([])
+                      setSelectedCards([])
+                      setTipoResumen('')
+                      setMessage(null)
+                      const fileInput = document.getElementById('file-upload')
+                      if (fileInput) fileInput.value = ''
+                    }}
+                    className="btn-secondary"
+                    disabled={loading}
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Carga manual form */}
+            {origenDatos === 'manual' && (
+              <TransactionEditor
+                key={manualKey}
+                initialTransactions={[
+                  {
+                    fecha: new Date().toISOString().split('T')[0].split('-').reverse().join('/'),
+                    categoria: 'Otros',
+                    detalle: '',
+                    importe: 0,
+                    moneda: 'ARS',
+                    monto_original: 0,
+                    tipo: 'Gasto',
+                    origen: 'Carga Manual'
+                  }
+                ]}
+                onSave={saveManualTransactions}
+                isManualMode={true}
               />
-            </div>
-          )}
-
-          {/* Ayuda para Galicia Tarjeta */}
-          {tipo === 'galicia' && tipoResumen === 'tarjeta' && (
-            <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar desde PDF</h4>
-              <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
-                <li>Abrí tu resumen de tarjeta en PDF</li>
-                <li>Seleccioná con el mouse toda la tabla "DETALLE DEL CONSUMO"</li>
-                <li>Copiá el texto (Ctrl+C)</li>
-                <li>Pegá en un archivo de texto (.txt) y guardalo</li>
-                <li>Subí ese archivo .txt acá</li>
-              </ol>
-            </div>
-          )}
-
-          {/* File upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Archivo
-            </label>
-            <div 
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                isDragging 
-                  ? 'border-primary bg-primary/10' 
-                  : 'border-gray-600 hover:border-primary'
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept={tipo === 'galicia' && tipoResumen === 'tarjeta' ? '.txt,.pdf' : '.csv,.xlsx,.pdf'}
-                className="hidden"
-                id="file-upload"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <p className="text-gray-400 mb-2">
-                  {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: TXT (texto copiado del PDF)' : 'Formatos: CSV, XLSX, PDF'}
-                </p>
-              </label>
-            </div>
+            )}
           </div>
-
-          {/* Botones */}
-          <div className="flex gap-4">
-            <button 
-              type="submit" 
-              className="btn-primary flex-1"
-              disabled={loading}
-            >
-              {loading ? 'Analizando...' : 'Analizar Datos'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFile(null)
-                setTipo('')
-                setCardType('')
-                setAvailableCards([])
-                setSelectedCards([])
-                setMessage(null)
-                const fileInput = document.getElementById('file-upload')
-                if (fileInput) fileInput.value = ''
-              }}
-              className="btn-secondary"
-              disabled={loading}
-            >
-              Limpiar
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
       )}
 
       {/* Import History */}
