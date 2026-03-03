@@ -1,24 +1,27 @@
 import { useState, useEffect } from 'react'
-
-const CATEGORIAS = [
-  'Transferencia',
-  'Transporte',
-  'Salud',
-  'Supermercado',
-  'Comida',
-  'Servicios',
-  'Ocio',
-  'Ropa',
-  'Mantenimiento',
-  'Ingreso',
-  'Otros'
-]
+import { categoryService } from '../services/transactionService'
 
 const MONEDAS = ['ARS', 'USD']
 
 const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false }) => {
   const [transactions, setTransactions] = useState([])
+  const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
+
+  useEffect(() => {
+    // Load categories
+    const loadCategories = async () => {
+      try {
+        const response = await categoryService.getAll()
+        setCategories(response.data)
+      } catch (err) {
+        console.error('Error loading categories:', err)
+        // Fallback to default categories
+        setCategories(['Otros'])
+      }
+    }
+    loadCategories()
+  }, [])
 
   useEffect(() => {
     // Initialize with a unique id for each transaction for tracking
@@ -173,7 +176,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     onChange={(e) => handleCellChange(t._id, 'categoria', e.target.value)}
                     className="w-full bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
                   >
-                    {CATEGORIAS.map(cat => (
+                    {categories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>

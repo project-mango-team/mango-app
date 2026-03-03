@@ -1,5 +1,19 @@
 import mongoose from 'mongoose';
 
+const DEFAULT_CATEGORIES = [
+  'Transferencia',
+  'Transporte',
+  'Salud',
+  'Supermercado',
+  'Comida',
+  'Servicios',
+  'Ocio',
+  'Ropa',
+  'Mantenimiento',
+  'Ingreso',
+  'Otros'
+];
+
 const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
@@ -21,6 +35,10 @@ const userSchema = new mongoose.Schema({
   picture: {
     type: String,
     default: ''
+  },
+  categories: {
+    type: [String],
+    default: DEFAULT_CATEGORIES
   },
   lastLogin: {
     type: Date,

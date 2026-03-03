@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { statsService, transactionService } from '../services/transactionService'
-import ExpensesPieChart from '../components/charts/ExpensesPieChart'
+import { statsService, transactionService, categoryService } from '../services/transactionService'
+import ExpensesPieChart, { COLORS } from '../components/charts/ExpensesPieChart'
 import MonthlyComparisonChart from '../components/charts/MonthlyComparisonChart'
 import BalanceLineChart from '../components/charts/BalanceLineChart'
 
@@ -13,6 +13,15 @@ const Inicio = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [chartKey, setChartKey] = useState(0)
+  
+  // Categories management
+  const [categories, setCategories] = useState([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  const [editingCategory, setEditingCategory] = useState(null)
+  const [editingValue, setEditingValue] = useState('')
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [categoryMessage, setCategoryMessage] = useState(null)
   
   // Transaction search states
   const [searchFilters, setSearchFilters] = useState({
@@ -32,6 +41,7 @@ const Inicio = () => {
 
   useEffect(() => {
     loadYears()
+    loadCategories()
   }, [])
 
   useEffect(() => {
@@ -98,6 +108,82 @@ const Inicio = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true)
+      const response = await categoryService.getAll()
+      setCategories(response.data)
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      setCategoryMessage({ type: 'error', text: 'El nombre no puede estar vacío' })
+      return
+    }
+
+    try {
+      const response = await categoryService.create(newCategoryName.trim())
+      setCategories(response.data)
+      setNewCategoryName('')
+      setIsAddingCategory(false)
+      setCategoryMessage({ type: 'success', text: 'Categoría agregada' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+    } catch (err) {
+      setCategoryMessage({ type: 'error', text: err.response?.data?.message || 'Error al agregar categoría' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+    }
+  }
+
+  const handleEditCategory = async (oldName) => {
+    const newName = editingValue
+    if (!newName?.trim() || newName === oldName) {
+      setEditingCategory(null)
+      setEditingValue('')
+      return
+    }
+
+    try {
+      const response = await categoryService.update(oldName, newName.trim())
+      setCategories(response.data)
+      setEditingCategory(null)
+      setEditingValue('')
+      setCategoryMessage({ type: 'success', text: 'Categoría actualizada' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+    } catch (err) {
+      setCategoryMessage({ type: 'error', text: err.response?.data?.message || 'Error al actualizar categoría' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+      setEditingCategory(null)
+      setEditingValue('')
+    }
+  }
+
+  const handleDeleteCategory = async (name) => {
+    if (!confirm(`¿Eliminar la categoría "${name}"? Las transacciones con esta categoría no se eliminarán.`)) {
+      return
+    }
+
+    try {
+      const response = await categoryService.delete(name)
+      setCategories(response.data)
+      setCategoryMessage({ type: 'success', text: 'Categoría eliminada' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+    } catch (err) {
+      setCategoryMessage({ type: 'error', text: err.response?.data?.message || 'Error al eliminar categoría' })
+      setTimeout(() => setCategoryMessage(null), 3000)
+    }
+  }
+
+  const getCategoryColor = (categoryName) => {
+    const index = categoriesData.findIndex(cat => cat.categoria === categoryName)
+    if (index === -1) return '#6B7280' // Gray color for categories not in chart
+    return COLORS[index % COLORS.length]
   }
 
   const searchTransactions = async (page = currentPage) => {
@@ -236,7 +322,185 @@ const Inicio = () => {
         {/* Gráfico de torta - Gastos por categoría */}
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Gastos por Categoría</h2>
-          <ExpensesPieChart key={`pie-${chartKey}`} data={categoriesData} />
+          
+          <div className="flex gap-6">
+            {/* Pie Chart */}
+            <div className="flex-1">
+              <ExpensesPieChart key={`pie-${chartKey}`} data={categoriesData} />
+            </div>
+            
+            {/* Categories List */}
+            <div className="w-72 border-l border-gray-700 pl-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Categorías</h3>
+              
+              {categoryMessage && (
+                <div className={`mb-3 p-2 rounded text-xs ${
+                  categoryMessage.type === 'error' 
+                    ? 'bg-red-900/20 text-red-400 border border-red-800' 
+                    : 'bg-green-900/20 text-green-400 border border-green-800'
+                }`}>
+                  {categoryMessage.text}
+                </div>
+              )}
+              
+              <div 
+                className="space-y-1 max-h-96 overflow-y-auto pr-2"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#4B5563 transparent'
+                }}
+              >
+                <style dangerouslySetInnerHTML={{__html: `
+                  .space-y-1::-webkit-scrollbar {
+                    width: 8px;
+                  }
+                  .space-y-1::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  .space-y-1::-webkit-scrollbar-thumb {
+                    background-color: #4B5563;
+                    border-radius: 4px;
+                    border: 2px solid transparent;
+                  }
+                  .space-y-1::-webkit-scrollbar-thumb:hover {
+                    background-color: #6B7280;
+                  }
+                `}} />
+                {loadingCategories ? (
+                  <div className="text-sm text-gray-500">Cargando...</div>
+                ) : (
+                  <>
+                    {categories.map((cat) => (
+                      <div
+                        key={cat}
+                        className="flex items-center justify-between p-2 rounded hover:bg-gray-800/50 group"
+                      >
+                        {editingCategory === cat ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <input
+                              type="text"
+                              value={editingValue}
+                              autoFocus
+                              onBlur={(e) => {
+                                // Pequeño delay para que el click del botón se registre primero
+                                setTimeout(() => handleEditCategory(cat), 100)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleEditCategory(cat)
+                                if (e.key === 'Escape') {
+                                  setEditingCategory(null)
+                                  setEditingValue('')
+                                }
+                              }}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              onClick={() => handleEditCategory(cat)}
+                              onMouseDown={(e) => e.preventDefault()} // Previene el blur del input
+                              className="p-1.5 text-green-500 hover:text-green-400 transition-colors"
+                              title="Confirmar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 flex-1">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: getCategoryColor(cat) }}
+                              />
+                              <span className="text-sm text-gray-300">{cat}</span>
+                            </div>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                              <button
+                                onClick={() => {
+                                  setEditingCategory(cat)
+                                  setEditingValue(cat)
+                                }}
+                                className="p-1 text-gray-400 hover:text-primary transition-colors"
+                                title="Editar"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(cat)}
+                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                title="Eliminar"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+              
+              {/* Add Category */}
+              {isAddingCategory ? (
+                <div className="mt-3 p-2 border border-gray-700 rounded">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddCategory()
+                        if (e.key === 'Escape') {
+                          setIsAddingCategory(false)
+                          setNewCategoryName('')
+                        }
+                      }}
+                      placeholder="Nueva categoría"
+                      autoFocus
+                      className="flex-1 bg-gray-800 border border-gray-600 text-sm text-gray-100 px-2 py-1.5 rounded focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={handleAddCategory}
+                      className="p-1.5 text-green-500 hover:text-green-400 transition-colors"
+                      title="Agregar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsAddingCategory(false)
+                        setNewCategoryName('')
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
+                      title="Cancelar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsAddingCategory(true)}
+                  className="mt-3 w-full p-2 text-sm text-gray-400 hover:text-primary hover:bg-gray-800/50 rounded transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Agregar categoría
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Gráfico de barras - Comparativa mensual */}
@@ -306,14 +570,9 @@ const Inicio = () => {
                   className="input-field w-full"
                 >
                   <option value="">Todas</option>
-                  <option value="Servicios">Servicios</option>
-                  <option value="Transporte">Transporte</option>
-                  <option value="Comida">Comida</option>
-                  <option value="Compras">Compras</option>
-                  <option value="Entretenimiento">Entretenimiento</option>
-                  <option value="Salud">Salud</option>
-                  <option value="Educación">Educación</option>
-                  <option value="Otros">Otros</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
 

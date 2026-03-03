@@ -1,6 +1,6 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
-const COLORS = [
+export const COLORS = [
   '#FF6B6B', // Coral Red
   '#4ECDC4', // Turquoise
   '#45B7D1', // Sky Blue
@@ -87,11 +87,6 @@ const ExpensesPieChart = ({ data }) => {
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
-        <Legend
-          verticalAlign="bottom"
-          height={36}
-          formatter={(value) => <span className="text-gray-300">{value}</span>}
-        />
       </PieChart>
     </ResponsiveContainer>
   )

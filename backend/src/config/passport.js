@@ -33,11 +33,29 @@ passport.use(
         if (user) {
           // Update last login
           user.lastLogin = new Date();
+          
+          // Ensure user has categories (migration for existing users)
+          if (!user.categories || user.categories.length === 0) {
+            user.categories = [
+              'Transferencia',
+              'Transporte',
+              'Salud',
+              'Supermercado',
+              'Comida',
+              'Servicios',
+              'Ocio',
+              'Ropa',
+              'Mantenimiento',
+              'Ingreso',
+              'Otros'
+            ];
+          }
+          
           await user.save();
           return done(null, user);
         }
 
-        // Create new user
+        // Create new user (categories will be set by schema default)
         user = await User.create({
           googleId: profile.id,
           email: profile.emails[0].value,

@@ -219,3 +219,29 @@ export const operationsService = {
     return response.data;
   }
 };
+
+export const categoryService = {
+  // Get user's categories
+  getAll: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  },
+
+  // Add a new category
+  create: async (name) => {
+    const response = await api.post('/categories', { name });
+    return response.data;
+  },
+
+  // Update category name
+  update: async (oldName, newName) => {
+    const response = await api.put(`/categories/${encodeURIComponent(oldName)}`, { newName });
+    return response.data;
+  },
+
+  // Delete category
+  delete: async (name) => {
+    const response = await api.delete(`/categories/${encodeURIComponent(name)}`);
+    return response.data;
+  }
+};

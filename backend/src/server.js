@@ -12,6 +12,7 @@ import uploadRoutes from './routes/upload.js';
 import migrateRoutes from './routes/migrate.js';
 import operationsRoutes from './routes/operations.js';
 import authRoutes from './routes/auth.js';
+import categoriesRoutes from './routes/categories.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/migrate', migrateRoutes);
 app.use('/api/operations', operationsRoutes);
+app.use('/api/categories', categoriesRoutes);
 
 // Error handler
 app.use(errorHandler);
