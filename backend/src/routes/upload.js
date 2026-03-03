@@ -3,6 +3,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
 import { SantanderParser } from '../parsers/SantanderParser.js';
+import { GaliciaParser } from '../parsers/GaliciaParser.js';
 import { DolarService } from '../services/dolarService.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
@@ -102,12 +103,12 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    const { tipo, valorDolar, cardType, selectedCards } = req.body;
+    const { tipo, valorDolar, cardType, selectedCards, tipoResumen } = req.body;
 
-    if (!tipo || !['mercadopago', 'santander'].includes(tipo)) {
+    if (!tipo || !['mercadopago', 'santander', 'galicia'].includes(tipo)) {
       return res.status(400).json({
         success: false,
-        message: 'Tipo de archivo inválido. Debe ser "mercadopago" o "santander"'
+        message: 'Tipo de archivo inválido. Debe ser "mercadopago", "santander" o "galicia"'
       });
     }
 
@@ -136,6 +137,21 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       }
       
       parser = new SantanderParser(req.file.buffer, dolarVal, cardFilter);
+      transactions = await parser.parse();
+    } else if (tipo === 'galicia') {
+      // Get tipo de resumen (cuenta or tarjeta)
+      const tipoRes = tipoResumen || 'cuenta';
+      
+      // Get dollar value for tarjeta (use provided or fetch from API)
+      let dolarVal = 0;
+      if (tipoRes === 'tarjeta') {
+        dolarVal = parseFloat(valorDolar);
+        if (!dolarVal || isNaN(dolarVal)) {
+          dolarVal = await DolarService.getCotizacion();
+        }
+      }
+      
+      parser = new GaliciaParser(req.file.buffer, tipoRes, dolarVal);
       transactions = await parser.parse();
     }
 
@@ -171,7 +187,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
  */
 router.post('/', upload.single('file'), async (req, res, next) => {
   try {
-    const { tipo, valorDolar, transactions: editedTransactions, filename, cardType, selectedCards } = req.body;
+    const { tipo, valorDolar, transactions: editedTransactions, filename, cardType, selectedCards, tipoResumen } = req.body;
 
     let transactions = [];
     let sourceFilename = filename;
@@ -193,10 +209,10 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       // Legacy path: parse from uploaded file
       sourceFilename = req.file.originalname;
 
-      if (!tipo || !['mercadopago', 'santander'].includes(tipo)) {
+      if (!tipo || !['mercadopago', 'santander', 'galicia'].includes(tipo)) {
         return res.status(400).json({
           success: false,
-          message: 'Tipo de archivo inválido. Debe ser "mercadopago" o "santander"'
+          message: 'Tipo de archivo inválido. Debe ser "mercadopago", "santander" o "galicia"'
         });
       }
 
@@ -224,6 +240,21 @@ router.post('/', upload.single('file'), async (req, res, next) => {
         }
         
         parser = new SantanderParser(req.file.buffer, dolarVal, cardFilter);
+        transactions = await parser.parse();
+      } else if (tipo === 'galicia') {
+        // Get tipo de resumen (cuenta or tarjeta)
+        const tipoRes = tipoResumen || 'cuenta';
+        
+        // Get dollar value for tarjeta (use provided or fetch from API)
+        let dolarVal = 0;
+        if (tipoRes === 'tarjeta') {
+          dolarVal = parseFloat(valorDolar);
+          if (!dolarVal || isNaN(dolarVal)) {
+            dolarVal = await DolarService.getCotizacion();
+          }
+        }
+        
+        parser = new GaliciaParser(req.file.buffer, tipoRes, dolarVal);
         transactions = await parser.parse();
       }
     } else {

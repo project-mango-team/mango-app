@@ -4,6 +4,10 @@ import ConfirmModal from '../components/ConfirmModal'
 import TransactionEditor from '../components/TransactionEditor'
 
 const Datos = () => {
+  // Origen selection
+  const [origenDatos, setOrigenDatos] = useState('') // 'manual' or 'resumen'
+  
+  // File upload states
   const [file, setFile] = useState(null)
   const [tipo, setTipo] = useState('')
   const [valorDolar, setValorDolar] = useState(1400)
@@ -20,6 +24,14 @@ const Datos = () => {
   const [availableCards, setAvailableCards] = useState([])
   const [selectedCards, setSelectedCards] = useState([])
   const [detectingCards, setDetectingCards] = useState(false)
+  
+  // Galicia-specific states
+  const [tipoResumen, setTipoResumen] = useState('')
+  
+  // Manual entry states
+  const [manualTransactions, setManualTransactions] = useState([
+    { id: 1, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
+  ])
   
   // Editor states
   const [previewData, setPreviewData] = useState(null)
@@ -140,11 +152,11 @@ const Datos = () => {
     if (droppedFile) {
       // Validate file type
       const fileName = droppedFile.name.toLowerCase()
-      if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.pdf')) {
+      if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.pdf') || fileName.endsWith('.txt')) {
         setFile(droppedFile)
         setMessage(null)
       } else {
-        setMessage({ type: 'error', text: 'Por favor selecciona un archivo CSV, XLSX o PDF' })
+        setMessage({ type: 'error', text: 'Por favor selecciona un archivo CSV, XLSX, PDF o TXT' })
       }
     }
   }
@@ -169,6 +181,14 @@ const Datos = () => {
       }
     }
 
+    // Validate Galicia-specific fields
+    if (tipo === 'galicia') {
+      if (!tipoResumen) {
+        setMessage({ type: 'error', text: 'Por favor selecciona el tipo de resumen' })
+        return
+      }
+    }
+
     try {
       setLoading(true)
       setMessage(null)
@@ -179,7 +199,8 @@ const Datos = () => {
         tipo, 
         valorDolar,
         tipo === 'santander' ? cardType : null,
-        tipo === 'santander' ? selectedCards : null
+        tipo === 'santander' ? selectedCards : null,
+        tipo === 'galicia' ? tipoResumen : null
       )
       
       setPreviewData({
@@ -187,7 +208,8 @@ const Datos = () => {
         filename: response.data.filename,
         tipo: response.data.tipo,
         cardType: response.data.cardType,
-        selectedCards: response.data.selectedCards
+        selectedCards: response.data.selectedCards,
+        tipoResumen: tipo === 'galicia' ? tipoResumen : null
       })
       setShowEditor(true)
       
@@ -211,7 +233,8 @@ const Datos = () => {
         previewData.tipo, 
         previewData.filename,
         previewData.cardType,
-        previewData.selectedCards
+        previewData.selectedCards,
+        previewData.tipoResumen
       )
       
       setMessage({ 
@@ -225,6 +248,7 @@ const Datos = () => {
       setCardType('')
       setAvailableCards([])
       setSelectedCards([])
+      setTipoResumen('')
       setShowEditor(false)
       setPreviewData(null)
       
@@ -247,6 +271,82 @@ const Datos = () => {
   const handleCancelEditor = () => {
     setShowEditor(false)
     setPreviewData(null)
+  }
+
+  // Manual transaction handlers
+  const addManualRow = () => {
+    const newId = Math.max(...manualTransactions.map(t => t.id), 0) + 1
+    setManualTransactions([
+      ...manualTransactions,
+      { id: newId, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
+    ])
+  }
+
+  const removeManualRow = (id) => {
+    if (manualTransactions.length > 1) {
+      setManualTransactions(manualTransactions.filter(t => t.id !== id))
+    }
+  }
+
+  const updateManualTransaction = (id, field, value) => {
+    setManualTransactions(manualTransactions.map(t => 
+      t.id === id ? { ...t, [field]: value } : t
+    ))
+  }
+
+  const saveManualTransactions = async () => {
+    // Validate transactions
+    const validTransactions = manualTransactions.filter(t => 
+      t.fecha && t.detalle && t.importe && parseFloat(t.importe) > 0
+    )
+
+    if (validTransactions.length === 0) {
+      setMessage({ type: 'error', text: 'Por favor completa al menos una transacción válida' })
+      return
+    }
+
+    // Format transactions for backend
+    const formattedTransactions = validTransactions.map(t => ({
+      fecha: t.fecha.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+      categoria: t.categoria || 'Sin categoría',
+      detalle: t.detalle,
+      importe: parseFloat(t.importe),
+      tipo: t.tipo,
+      moneda: 'ARS',
+      monto_original: parseFloat(t.importe),
+      origen: 'Carga Manual'
+    }))
+
+    try {
+      setSaving(true)
+      setMessage(null)
+      
+      const response = await uploadService.saveTransactions(
+        formattedTransactions,
+        'manual',
+        'Carga Manual'
+      )
+      
+      setMessage({ 
+        type: 'success', 
+        text: response.message 
+      })
+      
+      // Reset manual transactions
+      setManualTransactions([
+        { id: 1, fecha: '', categoria: '', detalle: '', importe: '', tipo: 'Gasto' }
+      ])
+      
+      // Reload history
+      loadHistory()
+    } catch (error) {
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || error.message || 'Error al guardar transacciones'
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleRollback = async (operation) => {
@@ -280,7 +380,7 @@ const Datos = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Importar Transacciones</h1>
-        <p className="text-gray-400">Importá tus extractos de Mercado Pago o Santander</p>
+        <p className="text-gray-400">Importá tus extractos de Mercado Pago, Santander o Banco Galicia (cuenta o tarjeta)</p>
       </div>
 
       {/* Messages */}
@@ -326,6 +426,7 @@ const Datos = () => {
               <option value="">Seleccionar...</option>
               <option value="mercadopago">Mercado Pago</option>
               <option value="santander">Santander</option>
+              <option value="galicia">Galicia</option>
             </select>
           </div>
 
@@ -348,6 +449,24 @@ const Datos = () => {
               {!file && (
                 <p className="text-xs text-gray-500 mt-1">Primero selecciona un archivo</p>
               )}
+            </div>
+          )}
+
+          {/* Tipo de resumen (solo para Galicia) */}
+          {tipo === 'galicia' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Tipo de resumen
+              </label>
+              <select
+                value={tipoResumen}
+                onChange={(e) => setTipoResumen(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">Seleccionar...</option>
+                <option value="cuenta">Movimientos en Caja de Ahorro (CSV)</option>
+                <option value="tarjeta">Tarjeta Visa (TXT copiado de PDF)</option>
+              </select>
             </div>
           )}
 
@@ -379,8 +498,8 @@ const Datos = () => {
             </div>
           )}
 
-          {/* Valor dólar (solo para Santander) */}
-          {tipo === 'santander' && (
+          {/* Valor dólar (solo para Santander y Galicia Tarjeta) */}
+          {(tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta')) && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Dólar Tarjeta
@@ -392,6 +511,20 @@ const Datos = () => {
                 className="input-field w-full"
                 step="0.01"
               />
+            </div>
+          )}
+
+          {/* Ayuda para Galicia Tarjeta */}
+          {tipo === 'galicia' && tipoResumen === 'tarjeta' && (
+            <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar desde PDF</h4>
+              <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+                <li>Abrí tu resumen de tarjeta en PDF</li>
+                <li>Seleccioná con el mouse toda la tabla "DETALLE DEL CONSUMO"</li>
+                <li>Copiá el texto (Ctrl+C)</li>
+                <li>Pegá en un archivo de texto (.txt) y guardalo</li>
+                <li>Subí ese archivo .txt acá</li>
+              </ol>
             </div>
           )}
 
@@ -413,7 +546,7 @@ const Datos = () => {
               <input
                 type="file"
                 onChange={handleFileChange}
-                accept=".csv,.xlsx,.pdf"
+                accept={tipo === 'galicia' && tipoResumen === 'tarjeta' ? '.txt,.pdf' : '.csv,.xlsx,.pdf'}
                 className="hidden"
                 id="file-upload"
               />
@@ -422,7 +555,7 @@ const Datos = () => {
                   {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Formatos: CSV, XLSX, PDF
+                  {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: TXT (texto copiado del PDF)' : 'Formatos: CSV, XLSX, PDF'}
                 </p>
               </label>
             </div>

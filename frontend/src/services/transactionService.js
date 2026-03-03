@@ -84,13 +84,14 @@ export const uploadService = {
   },
 
   // Preview file for parsing (returns transactions without saving)
-  previewFile: async (file, tipo, valorDolar, cardType = null, selectedCards = null) => {
+  previewFile: async (file, tipo, valorDolar, cardType = null, selectedCards = null, tipoResumen = null) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('tipo', tipo);
     formData.append('valorDolar', valorDolar);
     if (cardType) formData.append('cardType', cardType);
     if (selectedCards) formData.append('selectedCards', JSON.stringify(selectedCards));
+    if (tipoResumen) formData.append('tipoResumen', tipoResumen);
 
     const response = await api.post('/upload/preview', formData, {
       headers: {
@@ -118,13 +119,14 @@ export const uploadService = {
   },
 
   // Save edited transactions (after preview and editing)
-  saveTransactions: async (transactions, tipo, filename, cardType = null, selectedCards = null) => {
+  saveTransactions: async (transactions, tipo, filename, cardType = null, selectedCards = null, tipoResumen = null) => {
     const formData = new FormData();
     formData.append('transactions', JSON.stringify(transactions));
     formData.append('tipo', tipo);
     formData.append('filename', filename);
     if (cardType) formData.append('cardType', cardType);
     if (selectedCards) formData.append('selectedCards', JSON.stringify(selectedCards));
+    if (tipoResumen) formData.append('tipoResumen', tipoResumen);
 
     const response = await api.post('/upload', formData, {
       headers: {
