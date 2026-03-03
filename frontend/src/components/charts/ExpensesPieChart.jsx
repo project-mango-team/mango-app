@@ -43,7 +43,7 @@ const ExpensesPieChart = ({ data }) => {
         style={{
           opacity: 0,
           animation: 'fadeInLabel 0.3s ease-in forwards',
-          animationDelay: '1.5s'
+          animationDelay: '0.5s'
         }}
       >
         {`${(percent * 100).toFixed(0)}%`}

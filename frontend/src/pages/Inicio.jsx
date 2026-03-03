@@ -38,6 +38,10 @@ const Inicio = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalResults, setTotalResults] = useState(0)
   const pageSize = 20
+  
+  // Transaction editing states
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   useEffect(() => {
     loadYears()
@@ -233,6 +237,73 @@ const Inicio = () => {
 
   const handlePageChange = (newPage) => {
     searchTransactions(newPage)
+  }
+
+  const handleEditTransaction = (transaction) => {
+    setEditingTransaction({...transaction})
+    setEditModalOpen(true)
+  }
+
+  const handleSaveTransaction = async () => {
+    try {
+      // Guardar posición del scroll del contenedor main
+      const mainElement = document.querySelector('main')
+      const scrollPosition = mainElement?.scrollTop || 0
+      
+      await transactionService.update(editingTransaction._id, editingTransaction)
+      setEditModalOpen(false)
+      setEditingTransaction(null)
+      
+      // Recargar datos
+      await Promise.all([
+        searchTransactions(currentPage),
+        loadStats(selectedYear)
+      ])
+      
+      // Restaurar posición del scroll
+      setTimeout(() => {
+        if (mainElement) {
+          mainElement.scrollTop = scrollPosition
+        }
+      }, 100)
+    } catch (err) {
+      console.error('Error updating transaction:', err)
+      alert(err.response?.data?.message || 'Error al actualizar transacción')
+    }
+  }
+
+  const handleDeleteTransaction = async (transactionId) => {
+    if (!confirm('¿Estás seguro de eliminar esta transacción?')) {
+      return
+    }
+
+    try {
+      // Guardar posición del scroll del contenedor main
+      const mainElement = document.querySelector('main')
+      const scrollPosition = mainElement?.scrollTop || 0
+      
+      await transactionService.delete(transactionId)
+      
+      // Recargar datos
+      await Promise.all([
+        searchTransactions(currentPage),
+        loadStats(selectedYear)
+      ])
+      
+      // Restaurar posición del scroll
+      setTimeout(() => {
+        if (mainElement) {
+          mainElement.scrollTop = scrollPosition
+        }
+      }, 100)
+    } catch (err) {
+      console.error('Error deleting transaction:', err)
+      alert(err.response?.data?.message || 'Error al eliminar transacción')
+    }
+  }
+
+  const handleEditFieldChange = (field, value) => {
+    setEditingTransaction(prev => ({ ...prev, [field]: value }))
   }
 
   const totalPages = Math.ceil(totalResults / pageSize)
@@ -663,6 +734,7 @@ const Inicio = () => {
                       <th className="text-right py-2 px-2 text-sm font-medium text-gray-300">Importe</th>
                       <th className="text-center py-2 px-2 text-sm font-medium text-gray-300">Tipo</th>
                       <th className="text-center py-2 px-2 text-sm font-medium text-gray-300">Origen</th>
+                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-300">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -688,6 +760,28 @@ const Inicio = () => {
                           </span>
                         </td>
                         <td className="py-2 px-2 text-center text-sm text-gray-400">{transaction.origen}</td>
+                        <td className="py-2 px-2 text-center">
+                          <div className="flex gap-1 justify-center">
+                            <button
+                              onClick={() => handleEditTransaction(transaction)}
+                              className="p-1 text-gray-400 hover:text-primary transition-colors"
+                              title="Editar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTransaction(transaction._id)}
+                              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                              title="Eliminar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -768,6 +862,125 @@ const Inicio = () => {
           </>
         )}
       </div>
+
+      {/* Edit Transaction Modal */}
+      {editModalOpen && editingTransaction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-100">Editar Transacción</h3>
+              <button
+                onClick={() => {
+                  setEditModalOpen(false)
+                  setEditingTransaction(null)
+                }}
+                className="text-gray-400 hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Fecha */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Fecha</label>
+                <input
+                  type="text"
+                  value={editingTransaction.fecha || ''}
+                  onChange={(e) => handleEditFieldChange('fecha', e.target.value)}
+                  placeholder="DD/MM/YYYY"
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Detalle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Detalle</label>
+                <input
+                  type="text"
+                  value={editingTransaction.detalle || ''}
+                  onChange={(e) => handleEditFieldChange('detalle', e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Categoria */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Categoría</label>
+                <select
+                  value={editingTransaction.categoria || ''}
+                  onChange={(e) => handleEditFieldChange('categoria', e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                >
+                  <option value="">Seleccionar categoría</option>
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Importe */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Importe</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingTransaction.importe || ''}
+                  onChange={(e) => handleEditFieldChange('importe', parseFloat(e.target.value))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Tipo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Tipo</label>
+                <select
+                  value={editingTransaction.tipo || ''}
+                  onChange={(e) => handleEditFieldChange('tipo', e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                >
+                  <option value="Gasto">Gasto</option>
+                  <option value="Ingreso">Ingreso</option>
+                </select>
+              </div>
+
+              {/* Moneda */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Moneda</label>
+                <select
+                  value={editingTransaction.moneda || ''}
+                  onChange={(e) => handleEditFieldChange('moneda', e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-primary"
+                >
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleSaveTransaction}
+                  className="flex-1 btn-primary"
+                >
+                  Guardar Cambios
+                </button>
+                <button
+                  onClick={() => {
+                    setEditModalOpen(false)
+                    setEditingTransaction(null)
+                  }}
+                  className="flex-1 btn-secondary"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
