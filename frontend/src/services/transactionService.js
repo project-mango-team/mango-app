@@ -227,6 +227,18 @@ export const categoryService = {
     return response.data;
   },
 
+  // Get category keywords
+  getKeywords: async () => {
+    const response = await api.get('/categories/keywords');
+    return response.data;
+  },
+
+  // Update category keywords
+  updateKeywords: async (keywords) => {
+    const response = await api.put('/categories/keywords', { keywords });
+    return response.data;
+  },
+
   // Add a new category
   create: async (name) => {
     const response = await api.post('/categories', { name });

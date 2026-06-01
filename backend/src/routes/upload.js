@@ -8,7 +8,9 @@ import { DolarService } from '../services/dolarService.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
 import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from '../utils/userQuery.js';
+import { excelToCsvBuffer, isExcelFilename } from '../utils/excelToCsv.js';
 import { requireAuth } from '../middleware/auth.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 const router = express.Router();
 
@@ -21,6 +23,37 @@ const safeNumber = (value) => {
   return isNaN(num) || !isFinite(num) ? 0 : num;
 };
 
+const normalizeUploadBuffer = async (file, tipo, tipoResumen = null) => {
+  if (!file) return null;
+
+  const filename = file.originalname || '';
+  const lowerName = filename.toLowerCase();
+
+  if (lowerName.endsWith('.xls')) {
+    throw new AppError('El archivo .xls no es compatible. Guardalo como .xlsx', 400);
+  }
+
+  if (!isExcelFilename(filename)) {
+    return file.buffer;
+  }
+
+  if (tipo === 'mercadopago') {
+    throw new AppError('El archivo Excel no esta soportado para Mercado Pago', 400);
+  }
+
+  const resumen = tipoResumen || 'cuenta';
+  if (tipo === 'galicia' && resumen === 'tarjeta') {
+    throw new AppError('El resumen de tarjeta Galicia debe ser TXT o PDF, no Excel', 400);
+  }
+
+  if (tipo !== 'santander' && tipo !== 'galicia') {
+    throw new AppError('El archivo Excel solo esta soportado para Santander y Galicia', 400);
+  }
+
+  const encoding = tipo === 'santander' ? 'latin1' : 'utf8';
+  return await excelToCsvBuffer(file.buffer, encoding);
+};
+
 // Configurar multer para manejar uploads en memoria
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -30,8 +63,21 @@ const upload = multer({
 // Helper function to convert DD-MM-YYYY or DD/MM/YYYY to standardized format
 const normalizeDate = (dateStr) => {
   if (!dateStr) return '';
-  // Replace - with / for consistency
-  return dateStr.replace(/-/g, '/');
+
+  const normalized = String(dateStr).trim().replace(/-/g, '/');
+  const parts = normalized.split('/');
+
+  if (parts.length === 3) {
+    let [day, month, year] = parts;
+
+    if (year && year.length === 2) {
+      year = `20${year}`;
+    }
+
+    return `${day}/${month}/${year}`;
+  }
+
+  return normalized;
 };
 
 // Helper function to extract month name from date
@@ -75,7 +121,8 @@ router.post('/detect-cards', upload.single('file'), async (req, res, next) => {
     }
 
     // Use SantanderParser to detect cards
-    const parser = new SantanderParser(req.file.buffer, 1); // Dollar value not needed for detection
+    const fileBuffer = await normalizeUploadBuffer(req.file, 'santander');
+    const parser = new SantanderParser(fileBuffer, 1); // Dollar value not needed for detection
     const cards = parser.getCards();
 
     res.json({
@@ -116,9 +163,12 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
     let parser;
     let cardFilter = null; // Declare at function scope
 
+    const fileBuffer = await normalizeUploadBuffer(req.file, tipo, tipoResumen);
+    const categoryKeywords = req.user?.categoryKeywords || null;
+
     // Parse based on type
     if (tipo === 'mercadopago') {
-      parser = new MercadoPagoParser(req.file.buffer);
+      parser = new MercadoPagoParser(fileBuffer, categoryKeywords);
       transactions = await parser.parse();
     } else if (tipo === 'santander') {
       // Get dollar value (use provided or fetch from API)
@@ -136,7 +186,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         }
       }
       
-      parser = new SantanderParser(req.file.buffer, dolarVal, cardFilter);
+      parser = new SantanderParser(fileBuffer, dolarVal, cardFilter, categoryKeywords);
       transactions = await parser.parse();
     } else if (tipo === 'galicia') {
       // Get tipo de resumen (cuenta or tarjeta)
@@ -151,7 +201,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         }
       }
       
-      parser = new GaliciaParser(req.file.buffer, tipoRes, dolarVal);
+      parser = new GaliciaParser(fileBuffer, tipoRes, dolarVal, categoryKeywords);
       transactions = await parser.parse();
     }
 
@@ -224,9 +274,12 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       let parser;
       let cardFilter = null; // Declare at function scope
 
+      const fileBuffer = await normalizeUploadBuffer(req.file, tipo, tipoResumen);
+      const categoryKeywords = req.user?.categoryKeywords || null;
+
       // Parse based on type
       if (tipo === 'mercadopago') {
-        parser = new MercadoPagoParser(req.file.buffer);
+        parser = new MercadoPagoParser(fileBuffer, categoryKeywords);
         transactions = await parser.parse();
       } else if (tipo === 'santander') {
         // Get dollar value (use provided or fetch from API)
@@ -244,7 +297,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
           }
         }
         
-        parser = new SantanderParser(req.file.buffer, dolarVal, cardFilter);
+        parser = new SantanderParser(fileBuffer, dolarVal, cardFilter, categoryKeywords);
         transactions = await parser.parse();
       } else if (tipo === 'galicia') {
         // Get tipo de resumen (cuenta or tarjeta)
@@ -259,7 +312,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
           }
         }
         
-        parser = new GaliciaParser(req.file.buffer, tipoRes, dolarVal);
+        parser = new GaliciaParser(fileBuffer, tipoRes, dolarVal, categoryKeywords);
         transactions = await parser.parse();
       }
     } else {

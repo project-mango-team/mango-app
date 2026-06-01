@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
 
 const MONEDAS = ['ARS', 'USD']
@@ -7,6 +7,9 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   const [transactions, setTransactions] = useState([])
   const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
+  const [undoState, setUndoState] = useState(null)
+  const [showUndo, setShowUndo] = useState(false)
+  const undoTimeoutRef = useRef(null)
 
   useEffect(() => {
     // Load categories
@@ -24,12 +27,22 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   }, [])
 
   useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     // Initialize with a unique id for each transaction for tracking
     const transactionsWithId = initialTransactions.map((t, idx) => ({
       ...t,
       _id: idx
     }))
     setTransactions(transactionsWithId)
+    setShowUndo(false)
+    setUndoState(null)
   }, [initialTransactions])
 
   useEffect(() => {
@@ -51,9 +64,19 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   }, [transactions])
 
   const handleCellChange = (id, field, value) => {
-    setTransactions(prev => prev.map(t => 
-      t._id === id ? { ...t, [field]: value } : t
-    ))
+    setTransactions(prev => prev.map(t => {
+      if (t._id !== id) return t
+
+      if (field === 'importe') {
+        return {
+          ...t,
+          importe: value,
+          monto_original: value
+        }
+      }
+
+      return { ...t, [field]: value }
+    }))
   }
 
   const handleAddRow = () => {
@@ -73,7 +96,43 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   }
 
   const handleDeleteRow = (id) => {
-    setTransactions(prev => prev.filter(t => t._id !== id))
+    setTransactions(prev => {
+      const index = prev.findIndex(t => t._id === id)
+      if (index === -1) return prev
+
+      const deletedRow = prev[index]
+      setUndoState({ row: deletedRow, index })
+      setShowUndo(true)
+
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current)
+      }
+
+      undoTimeoutRef.current = setTimeout(() => {
+        setShowUndo(false)
+        setUndoState(null)
+      }, 5000)
+
+      return prev.filter(t => t._id !== id)
+    })
+  }
+
+  const handleUndoDelete = () => {
+    if (!undoState) return
+
+    setTransactions(prev => {
+      const next = [...prev]
+      const insertIndex = Math.min(Math.max(undoState.index, 0), next.length)
+      next.splice(insertIndex, 0, undoState.row)
+      return next
+    })
+
+    setShowUndo(false)
+    setUndoState(null)
+
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current)
+    }
   }
 
   const handleSave = () => {
@@ -88,12 +147,6 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
         <>
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold text-white">Verificar y Editar Datos</h3>
-            <button
-              onClick={handleAddRow}
-              className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-            >
-              + Agregar Fila
-            </button>
           </div>
 
           {/* Totals */}
@@ -153,22 +206,14 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                   />
                 </td>
                 <td className="py-2 px-3">
-                  {isManualMode ? (
-                    <select
-                      value={t.tipo}
-                      onChange={(e) => handleCellChange(t._id, 'tipo', e.target.value)}
-                      className="w-full bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
-                    >
-                      <option value="Gasto">Gasto</option>
-                      <option value="Ingreso">Ingreso</option>
-                    </select>
-                  ) : (
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                      t.tipo === 'Gasto' ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'
-                    }`}>
-                      {t.tipo}
-                    </span>
-                  )}
+                  <select
+                    value={t.tipo}
+                    onChange={(e) => handleCellChange(t._id, 'tipo', e.target.value)}
+                    className="w-full bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="Gasto">Gasto</option>
+                    <option value="Ingreso">Ingreso</option>
+                  </select>
                 </td>
                 <td className="py-2 px-3">
                   <select
@@ -231,20 +276,18 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                 </td>
               </tr>
             ))}
-            {isManualMode && (
-              <tr>
-                <td colSpan="8" className="py-3 px-3">
-                  <button
-                    onClick={handleAddRow}
-                    className="text-gray-400 hover:text-primary transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-            )}
+            <tr>
+              <td colSpan="8" className="py-3 px-3">
+                <button
+                  onClick={handleAddRow}
+                  className="text-gray-400 hover:text-primary transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -273,6 +316,20 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
           {isManualMode ? 'Guardar Transacciones' : `Guardar ${transactions.length} transacciones`}
         </button>
       </div>
+
+      {showUndo && undoState && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={handleUndoDelete}
+            className="flex items-center gap-2 rounded-full border border-gray-700 bg-gray-900/90 px-3 py-2 text-xs text-gray-200 shadow-lg hover:bg-gray-800"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7H5m0 0l4-4M5 7l4 4m-4 4a7 7 0 101.93-4.96" />
+            </svg>
+            Deshacer
+          </button>
+        </div>
+      )}
     </div>
   )
 }

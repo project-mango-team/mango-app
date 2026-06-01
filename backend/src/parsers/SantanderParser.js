@@ -6,8 +6,8 @@ import iconv from 'iconv-lite';
  * Handles multiple cards in the same file
  */
 export class SantanderParser extends BaseParser {
-  constructor(buffer, dolarValue, cardFilter = null) {
-    super(buffer);
+  constructor(buffer, dolarValue, cardFilter = null, categoryKeywords = null) {
+    super(buffer, categoryKeywords);
     this.dolarValue = dolarValue || 1;
     this.cardFilter = cardFilter; // Array of card names to filter, or null for all
   }
@@ -106,12 +106,7 @@ export class SantanderParser extends BaseParser {
             reading = false;
             continue;
           }
-          
-          // Skip header line
-          if (line.includes('Fecha,Descripción') || line.includes('Fecha,Descripcion')) {
-            continue;
-          }
-          
+
           buffer.push(line);
         }
       }
@@ -125,20 +120,81 @@ export class SantanderParser extends BaseParser {
       const finalData = [];
       const targets = this.cardFilter || Object.keys(cardsData);
       
+      const isValidDate = (value) => {
+        if (!value) return false;
+        const normalized = value.trim().replace(/-/g, '/');
+        return /^\d{2}\/\d{2}\/\d{2,4}$/.test(normalized);
+      };
+
+      const normalizeDateValue = (value) => {
+        if (!value) return '';
+        return value.trim().replace(/-/g, '/');
+      };
+
       for (const card of targets) {
         if (!cardsData[card]) continue;
         
         let ultimaFecha = null; // Remember last valid date
+        let headerInfo = null;
+
+        const normalizeHeaderValue = (value) => {
+          return String(value)
+            .toLowerCase()
+            .replace(/á/g, 'a')
+            .replace(/é/g, 'e')
+            .replace(/í/g, 'i')
+            .replace(/ó/g, 'o')
+            .replace(/ú/g, 'u')
+            .replace(/ñ/g, 'n')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
+        const getHeaderInfo = (line) => {
+          const rawParts = this.parseCSVLine(line).map((part) => part.replace(/"/g, '').trim());
+          const parts = rawParts.map(normalizeHeaderValue);
+
+          const fechaIndex = parts.findIndex((value) => value.includes('fecha'));
+          const descripcionIndex = parts.findIndex((value) => value.includes('descripcion'));
+          const pesosIndex = parts.findIndex((value) => value.includes('monto en pesos') || value.includes('importe en pesos'));
+          const dolaresIndex = parts.findIndex((value) => value.includes('monto en dolares') || value.includes('importe en dolares'));
+
+          if (fechaIndex === -1 || descripcionIndex === -1) {
+            return null;
+          }
+
+          if (pesosIndex === -1 && dolaresIndex === -1) {
+            return null;
+          }
+
+          return {
+            fechaIndex,
+            descripcionIndex,
+            pesosIndex,
+            dolaresIndex
+          };
+        };
         
         for (const line of cardsData[card]) {
+          const maybeHeader = getHeaderInfo(line);
+          if (maybeHeader) {
+            headerInfo = maybeHeader;
+            continue;
+          }
+
           // Parse CSV line (handle quoted fields with commas)
-          const parts = this.parseCSVLine(line);
+          const parts = this.parseCSVLine(line).map((part) => part.replace(/"/g, '').trim());
           
-          if (parts.length < 4) continue;
+          if (parts.length < 2) continue;
           
           // Date: if empty, use last valid date
-          let fecha = parts[0].trim();
+          const fechaIndex = headerInfo?.fechaIndex ?? 0;
+          let fecha = normalizeDateValue(parts[fechaIndex]);
           if (fecha && fecha !== '') {
+            if (!isValidDate(fecha)) {
+              continue;
+            }
+
             ultimaFecha = fecha;
           } else if (ultimaFecha) {
             fecha = ultimaFecha;
@@ -147,19 +203,30 @@ export class SantanderParser extends BaseParser {
           }
           
           // Description is second column
-          const desc = parts[1].replace(/"/g, '').trim();
+          const descripcionIndex = headerInfo?.descripcionIndex ?? 1;
+          const desc = parts[descripcionIndex]?.trim();
           if (!desc) continue;
           
           // Find amounts in remaining columns
           let mPesos = 0.0;
           let mDolares = 0.0;
+
+          if (headerInfo) {
+            if (headerInfo.pesosIndex !== -1) {
+              mPesos = this.cleanCurrency(parts[headerInfo.pesosIndex]);
+            }
+            if (headerInfo.dolaresIndex !== -1) {
+              mDolares = this.cleanCurrency(parts[headerInfo.dolaresIndex]);
+            }
+          }
           
-          for (const part of parts) {
-            const partClean = part.trim();
-            if (partClean.includes('U$S')) {
-              mDolares = this.cleanCurrency(partClean);
-            } else if (partClean.includes('$') && !partClean.includes('U$S')) {
-              mPesos = this.cleanCurrency(partClean);
+          if (mPesos === 0 && mDolares === 0) {
+            for (const part of parts) {
+              if (part.includes('U$S')) {
+                mDolares = this.cleanCurrency(part);
+              } else if (part.includes('$') && !part.includes('U$S')) {
+                mPesos = this.cleanCurrency(part);
+              }
             }
           }
           

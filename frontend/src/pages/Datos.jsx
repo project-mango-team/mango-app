@@ -159,6 +159,13 @@ const Datos = () => {
       if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.pdf') || fileName.endsWith('.txt')) {
         setFile(droppedFile)
         setMessage(null)
+
+        if (tipo === 'santander' && cardType) {
+          detectCards(cardType, droppedFile)
+        } else {
+          setAvailableCards([])
+          setSelectedCards([])
+        }
       } else {
         setMessage({ type: 'error', text: 'Por favor selecciona un archivo CSV, XLSX, PDF o TXT' })
       }
@@ -432,6 +439,7 @@ const Datos = () => {
                       value={cardType}
                       onChange={(e) => handleCardTypeChange(e.target.value)}
                       className="input-field w-full"
+                      disabled={!file}
                     >
                       <option value="">Seleccionar...</option>
                       <option value="visa">Visa</option>

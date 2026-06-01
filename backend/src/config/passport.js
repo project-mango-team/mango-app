@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/User.js';
+import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 
 // Serialize user to store in session
 passport.serializeUser((user, done) => {
@@ -50,6 +51,10 @@ passport.use(
               'Otros'
             ];
           }
+
+          if (!user.categoryKeywords || user.categoryKeywords.size === 0) {
+            user.categoryKeywords = loadDefaultCategoryKeywords();
+          }
           
           await user.save();
           return done(null, user);
@@ -61,7 +66,8 @@ passport.use(
           email: profile.emails[0].value,
           name: profile.displayName,
           picture: profile.photos[0]?.value || '',
-          lastLogin: new Date()
+          lastLogin: new Date(),
+          categoryKeywords: loadDefaultCategoryKeywords()
         });
 
         done(null, user);

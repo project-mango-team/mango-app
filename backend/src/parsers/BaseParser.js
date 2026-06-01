@@ -4,8 +4,9 @@ import { inferirCategoria } from '../utils/categoryInference.js';
  * Base class for transaction parsers
  */
 export class BaseParser {
-  constructor(buffer) {
+  constructor(buffer, categoryKeywords = null) {
     this.buffer = buffer;
+    this.categoryKeywords = categoryKeywords;
   }
 
   /**
@@ -34,7 +35,7 @@ export class BaseParser {
    * @returns {string} - Category name
    */
   inferCategoria(detalle) {
-    return inferirCategoria(detalle);
+    return inferirCategoria(detalle, this.categoryKeywords);
   }
 
   /**

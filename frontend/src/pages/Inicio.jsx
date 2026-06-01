@@ -22,6 +22,12 @@ const Inicio = () => {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [categoryMessage, setCategoryMessage] = useState(null)
+  const [keywordsModalOpen, setKeywordsModalOpen] = useState(false)
+  const [categoryKeywords, setCategoryKeywords] = useState({})
+  const [keywordsLoading, setKeywordsLoading] = useState(false)
+  const [keywordsMessage, setKeywordsMessage] = useState(null)
+  const [selectedKeywordCategory, setSelectedKeywordCategory] = useState('')
+  const [keywordInput, setKeywordInput] = useState('')
   
   // Transaction search states
   const [searchFilters, setSearchFilters] = useState({
@@ -123,6 +129,72 @@ const Inicio = () => {
       console.error('Error loading categories:', err)
     } finally {
       setLoadingCategories(false)
+    }
+  }
+
+  const loadCategoryKeywords = async (categoriesOverride = categories) => {
+    try {
+      setKeywordsLoading(true)
+      const response = await categoryService.getKeywords()
+      const data = response.data || {}
+      setCategoryKeywords(data)
+
+      if (!selectedKeywordCategory) {
+        const firstCategory = (categoriesOverride && categoriesOverride[0]) || ''
+        setSelectedKeywordCategory(firstCategory)
+      }
+    } catch (err) {
+      setKeywordsMessage({ type: 'error', text: err.response?.data?.message || 'Error al cargar keywords' })
+      setTimeout(() => setKeywordsMessage(null), 3000)
+    } finally {
+      setKeywordsLoading(false)
+    }
+  }
+
+  const openKeywordsModal = async () => {
+    setKeywordsModalOpen(true)
+    await loadCategoryKeywords()
+  }
+
+  const handleAddKeywords = () => {
+    if (!selectedKeywordCategory) return
+
+    const rawKeywords = keywordInput.split(/[,\n]/).map((k) => k.trim()).filter(Boolean)
+    if (rawKeywords.length === 0) return
+
+    setCategoryKeywords((prev) => {
+      const current = prev[selectedKeywordCategory] || []
+      const next = Array.from(new Set([...current, ...rawKeywords]))
+      return { ...prev, [selectedKeywordCategory]: next }
+    })
+
+    setKeywordInput('')
+  }
+
+  const handleRemoveKeyword = (keyword) => {
+    if (!selectedKeywordCategory) return
+
+    setCategoryKeywords((prev) => {
+      const current = prev[selectedKeywordCategory] || []
+      return {
+        ...prev,
+        [selectedKeywordCategory]: current.filter((item) => item !== keyword)
+      }
+    })
+  }
+
+  const handleSaveKeywords = async () => {
+    try {
+      setKeywordsLoading(true)
+      const response = await categoryService.updateKeywords(categoryKeywords)
+      setCategoryKeywords(response.data || {})
+      setKeywordsMessage({ type: 'success', text: 'Asociaciones guardadas' })
+      setTimeout(() => setKeywordsMessage(null), 3000)
+    } catch (err) {
+      setKeywordsMessage({ type: 'error', text: err.response?.data?.message || 'Error al guardar asociaciones' })
+      setTimeout(() => setKeywordsMessage(null), 3000)
+    } finally {
+      setKeywordsLoading(false)
     }
   }
 
@@ -402,7 +474,19 @@ const Inicio = () => {
             
             {/* Categories List */}
             <div className="w-72 border-l border-gray-700 pl-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Categorías</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase">Categorías</h3>
+                <button
+                  onClick={openKeywordsModal}
+                  className="p-1 text-gray-400 hover:text-primary transition-colors"
+                  title="Configurar asociaciones"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+              </div>
               
               {categoryMessage && (
                 <div className={`mb-3 p-2 rounded text-xs ${
@@ -862,6 +946,129 @@ const Inicio = () => {
           </>
         )}
       </div>
+
+      {keywordsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-semibold text-gray-100">Asociaciones por categoria</h3>
+              <button
+                onClick={() => {
+                  setKeywordsModalOpen(false)
+                  setKeywordsMessage(null)
+                }}
+                className="text-gray-400 hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-400 mb-4">
+              Asocia detalles con una categoria para que las transacciones se clasifiquen solas.
+            </p>
+
+            {keywordsMessage && (
+              <div className={`mb-4 p-2 rounded text-xs ${
+                keywordsMessage.type === 'error'
+                  ? 'bg-red-900/20 text-red-400 border border-red-800'
+                  : 'bg-green-900/20 text-green-400 border border-green-800'
+              }`}>
+                {keywordsMessage.text}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Categoria</label>
+                <select
+                  value={selectedKeywordCategory}
+                  onChange={(e) => setSelectedKeywordCategory(e.target.value)}
+                  className="input-field w-full"
+                  disabled={keywordsLoading}
+                >
+                  <option value="">Seleccionar...</option>
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Detalles</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {(categoryKeywords[selectedKeywordCategory] || []).map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="inline-flex items-center gap-1 rounded-full bg-gray-700/70 px-2 py-1 text-xs text-gray-200"
+                    >
+                      {keyword}
+                      <button
+                        onClick={() => handleRemoveKeyword(keyword)}
+                        className="text-gray-300 hover:text-red-400"
+                        title="Eliminar keyword"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  {(categoryKeywords[selectedKeywordCategory] || []).length === 0 && (
+                    <span className="text-xs text-gray-500">Sin asociaciones</span>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                    <input
+                    type="text"
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddKeywords()
+                      }
+                    }}
+                    placeholder="Netflix, YPF, supermercado..."
+                    className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-primary"
+                    disabled={keywordsLoading || !selectedKeywordCategory}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddKeywords}
+                    className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded"
+                    disabled={keywordsLoading || !selectedKeywordCategory}
+                  >
+                    Agregar
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Separa multiples detalles con coma o salto de linea.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => {
+                  setKeywordsModalOpen(false)
+                  setKeywordsMessage(null)
+                }}
+                className="px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleSaveKeywords}
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/80 text-white rounded"
+                disabled={keywordsLoading}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Transaction Modal */}
       {editModalOpen && editingTransaction && (

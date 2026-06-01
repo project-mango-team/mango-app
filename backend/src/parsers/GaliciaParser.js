@@ -6,8 +6,8 @@ import iconv from 'iconv-lite';
  * Handles both cuenta (savings account) and tarjeta (credit card) formats
  */
 export class GaliciaParser extends BaseParser {
-  constructor(buffer, tipoResumen = 'cuenta', dolarValue = 1) {
-    super(buffer);
+  constructor(buffer, tipoResumen = 'cuenta', dolarValue = 1, categoryKeywords = null) {
+    super(buffer, categoryKeywords);
     this.tipoResumen = tipoResumen; // 'cuenta' or 'tarjeta'
     this.dolarValue = dolarValue;
   }
