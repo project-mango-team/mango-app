@@ -1,6 +1,8 @@
 // Environment variables loaded via: node -r dotenv/config
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
@@ -64,6 +66,18 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/migrate', migrateRoutes);
 app.use('/api/operations', operationsRoutes);
 app.use('/api/categories', categoriesRoutes);
+
+if (process.env.NODE_ENV === 'production') {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendPath));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+}
 
 // Error handler
 app.use(errorHandler);
