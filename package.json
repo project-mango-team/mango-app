@@ -9,10 +9,12 @@
     "backend"
   ],
   "scripts": {
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "install:all": "npm install",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start"
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=backend"
   },
   "keywords": ["finance", "expense-tracker", "react", "node"],
   "author": "",
