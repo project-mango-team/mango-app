@@ -460,7 +460,7 @@ const Datos = () => {
                       className="input-field w-full"
                     >
                       <option value="">Seleccionar...</option>
-                      <option value="cuenta">Movimientos en Caja de Ahorro (CSV)</option>
+                      <option value="cuenta">Movimientos en Caja de Ahorro (XLSX o CSV)</option>
                       <option value="tarjeta">Tarjeta Visa (PDF o TXT)</option>
                     </select>
                   </div>
@@ -547,7 +547,7 @@ const Datos = () => {
                         {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: PDF o TXT' : 'Formatos: CSV, XLSX, PDF'}
+                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: PDF o TXT' : 'Formatos: XLSX o CSV'}
                       </p>
                     </label>
                   </div>

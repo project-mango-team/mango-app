@@ -27,11 +27,6 @@ const normalizeUploadBuffer = async (file, tipo, tipoResumen = null) => {
   if (!file) return null;
 
   const filename = file.originalname || '';
-  const lowerName = filename.toLowerCase();
-
-  if (lowerName.endsWith('.xls')) {
-    throw new AppError('El archivo .xls no es compatible. Guardalo como .xlsx', 400);
-  }
 
   if (!isExcelFilename(filename)) {
     return file.buffer;
