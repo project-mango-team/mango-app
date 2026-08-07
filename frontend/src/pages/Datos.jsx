@@ -461,7 +461,7 @@ const Datos = () => {
                     >
                       <option value="">Seleccionar...</option>
                       <option value="cuenta">Movimientos en Caja de Ahorro (CSV)</option>
-                      <option value="tarjeta">Tarjeta Visa (TXT copiado de PDF)</option>
+                      <option value="tarjeta">Tarjeta Visa (PDF o TXT)</option>
                     </select>
                   </div>
                 )}
@@ -513,14 +513,10 @@ const Datos = () => {
                 {/* Ayuda para Galicia Tarjeta */}
                 {tipo === 'galicia' && tipoResumen === 'tarjeta' && (
                   <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar desde PDF</h4>
-                    <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
-                      <li>Abrí tu resumen de tarjeta en PDF</li>
-                      <li>Seleccioná con el mouse toda la tabla "DETALLE DEL CONSUMO"</li>
-                      <li>Copiá el texto (Ctrl+C)</li>
-                      <li>Pegá en un archivo de texto (.txt) y guardalo</li>
-                      <li>Subí ese archivo .txt acá</li>
-                    </ol>
+                    <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar resumen Galicia</h4>
+                    <p className="text-sm text-gray-300">
+                      Podés subir directamente el archivo <strong>.pdf</strong> descargado de Home Banking o un <strong>.txt</strong> si copiaste el texto del resumen.
+                    </p>
                   </div>
                 )}
 
@@ -551,7 +547,7 @@ const Datos = () => {
                         {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: TXT (texto copiado del PDF)' : 'Formatos: CSV, XLSX, PDF'}
+                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: PDF o TXT' : 'Formatos: CSV, XLSX, PDF'}
                       </p>
                     </label>
                   </div>

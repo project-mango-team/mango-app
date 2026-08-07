@@ -1,5 +1,6 @@
 import { BaseParser } from './BaseParser.js';
 import iconv from 'iconv-lite';
+import { PDFParse } from 'pdf-parse';
 
 /**
  * Parser for Banco Galicia files
@@ -343,12 +344,20 @@ export class GaliciaParser extends BaseParser {
    */
   async parseTarjeta() {
     try {
-      // Decode the text content
       let content;
-      try {
-        content = iconv.decode(this.buffer, 'utf8');
-      } catch {
-        content = iconv.decode(this.buffer, 'latin1');
+
+      // Check if buffer is a PDF file
+      if (this.buffer && this.buffer.slice(0, 4).toString() === '%PDF') {
+        const pdfParser = new PDFParse({ data: new Uint8Array(this.buffer), verbosity: 0 });
+        await pdfParser.load();
+        const result = await pdfParser.getText();
+        content = result.text;
+      } else {
+        try {
+          content = iconv.decode(this.buffer, 'utf8');
+        } catch {
+          content = iconv.decode(this.buffer, 'latin1');
+        }
       }
 
       // Clean up line endings
@@ -356,14 +365,33 @@ export class GaliciaParser extends BaseParser {
       const lines = content.split('\n').map(line => line.trim()).filter(line => line !== '');
 
       const transactions = [];
+      let inDetalleConsumo = false;
+      const hasDetalleHeader = content.includes('DETALLE DEL CONSUMO');
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
 
+        if (line.includes('DETALLE DEL CONSUMO')) {
+          inDetalleConsumo = true;
+          continue;
+        }
+
+        // If file contains "DETALLE DEL CONSUMO" section, skip anything before it
+        if (hasDetalleHeader && !inDetalleConsumo) {
+          continue;
+        }
+
+        // Skip payment of previous summary
+        if (line.includes('SU PAGO EN PESOS') ||
+            line.includes('SU PAGO EN DOLARES') ||
+            line.includes('SU PAGO EN U$S') ||
+            line.includes('PAGO DE RESUMEN')) {
+          continue;
+        }
+
         // Skip header lines
-        if (line.includes('DETALLE DEL CONSUMO') || 
-            line.includes('FECHA') && line.includes('REFERENCIA') ||
-            line.includes('TARJETA') && line.includes('Total Consumos') ||
+        if ((line.includes('FECHA') && line.includes('REFERENCIA')) ||
+            (line.includes('TARJETA') && line.includes('Total Consumos')) ||
             line.includes('TOTAL A PAGAR') ||
             line.includes('CONSOLIDADO') ||
             line.includes('SALDO ANTERIOR')) {
@@ -401,16 +429,16 @@ export class GaliciaParser extends BaseParser {
    * @returns {Object|null} - Parsed transaction or null if invalid
    */
   parseLineaTarjeta(line) {
-    // Check if line starts with a date pattern DD-MM-YY
-    const dateMatch = line.match(/^(\d{2})-(\d{2})-(\d{2})\s+(.+)$/);
+    // Check if line starts with a date pattern DD-MM-YY or DD/MM/YY or DD-MM-YYYY
+    const dateMatch = line.match(/^(\d{2})[-/](\d{2})[-/](\d{2}|\d{4})\s+(.+)$/);
     if (!dateMatch) {
       return null;
     }
 
-    const [, day, month, year, resto] = dateMatch;
+    const [, day, month, yearRaw, resto] = dateMatch;
 
-    // Build full year (assuming 20XX)
-    const fullYear = `20${year}`;
+    // Build full year
+    const fullYear = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
     const fecha = `${day}/${month}/${fullYear}`;
 
     // Try to find amounts at the end
