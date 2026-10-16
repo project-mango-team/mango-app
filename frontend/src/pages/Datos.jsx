@@ -461,7 +461,7 @@ const Datos = () => {
                     >
                       <option value="">Seleccionar...</option>
                       <option value="cuenta">Movimientos en Caja de Ahorro (XLSX o CSV)</option>
-                      <option value="tarjeta">Tarjeta Visa (PDF o TXT)</option>
+                      <option value="tarjeta">Tarjeta Visa o Mastercard (PDF o TXT)</option>
                     </select>
                   </div>
                 )}

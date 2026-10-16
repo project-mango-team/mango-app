@@ -2,6 +2,11 @@ import { BaseParser } from './BaseParser.js';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
 
+const MESES_ABREVIADOS = {
+  ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
+  jul: '07', ago: '08', sep: '09', set: '09', oct: '10', nov: '11', dic: '12'
+};
+
 /**
  * Parser for Banco Galicia files
  * Handles both cuenta (savings account) and tarjeta (credit card) formats
@@ -364,6 +369,9 @@ export class GaliciaParser extends BaseParser {
       content = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lines = content.split('\n').map(line => line.trim()).filter(line => line !== '');
 
+      // Visa keeps the historical origen so existing data stays consistent
+      this.origenTarjeta = /MASTERCARD/i.test(content) ? 'Banco Galicia Mastercard' : 'Banco Galicia Tarjeta';
+
       const transactions = [];
       let inDetalleConsumo = false;
       const hasDetalleHeader = content.includes('DETALLE DEL CONSUMO');
@@ -425,17 +433,22 @@ export class GaliciaParser extends BaseParser {
   /**
    * Parse a tarjeta line into a transaction
    * Format: DD-MM-YY DESCRIPTION [CUOTA] COMPROBANTE AMOUNT [AMOUNT_USD]
+   * Mastercard uses a month abbreviation instead: DD-Mmm-YY (e.g. 28-Ago-26)
    * @param {string} line - Line to parse
    * @returns {Object|null} - Parsed transaction or null if invalid
    */
   parseLineaTarjeta(line) {
-    // Check if line starts with a date pattern DD-MM-YY or DD/MM/YY or DD-MM-YYYY
-    const dateMatch = line.match(/^(\d{2})[-/](\d{2})[-/](\d{2}|\d{4})\s+(.+)$/);
+    // Check if line starts with a date pattern DD-MM-YY, DD/MM/YY, DD-MM-YYYY or DD-Mmm-YY
+    const dateMatch = line.match(/^(\d{2})[-/](\d{2}|[A-Za-z]{3})[-/](\d{2}|\d{4})\s+(.+)$/);
     if (!dateMatch) {
       return null;
     }
 
-    const [, day, month, yearRaw, resto] = dateMatch;
+    const [, day, monthRaw, yearRaw, resto] = dateMatch;
+    const month = /^\d{2}$/.test(monthRaw) ? monthRaw : MESES_ABREVIADOS[monthRaw.toLowerCase()];
+    if (!month) {
+      return null;
+    }
 
     // Build full year
     const fullYear = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
@@ -486,7 +499,8 @@ export class GaliciaParser extends BaseParser {
     }
 
     // Extract description
-    const comprobanteMatch = beforeAmount.match(/(\d{6})\s*$/);
+    // Visa comprobantes have 6 digits, Mastercard 5
+    const comprobanteMatch = beforeAmount.match(/(\d{5,6})\s*$/);
     let detalle = beforeAmount;
     
     if (comprobanteMatch) {
@@ -533,7 +547,7 @@ export class GaliciaParser extends BaseParser {
       moneda: moneda,
       monto_original: moneda === 'USD' ? Math.abs(importeDolares) : Math.abs(importePesos),
       tipo: tipo,
-      origen: 'Banco Galicia Tarjeta'
+      origen: this.origenTarjeta || 'Banco Galicia Tarjeta'
     });
   }
 }
