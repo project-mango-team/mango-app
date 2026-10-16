@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 
-const DEFAULT_CATEGORIES = [
+// Movimientos hacia o desde inversiones: no cuentan como gasto ni ingreso en los dashboards
+export const CATEGORIA_INVERSION = 'Inversión';
+
+export const DEFAULT_CATEGORIES = [
   'Transferencia',
   'Transporte',
   'Salud',
@@ -11,6 +14,7 @@ const DEFAULT_CATEGORIES = [
   'Ropa',
   'Mantenimiento',
   'Ingreso',
+  CATEGORIA_INVERSION,
   'Otros'
 ];
 
@@ -44,6 +48,20 @@ const userSchema = new mongoose.Schema({
     type: Map,
     of: [String],
     default: {}
+  },
+  // Marca que ya se le agregó la categoría Inversión (para no volver a agregarla si la borra)
+  categoriaInversionAgregada: {
+    type: Boolean,
+    default: false
+  },
+  // Tipos de activo propios; los base están en config/investmentTypes.js
+  investmentTypes: {
+    type: [{
+      _id: false,
+      nombre: { type: String, required: true, trim: true },
+      liquido: { type: Boolean, default: false }
+    }],
+    default: []
   },
   lastLogin: {
     type: Date,

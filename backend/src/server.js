@@ -16,6 +16,8 @@ import operationsRoutes from './routes/operations.js';
 import authRoutes from './routes/auth.js';
 import categoriesRoutes from './routes/categories.js';
 import dolarRoutes from './routes/dolar.js';
+import investmentRoutes from './routes/investments.js';
+import loanRoutes from './routes/loans.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -70,6 +72,8 @@ app.use('/api/migrate', migrateRoutes);
 app.use('/api/operations', operationsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/dolar', dolarRoutes);
+app.use('/api/investments', investmentRoutes);
+app.use('/api/loans', loanRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __filename = fileURLToPath(import.meta.url);

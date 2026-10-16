@@ -1,15 +1,22 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const Layout = () => {
   const location = useLocation()
   const { user, logout, isAuthenticated } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Cerrar el drawer al navegar
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
 
   const navItems = [
     { name: 'Inicio', path: '/inicio' },
     { name: 'Datos', path: '/datos' },
+    { name: 'Inversiones', path: '/inversiones' },
     { name: 'Migración', path: '/migracion' }
   ]
 
@@ -17,8 +24,21 @@ const Layout = () => {
 
   return (
     <div className="h-screen flex bg-gray-900 overflow-hidden">
-      {/* Sidebar - Fixed height with internal scroll */}
-      <aside className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col h-full">
+      {/* Overlay del drawer en mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar - drawer en mobile, fija en desktop */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col h-full transform transition-transform duration-200 md:static md:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         {/* Logo */}
         <div className="p-6 border-b border-gray-700 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -108,8 +128,22 @@ const Layout = () => {
       </aside>
 
       {/* Main Content - Scrollable area */}
-      <main className="flex-1 overflow-y-auto h-full">
-        <div className="p-8">
+      <main className="flex-1 min-w-0 overflow-y-auto h-full">
+        {/* Barra superior mobile */}
+        <div className="md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-lg text-gray-300 hover:bg-gray-700"
+            aria-label="Abrir menú"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img src="/logo.svg" alt="Mango" className="w-8 h-8" />
+          <span className="text-lg font-bold text-white">Mango</span>
+        </div>
+        <div className="p-4 md:p-8">
           <Outlet />
         </div>
       </main>

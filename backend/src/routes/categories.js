@@ -1,5 +1,5 @@
 import express from 'express';
-import User from '../models/User.js';
+import User, { CATEGORIA_INVERSION } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 
@@ -31,6 +31,12 @@ const toPlainKeywords = (value) => {
  */
 router.get('/', async (req, res, next) => {
   try {
+    // Usuarios anteriores a Inversiones: se les agrega la categoría una sola vez
+    await User.updateOne(
+      { _id: req.user._id, categoriaInversionAgregada: { $ne: true } },
+      { $addToSet: { categories: CATEGORIA_INVERSION }, $set: { categoriaInversionAgregada: true } }
+    );
+
     const user = await User.findById(req.user._id).select('categories');
     
     if (!user) {

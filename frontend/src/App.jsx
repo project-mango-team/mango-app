@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Datos from './pages/Datos'
 import Migracion from './pages/Migracion'
+import Inversiones from './pages/Inversiones'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
             <Route index element={<Navigate to="/inicio" replace />} />
             <Route path="inicio" element={<Inicio />} />
             <Route path="datos" element={<Datos />} />
+            <Route path="inversiones" element={<Inversiones />} />
             <Route path="migracion" element={<Migracion />} />
           </Route>
         </Routes>

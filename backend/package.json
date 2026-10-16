@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon -r dotenv/config src/server.js",
-    "start": "node -r dotenv/config src/server.js"
+    "start": "node -r dotenv/config src/server.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +34,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.3"
+    "nodemon": "^3.0.3",
+    "vitest": "^3.2.7"
   }
 }
