@@ -1,215 +1,142 @@
-# 🥭 Mango - Financial Management Application
+# 🥭 Mango
 
-Aplicación web full-stack para gestión de finanzas personales con análisis de gastos e ingresos.
+App de finanzas personales: importa resúmenes bancarios, categoriza los movimientos automáticamente y muestra dashboards de gastos e ingresos. Es multi-usuario, con login de Google.
 
-## 🚀 Stack Tecnológico
+## Funcionalidades
 
-### Backend
-- **Node.js** + **Express** - API REST
-- **MongoDB** + **Mongoose** - Base de datos
-- **ES Modules** - Sintaxis moderna
+- **Login con Google**: cada usuario ve solo sus datos.
+- **Importación de resúmenes**, con vista previa editable antes de guardar:
 
-### Frontend
-- **React 18** - UI Library
-- **Vite** - Build tool
-- **React Router** - Routing
-- **Tailwind CSS** - Styling
-- **Axios** - HTTP client
-- **Recharts** - Gráficos (próximamente)
+  | Banco | Tipo | Formatos |
+  |---|---|---|
+  | Mercado Pago | Movimientos de cuenta | CSV |
+  | Santander | Tarjetas de crédito (con selección de tarjetas) | CSV, XLSX |
+  | Galicia | Caja de ahorro | CSV, XLSX |
+  | Galicia | Tarjeta Visa / Mastercard | PDF, TXT |
 
-## 📦 Instalación
+- **Consumos en dólares**: se convierten a pesos con la cotización del dólar oficial (venta) que se obtiene de [dolarapi.com](https://dolarapi.com), o de [Bluelytics](https://bluelytics.com.ar) si la primera falla. El valor se puede editar en cada import.
+- **Categorización automática** por palabras clave. Hay keywords por defecto y cada usuario las puede personalizar.
+- **Historial de imports con rollback**: cada import es una operación que se puede deshacer completa.
+- **Dashboard** (Inicio) con balance, gastos por categoría, evolución mensual y búsqueda de movimientos.
+- **Carga manual** de movimientos y **migración** desde Excel.
 
-### Prerequisitos
-- Node.js 20.x o superior
-- npm o yarn
-- MongoDB Atlas (o MongoDB local)
+## Stack
 
-### Paso 1: Clonar el repositorio
+- **Monorepo** con npm workspaces: `backend/` y `frontend/`.
+- **Backend**: Node.js + Express + Mongoose (ES Modules), sesiones con `express-session` + `connect-mongo` y autenticación con Passport (Google OAuth).
+- **Frontend**: React 18 + Vite + Tailwind CSS + Recharts + React Router.
+- **Base de datos**: MongoDB Atlas.
+
+## Puesta en marcha
+
+### Requisitos
+
+- Node.js 20 o superior
+- Una base MongoDB (Atlas o local)
+- Credenciales OAuth de Google ([Google Cloud Console](https://console.cloud.google.com/apis/credentials)), con `http://localhost:5000/api/auth/google/callback` como redirect URI autorizada
+
+### Instalación
+
 ```bash
-cd d:\projects\mango
-```
-
-### Paso 2: Instalar dependencias
-
-#### Opción A: Instalar todo de una vez (recomendado)
-```bash
-npm run install:all
-```
-
-#### Opción B: Instalar manualmente
-```bash
-# Raíz
-npm install
-
-# Backend
-cd backend
-npm install
-
-# Frontend
-cd ../frontend
 npm install
 ```
 
-### Paso 3: Configurar variables de entorno
+Instala las dependencias de los dos workspaces desde la raíz.
 
-Crea un archivo `.env` en la carpeta `backend/` con:
+### Variables de entorno
 
-```env
-PORT=5000
-MONGODB_URI=mongodb+srv://tu-usuario:tu-password@cluster.mongodb.net/
-MONGODB_DATABASE=Mango
-NODE_ENV=development
-```
+Copiá `backend/.env.example` a `backend/.env` y completá los valores:
 
-> **Nota**: Copia `.env.example` como base
+| Variable | Descripción |
+|---|---|
+| `PORT` | Puerto del backend (default `5000`) |
+| `MONGODB_URI` | Connection string de MongoDB |
+| `MONGODB_DATABASE` | Nombre de la base (default `Mango`) |
+| `NODE_ENV` | `development` o `production` |
+| `FRONTEND_URL` | URL del frontend, para CORS y redirects de OAuth |
+| `SESSION_SECRET` | Secreto para firmar las sesiones |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciales OAuth de Google |
+| `GOOGLE_CALLBACK_URL` | Callback de OAuth (`http://localhost:5000/api/auth/google/callback` en local) |
 
-## 🏃 Ejecutar el proyecto
+### Desarrollo
 
-### Opción 1: Ambos servidores simultáneamente (recomendado)
 ```bash
 npm run dev
 ```
 
-Esto inicia:
-- **Backend**: http://localhost:5000
-- **Frontend**: http://localhost:3000
+Levanta el backend en http://localhost:5000 y el frontend en http://localhost:5173. Vite redirige `/api` al backend.
 
-### Opción 2: Servidores separados
+### Producción
 
-**Terminal 1 - Backend:**
 ```bash
-cd backend
-npm run dev
+npm run build
+npm start
 ```
 
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm run dev
-```
+El build del frontend queda en `frontend/dist` y el backend lo sirve junto con la API.
 
-## 📁 Estructura del Proyecto
+## Scripts (raíz)
+
+| Script | Qué hace |
+|---|---|
+| `npm run dev` | Backend (nodemon) y frontend (Vite) en paralelo |
+| `npm run dev:backend` / `npm run dev:frontend` | Cada uno por separado |
+| `npm run build` | Build de producción del frontend |
+| `npm start` | Backend en modo producción |
+
+## Estructura
 
 ```
 mango/
-├── backend/                 # API Node.js + Express
-│   ├── src/
-│   │   ├── config/         # Configuración DB
-│   │   ├── controllers/    # Lógica de negocio
-│   │   ├── models/         # Modelos Mongoose
-│   │   ├── routes/         # Rutas de la API
-│   │   ├── middleware/     # Middleware (errors, etc)
-│   │   └── server.js       # Entry point
-│   ├── .env                # Variables de entorno
-│   └── package.json
-│
-├── frontend/               # App React + Vite
-│   ├── src/
-│   │   ├── components/    # Componentes reutilizables
-│   │   ├── pages/         # Páginas principales
-│   │   ├── services/      # API clients
-│   │   ├── App.jsx        # Root component
-│   │   └── main.jsx       # Entry point
-│   └── package.json
-│
-├── python/                # Versión legacy Streamlit
-└── package.json          # Root package con scripts
+├── backend/
+│   ├── config/
+│   │   └── categorias_keywords.yaml   # Keywords default de categorías
+│   └── src/
+│       ├── config/        # Conexión a MongoDB y Passport
+│       ├── controllers/
+│       ├── middleware/    # requireAuth y manejo de errores
+│       ├── models/        # Transaction, Operation, User
+│       ├── parsers/       # Un parser por banco (extienden BaseParser)
+│       ├── routes/
+│       ├── services/      # Cotización del dólar
+│       ├── utils/         # Filtros multi-usuario e inferencia de categorías
+│       └── server.js
+└── frontend/
+    └── src/
+        ├── components/
+        ├── contexts/
+        ├── hooks/
+        ├── pages/         # Inicio, Datos, Migracion, Login
+        └── services/      # Cliente axios y servicios por recurso
 ```
 
-## 🔌 API Endpoints
+## API
 
-### Transacciones
-- `GET /api/transactions` - Listar todas las transacciones
-- `GET /api/transactions/:id` - Obtener una transacción
-- `POST /api/transactions` - Crear transacciones (bulk)
-- `PUT /api/transactions/:id` - Actualizar transacción
-- `DELETE /api/transactions/:id` - Eliminar transacción
-- `POST /api/transactions/bulk-delete` - Eliminar múltiples
+Todas las rutas, salvo las de `/api/auth`, requieren una sesión iniciada.
 
-### Estadísticas
-- `GET /api/stats` - Estadísticas generales
-- `GET /api/stats/categorias` - Gastos por categoría
-- `GET /api/stats/monthly` - Resumen mensual
-- `GET /api/stats/years` - Años disponibles
+| Prefijo | Para qué |
+|---|---|
+| `/api/auth` | Login con Google, usuario actual y logout |
+| `/api/transactions` | CRUD de movimientos y borrado masivo |
+| `/api/stats` | Totales, gastos por categoría, resumen mensual y años disponibles |
+| `/api/upload` | Vista previa e importación de resúmenes, historial y rollback |
+| `/api/operations` | Operaciones de import y rollback |
+| `/api/categories` | Categorías y keywords del usuario |
+| `/api/migrate` | Migración desde Excel |
+| `/api/dolar` | Cotización del dólar usada por defecto en los imports |
 
-### Upload
-- `POST /api/upload` - Subir archivo para parsear
+## Modelo de datos
 
-## 🎨 Características
+- `fecha` es un string con formato `DD/MM/YYYY` y `mes` es el nombre del mes en español.
+- `importe` está siempre en ARS y es positivo. El signo lo da `tipo` (`Gasto` o `Ingreso`). `monto_original` y `moneda` (`ARS` o `USD`) guardan el valor original.
+- La base se comparte con la versión anterior en Python, así que cualquier cambio de formato necesita un plan de migración.
 
-✅ **Implementadas:**
-- API REST completa con CRUD de transacciones
-- Dashboard con métricas principales (balance, gastos, ingresos)
-- Navegación entre páginas (Inicio, Datos, Migración)
-- Conexión a MongoDB Atlas
-- UI moderna con Tailwind CSS
-- Proxy de Vite para desarrollo
+## Troubleshooting
 
-🚧 **En desarrollo:**
-- Parsers de Mercado Pago y Santander
-- Gráficos interactivos (Recharts)
-- Tabla de transacciones con filtros
-- Sistema de categorización automática
-- Migración masiva de Excel
-- Exportación a CSV
+- **No conecta a MongoDB**: revisá `MONGODB_URI` y que tu IP esté habilitada en Atlas.
+- **El login de Google falla**: confirmá que `GOOGLE_CALLBACK_URL` coincida con la redirect URI configurada en Google Cloud.
+- **El frontend no llega a la API (errores de proxy en Vite)**: el backend tiene que estar escuchando en el puerto 5000.
 
-## 🛠️ Scripts Disponibles
+## Licencia
 
-### Root
-- `npm run dev` - Corre backend y frontend
-- `npm run install:all` - Instala todas las dependencias
-
-### Backend
-- `npm run dev` - Desarrollo con nodemon
-- `npm start` - Producción
-
-### Frontend
-- `npm run dev` - Desarrollo con Vite
-- `npm run build` - Build para producción
-- `npm run preview` - Preview del build
-
-## 🔄 Migración desde Python/Streamlit
-
-Este proyecto reemplaza la versión anterior en Python (carpeta `python/`). Los datos en MongoDB son compatibles con ambas versiones.
-
-### ¿Por qué Node + React?
-- Mayor control sobre la UI
-- Mejor experiencia de desarrollo
-- Más flexible para features complejas
-- Mejor performance y SEO
-- Ecosistema más amplio de librerías
-
-## 🤝 Próximos Pasos
-
-1. Migrar parsers de Python a Node.js
-2. Implementar gráficos con Recharts
-3. Sistema de autenticación
-4. Modo multi-usuario
-5. App móvil con React Native
-6. Notificaciones y alertas
-7. Export/Import de datos
-
-## 📝 Notas
-
-- El backend usa **ES Modules** (`type: "module"`)
-- Las fechas se guardan como strings (formato DD/MM/YYYY)
-- El color primary de la app es `#db681d` (naranja/mango)
-- La base de datos es la misma que usaba la versión Python
-
-## 🐛 Troubleshooting
-
-**Error de conexión a MongoDB:**
-- Verifica que el `.env` esté configurado correctamente
-- Chequea que tu IP esté en la whitelist de MongoDB Atlas
-- Confirma que las credenciales sean correctas
-
-**El frontend no encuentra el backend:**
-- Asegúrate de que el backend esté corriendo en el puerto 5000
-- Verifica la configuración del proxy en `vite.config.js`
-
-**Dependencias faltantes:**
-- Ejecuta `npm run install:all` desde la raíz
-
----
-
-**Hecho con 🥭 por Mango Team**
+[MIT](LICENSE)
