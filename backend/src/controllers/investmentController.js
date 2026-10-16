@@ -2,10 +2,13 @@ import mongoose from 'mongoose';
 import InvestmentAsset, { MONEDAS_INVERSION, RENTAS } from '../models/InvestmentAsset.js';
 import InvestmentMovement, { TIPOS_MOVIMIENTO } from '../models/InvestmentMovement.js';
 import User from '../models/User.js';
+import LoanMovement from '../models/LoanMovement.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { DolarService, hoyArgentina } from '../services/dolarService.js';
 import { getInvestmentTypes } from '../config/investmentTypes.js';
+import { resumirPrestamos } from '../utils/loanCalc.js';
+import { parseFecha, parseMonto, parseCotizacion } from '../utils/inputParsers.js';
 import {
   convertirMonto,
   calcularResumenActivo,
@@ -18,40 +21,6 @@ import {
 } from '../utils/investmentCalc.js';
 
 // ---------- Helpers ----------
-
-/**
- * Valida una fecha YYYY-MM-DD (no futura) y la devuelve como Date UTC a medianoche
- */
-const parseFecha = (fecha) => {
-  if (typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    throw new AppError('La fecha debe tener formato YYYY-MM-DD', 400);
-  }
-  const date = new Date(`${fecha}T00:00:00Z`);
-  if (isNaN(date) || date.toISOString().slice(0, 10) !== fecha) {
-    throw new AppError('Fecha inválida', 400);
-  }
-  if (fecha > hoyArgentina()) {
-    throw new AppError('La fecha no puede ser futura', 400);
-  }
-  return date;
-};
-
-const parseMonto = (monto) => {
-  const n = Number(monto);
-  if (monto === '' || monto === null || monto === undefined || !Number.isFinite(n) || n < 0) {
-    throw new AppError('El monto debe ser un número mayor o igual a 0', 400);
-  }
-  return n;
-};
-
-const parseCotizacion = (valor, nombre) => {
-  if (valor === undefined || valor === null || valor === '') return undefined;
-  const n = Number(valor);
-  if (!Number.isFinite(n) || n <= 0) {
-    throw new AppError(`La cotización ${nombre} debe ser un número mayor a 0`, 400);
-  }
-  return n;
-};
 
 /**
  * Cotizaciones de la fecha del movimiento: usa las enviadas o las busca (blue promedio / euro)
@@ -224,11 +193,22 @@ export const getPortfolio = async (req, res, next) => {
     const tipos = getInvestmentTypes(req.user);
     const { totales, por_tipo } = calcularTotalesPortfolio(activos, tipos);
 
+    // Los préstamos suman al patrimonio pero no a la liquidez ni a la ganancia
+    const prestamos = resumirPrestamos(await LoanMovement.find(buildUserQuery(req)).lean());
+    const prestamosUsd = prestamos.total_pendiente_usd;
+    const prestamosArs = Math.round(prestamosUsd * cotizaciones.usd * 100) / 100;
+
     res.json({
       success: true,
       data: {
         cotizaciones,
-        totales,
+        totales: {
+          ...totales,
+          prestamos_usd: prestamosUsd,
+          prestamos_ars: prestamosArs,
+          patrimonio_usd: Math.round((totales.valor_usd + prestamosUsd) * 100) / 100,
+          patrimonio_ars: Math.round((totales.valor_ars + prestamosArs) * 100) / 100
+        },
         por_tipo,
         activos: activos.filter(a => !a.resumen.cerrado),
         cantidad_cerrados: activos.filter(a => a.resumen.cerrado).length

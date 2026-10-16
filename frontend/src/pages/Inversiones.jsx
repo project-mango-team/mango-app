@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import PortfolioTab from '../components/investments/PortfolioTab'
 import RendimientosTab from '../components/investments/RendimientosTab'
+import PrestamosTab from '../components/loans/PrestamosTab'
 
 const TABS = [
   { id: 'portfolio', label: 'Portfolio' },
   { id: 'rendimientos', label: 'Rendimientos' },
-  { id: 'prestamos', label: 'Préstamos', pronto: true }
+  { id: 'prestamos', label: 'Préstamos' }
 ]
 
 const MONEDA_KEY = 'mango.inversiones.moneda'
@@ -71,6 +72,7 @@ const Inversiones = () => {
 
       {tab === 'portfolio' && <PortfolioTab moneda={moneda} />}
       {tab === 'rendimientos' && <RendimientosTab moneda={moneda} />}
+      {tab === 'prestamos' && <PrestamosTab moneda={moneda} />}
     </div>
   )
 }

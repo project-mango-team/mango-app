@@ -4,7 +4,7 @@ import { COLORS } from '../charts/ExpensesPieChart'
 import { formatMoney, formatPercent } from '../../utils/format'
 
 // Distribución del portfolio, por activo o por tipo, en la moneda elegida
-const PortfolioPieChart = ({ activos, porTipo, moneda }) => {
+const PortfolioPieChart = ({ activos, porTipo, prestamos, moneda }) => {
   const [agrupar, setAgrupar] = useState('activo')
   const s = moneda.toLowerCase()
 
@@ -12,8 +12,10 @@ const PortfolioPieChart = ({ activos, porTipo, moneda }) => {
     const items = agrupar === 'activo'
       ? activos.map(a => ({ nombre: a.nombre, valor: a.resumen[`valor_actual_${s}`] }))
       : porTipo.map(t => ({ nombre: t.tipo, valor: t[`valor_${s}`] }))
+    // Lo prestado es parte del patrimonio: va como una porción más en las dos vistas
+    items.push({ nombre: 'Préstamos', valor: prestamos?.[s] || 0 })
     return items.filter(i => i.valor > 0).sort((a, b) => b.valor - a.valor)
-  }, [agrupar, activos, porTipo, s])
+  }, [agrupar, activos, porTipo, prestamos, s])
 
   const total = data.reduce((sum, i) => sum + i.valor, 0)
 

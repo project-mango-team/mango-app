@@ -17,14 +17,22 @@ const SummaryCards = ({ totales, moneda }) => {
   const liquidez = totales[`liquidez_${s}`]
   const ganancia = totales[`ganancia_${s}`]
   const rendimiento = totales[`rendimiento_${s}`]
+  const prestamos = totales[`prestamos_${s}`] || 0
+  const patrimonio = totales[`patrimonio_${s}`] ?? valor
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      <Card label="Patrimonio invertido" value={formatMoney(valor, moneda)} hint="Valor actual de los activos abiertos" />
+      <Card
+        label="Patrimonio"
+        value={formatMoney(patrimonio, moneda)}
+        hint={prestamos > 0
+          ? `${formatMoney(valor, moneda)} invertido + ${formatMoney(prestamos, moneda)} prestado`
+          : 'Valor actual de los activos abiertos'}
+      />
       <Card
         label="Liquidez"
         value={formatMoney(liquidez, moneda)}
-        hint={valor > 0 ? `${formatPercent(liquidez / valor, { signo: false })} del total` : 'Según el tipo de cada activo'}
+        hint={patrimonio > 0 ? `${formatPercent(liquidez / patrimonio, { signo: false })} del patrimonio` : 'Según el tipo de cada activo'}
       />
       <Card label="Capital aportado" value={formatMoney(totales[`aportado_${s}`], moneda)} hint="Aportes de los activos abiertos" />
       <Card

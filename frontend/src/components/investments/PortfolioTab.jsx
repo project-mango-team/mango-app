@@ -48,7 +48,12 @@ const PortfolioTab = ({ moneda }) => {
       </div>
 
       <SummaryCards totales={totales} moneda={moneda} />
-      <PortfolioPieChart activos={activos} porTipo={por_tipo} moneda={moneda} />
+      <PortfolioPieChart
+        activos={activos}
+        porTipo={por_tipo}
+        prestamos={{ usd: totales.prestamos_usd, ars: totales.prestamos_ars }}
+        moneda={moneda}
+      />
       <AssetsTable
         activos={activos}
         totales={totales}
