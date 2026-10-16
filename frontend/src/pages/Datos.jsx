@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { uploadService, operationsService } from '../services/transactionService'
 import ConfirmModal from '../components/ConfirmModal'
 import TransactionEditor from '../components/TransactionEditor'
+import useCotizacionDolar from '../hooks/useCotizacionDolar'
 
 const Datos = () => {
   // Origen selection
@@ -10,7 +11,8 @@ const Datos = () => {
   // File upload states
   const [file, setFile] = useState(null)
   const [tipo, setTipo] = useState('')
-  const [valorDolar, setValorDolar] = useState(1400)
+  const dolar = useCotizacionDolar()
+  const { valorDolar } = dolar
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
   const [history, setHistory] = useState([])
@@ -498,15 +500,30 @@ const Datos = () => {
                 {(tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta')) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Dólar Tarjeta
+                      Cotización del dólar
                     </label>
                     <input
                       type="number"
                       value={valorDolar}
-                      onChange={(e) => setValorDolar(e.target.value)}
+                      onChange={(e) => dolar.setValorDolar(e.target.value)}
                       className="input-field w-full"
                       step="0.01"
+                      placeholder={dolar.loading ? 'Cargando cotización...' : 'Ingresá la cotización'}
                     />
+                    {dolar.error && (
+                      <p className="text-xs text-red-400 mt-1">{dolar.error}</p>
+                    )}
+                    {dolar.cotizacion && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Dólar oficial venta: ${dolar.cotizacion.venta.toLocaleString('es-AR')} ({dolar.cotizacion.fuente}
+                        {dolar.cotizacion.fechaActualizacion && `, ${new Date(dolar.cotizacion.fechaActualizacion).toLocaleDateString('es-AR')}`})
+                        {dolar.editado && Number(valorDolar) !== dolar.cotizacion.venta && (
+                          <button type="button" onClick={dolar.restablecer} className="ml-2 text-primary hover:underline">
+                            Restablecer
+                          </button>
+                        )}
+                      </p>
+                    )}
                   </div>
                 )}
 
