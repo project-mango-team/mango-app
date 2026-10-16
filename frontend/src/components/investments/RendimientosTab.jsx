@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useRendimientos from '../../hooks/useRendimientos'
 import PerformanceChart from './PerformanceChart'
 import PerformanceTable from './PerformanceTable'
 import AssetDetailModal from './AssetDetailModal'
+import AssetFormModal from './AssetFormModal'
+import { investmentService } from '../../services/investmentService'
 import { formatMoney, formatPercent, formatFecha, hoyISO } from '../../utils/format'
 
 const RANGOS = [
@@ -35,6 +37,15 @@ const RendimientosTab = ({ moneda }) => {
   const [rango, setRango] = useState('todo')
   const [custom, setCustom] = useState({ desde: `${hoy.slice(0, 4)}-01-01`, hasta: hoy })
   const [detalleId, setDetalleId] = useState(null)
+  const [editando, setEditando] = useState(null)
+  const [tipos, setTipos] = useState([])
+
+  // Tipos de activo para el form de edición (los cerrados solo se editan desde acá)
+  useEffect(() => {
+    investmentService.getTypes()
+      .then(res => setTipos(res.data))
+      .catch(() => setTipos([]))
+  }, [])
 
   const filtro = useMemo(() => {
     if (rango === 'anio') return { desde: `${hoy.slice(0, 4)}-01-01` }
@@ -46,6 +57,10 @@ const RendimientosTab = ({ moneda }) => {
   const { data, loading, error, recargar } = useRendimientos(filtro)
   const s = moneda.toLowerCase()
   const t = data?.totales
+  const plataformas = useMemo(
+    () => [...new Set((data?.activos || []).map(a => a.plataforma).filter(Boolean))].sort(),
+    [data]
+  )
 
   return (
     <div className="space-y-6">
@@ -135,6 +150,24 @@ const RendimientosTab = ({ moneda }) => {
         moneda={moneda}
         onClose={() => setDetalleId(null)}
         onChanged={recargar}
+        onEdit={(asset) => {
+          setDetalleId(null)
+          setEditando(asset)
+        }}
+      />
+
+      <AssetFormModal
+        isOpen={Boolean(editando)}
+        asset={editando}
+        onClose={() => setEditando(null)}
+        tipos={tipos}
+        onTiposChange={setTipos}
+        plataformas={plataformas}
+        onSaved={(asset) => {
+          setEditando(null)
+          recargar()
+          setDetalleId(asset._id)
+        }}
       />
     </div>
   )
