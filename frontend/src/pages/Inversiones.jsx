@@ -50,20 +50,20 @@ const Inversiones = () => {
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-700">
+      <div className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#374151]">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => !t.pronto && setTab(t.id)}
             disabled={t.pronto}
-            className={`px-4 py-2 -mb-px border-b-2 text-sm font-medium transition-colors ${
+            className={`px-3 sm:px-4 py-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
               tab === t.id
                 ? 'border-primary text-white'
                 : 'border-transparent text-gray-400 hover:text-gray-200 disabled:hover:text-gray-400 disabled:cursor-not-allowed'
             }`}
           >
             {t.label}
-            {t.pronto && <span className="ml-2 text-xs text-gray-600">pronto</span>}
+            {t.pronto && <span className="ml-1 sm:ml-2 text-xs text-gray-600">pronto</span>}
           </button>
         ))}
       </div>

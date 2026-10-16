@@ -410,12 +410,12 @@ const Inicio = () => {
 
       {/* Filtro de año */}
       <div className="card bg-gray-800/50 border-gray-700">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <label className="text-sm font-medium text-gray-300">Filtrar por año:</label>
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-            className="input-field w-48"
+            className="input-field w-full sm:w-48"
           >
             <option value="all">Todos los años</option>
             {availableYears.map(year => (
@@ -466,14 +466,14 @@ const Inicio = () => {
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Gastos por Categoría</h2>
           
-          <div className="flex gap-6">
+          <div className="flex flex-col md:flex-row gap-6">
             {/* Pie Chart */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <ExpensesPieChart key={`pie-${chartKey}`} data={categoriesData} />
             </div>
             
             {/* Categories List */}
-            <div className="w-72 border-l border-gray-700 pl-6">
+            <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-gray-700 pt-6 md:pt-0 md:pl-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-400 uppercase">Categorías</h3>
                 <button
@@ -872,7 +872,7 @@ const Inicio = () => {
                 </table>
                 
                 {/* Pagination Controls */}
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
                   <p className="text-sm text-gray-500">
                     Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalResults)} de {totalResults} resultado{totalResults !== 1 ? 's' : ''}
                   </p>
