@@ -55,6 +55,18 @@ export const investmentService = {
     return response.data;
   },
 
+  // Lee operaciones pegadas desde la app del broker (Fima) y marca las ya cargadas
+  previewImport: async (assetId, texto) => {
+    const response = await api.post(`/investments/assets/${assetId}/import/preview`, { texto });
+    return response.data;
+  },
+
+  // movimientos: [{ fecha, tipo: 'Aporte'|'Retiro', monto, notas? }]
+  importMovements: async (assetId, movimientos) => {
+    const response = await api.post(`/investments/assets/${assetId}/import`, { movimientos });
+    return response.data;
+  },
+
   // { fecha, cotizacion_usd?, cotizacion_eur?, valuaciones: [{ asset_id, monto }] }
   createValuations: async (data) => {
     const response = await api.post('/investments/valuations', data);

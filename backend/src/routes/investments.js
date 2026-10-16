@@ -14,7 +14,9 @@ import {
   getMovements,
   createMovement,
   updateMovement,
-  deleteMovement
+  deleteMovement,
+  previewImport,
+  importMovements
 } from '../controllers/investmentController.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -44,6 +46,9 @@ router.route('/assets/:id')
 router.route('/assets/:id/movements')
   .get(getMovements)
   .post(createMovement);
+
+router.post('/assets/:id/import/preview', previewImport);
+router.post('/assets/:id/import', importMovements);
 
 router.route('/assets/:id/movements/:movId')
   .put(updateMovement)

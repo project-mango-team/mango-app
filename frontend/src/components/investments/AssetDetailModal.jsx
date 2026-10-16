@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import Modal from '../Modal'
 import ConfirmModal from '../ConfirmModal'
 import MovementForm from './MovementForm'
+import ImportMovementsModal from './ImportMovementsModal'
 import { investmentService } from '../../services/investmentService'
 import { formatMoney, formatPercent, formatFecha, mensajeError } from '../../utils/format'
 
@@ -37,6 +38,7 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
   const [error, setError] = useState(null)
   const [form, setForm] = useState(null) // null | { inicial, titulo }
   const [confirmar, setConfirmar] = useState(null) // null | { tipo: 'mov' | 'activo', mov? }
+  const [importando, setImportando] = useState(false)
 
   const cargar = useCallback(async () => {
     try {
@@ -157,6 +159,9 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                 >
                   Actualizar valor
                 </button>
+                <button onClick={() => setImportando(true)} className="btn-secondary">
+                  Importar
+                </button>
                 {!r.cerrado && r.valor_actual > 0 && (
                   <button
                     onClick={() => setForm({ inicial: { tipo: 'Retiro', monto: r.valor_actual }, titulo: 'Cerrar activo (retiro total)' })}
@@ -227,6 +232,16 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
           </div>
         )}
       </Modal>
+
+      <ImportMovementsModal
+        asset={asset}
+        isOpen={importando}
+        onClose={() => setImportando(false)}
+        onImported={() => {
+          cargar()
+          onChanged()
+        }}
+      />
 
       <ConfirmModal
         isOpen={Boolean(confirmar)}

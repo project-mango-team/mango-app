@@ -8,6 +8,7 @@ import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { DolarService, hoyArgentina } from '../services/dolarService.js';
 import { getInvestmentTypes } from '../config/investmentTypes.js';
 import { resumirPrestamos } from '../utils/loanCalc.js';
+import { parseOperacionesFima, marcarDuplicados } from '../utils/investmentImport.js';
 import { parseFecha, parseMonto, parseCotizacion } from '../utils/inputParsers.js';
 import {
   convertirMonto,
@@ -30,6 +31,24 @@ const resolverCotizaciones = async (moneda, fecha, body) => {
   if (moneda !== 'EUR') return { usd };
   const eur = parseCotizacion(body.cotizacion_eur, 'EUR') ?? (await DolarService.getEuro(fecha)).promedio;
   return { usd, eur };
+};
+
+/**
+ * Función fecha → cotizaciones { usd, eur? } para muchas fechas con una sola llamada por moneda:
+ * hoy usa la cotización en vivo (igual que Portfolio) y los días pasados, el historial.
+ * El historial del euro arranca en 2023: antes de eso se usa su primer valor.
+ */
+const crearCotizacionesEn = async (necesitaEuro) => {
+  const hoy = hoyArgentina();
+  const [historialUsd, historialEur, cotHoy] = await Promise.all([
+    DolarService.getHistorial('blue'),
+    necesitaEuro ? DolarService.getHistorialEuro() : null,
+    getCotizacionesHoy(necesitaEuro)
+  ]);
+  const cotizacionesEn = (fecha) => (fecha >= hoy
+    ? cotHoy
+    : { usd: cotizacionEnFecha(historialUsd, fecha), eur: historialEur ? cotizacionEnFecha(historialEur, fecha) : undefined });
+  return { cotizacionesEn, cotHoy };
 };
 
 const getCotizacionesHoy = async (incluirEuro) => {
@@ -464,17 +483,7 @@ export const getPerformance = async (req, res, next) => {
       porActivo.get(mov.asset_id.toString())?.push(mov);
     }
 
-    const necesitaEuro = assets.some(a => a.moneda === 'EUR');
-    const [historialUsd, historialEur, cotHoy] = await Promise.all([
-      DolarService.getHistorial('blue'),
-      necesitaEuro ? DolarService.getHistorialEuro() : null,
-      getCotizacionesHoy(necesitaEuro)
-    ]);
-    // Hoy usa la cotización en vivo (igual que Portfolio); días pasados, el historial.
-    // El historial del euro arranca en 2023: antes de eso se usa su primer valor.
-    const cotizacionesEn = (fecha) => (fecha >= hoy
-      ? cotHoy
-      : { usd: cotizacionEnFecha(historialUsd, fecha), eur: historialEur ? cotizacionEnFecha(historialEur, fecha) : undefined });
+    const { cotizacionesEn, cotHoy } = await crearCotizacionesEn(assets.some(a => a.moneda === 'EUR'));
 
     const activos = assets
       .map(asset => {
@@ -532,6 +541,82 @@ export const getPerformance = async (req, res, next) => {
         serie
       }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------- Importación de movimientos ----------
+
+const MAX_IMPORTACION = 2000;
+
+/**
+ * Previsualiza operaciones pegadas desde la app del broker (por ahora, Fima).
+ * Body: { texto }. Devuelve cada operación marcando si ya está cargada en el activo.
+ */
+export const previewImport = async (req, res, next) => {
+  try {
+    const asset = await findAssetOrFail(req, req.params.id);
+    const { operaciones, errores } = parseOperacionesFima(req.body.texto);
+    if (operaciones.length === 0) {
+      throw new AppError('No se encontraron operaciones en el texto. Copiá el listado completo de la app de Fima.', 400);
+    }
+
+    const existentes = await InvestmentMovement.find(buildUserQuery(req, { asset_id: asset._id })).lean();
+    const duplicados = marcarDuplicados(operaciones, existentes);
+
+    res.json({
+      success: true,
+      data: {
+        operaciones: operaciones.map((op, i) => ({ ...op, duplicado: duplicados[i] })),
+        errores
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Carga muchos aportes/retiros de una vez. Body: { movimientos: [{ fecha, tipo, monto, notas? }] }
+ * La cotización de cada fecha sale del historial (una sola llamada para todo el lote).
+ */
+export const importMovements = async (req, res, next) => {
+  try {
+    const asset = await findAssetOrFail(req, req.params.id);
+    const { movimientos } = req.body;
+    if (!Array.isArray(movimientos) || movimientos.length === 0) {
+      throw new AppError('No hay movimientos para importar', 400);
+    }
+    if (movimientos.length > MAX_IMPORTACION) {
+      throw new AppError(`Se pueden importar hasta ${MAX_IMPORTACION} movimientos por vez`, 400);
+    }
+
+    const filas = movimientos.map(({ fecha, tipo, monto, notas = '' }) => {
+      if (!['Aporte', 'Retiro'].includes(tipo)) {
+        throw new AppError('Solo se pueden importar aportes y retiros', 400);
+      }
+      return { fecha, fechaDate: parseFecha(fecha), tipo, monto: parseMonto(monto), notas: String(notas) };
+    });
+
+    const { cotizacionesEn } = await crearCotizacionesEn(asset.moneda === 'EUR');
+
+    const docs = filas.map(({ fecha, fechaDate, tipo, monto, notas }) => {
+      const cot = cotizacionesEn(fecha);
+      return {
+        asset_id: asset._id,
+        tipo,
+        fecha: fechaDate,
+        monto,
+        cotizacion_usd: cot.usd,
+        cotizacion_eur: asset.moneda === 'EUR' ? cot.eur : undefined,
+        notas,
+        ...convertirMonto(monto, asset.moneda, cot)
+      };
+    });
+
+    const creados = await InvestmentMovement.insertMany(addUserToData(req, docs));
+    res.status(201).json({ success: true, count: creados.length, message: `Se importaron ${creados.length} movimiento(s)` });
   } catch (error) {
     next(error);
   }
