@@ -47,3 +47,18 @@ export const addUserToTransactionData = (req, data) => {
 export const addUserToOperationData = (req, operationData) => {
   return { ...operationData, user_id: req.user._id };
 };
+/**
+ * Generic helper to add user_id to any user-owned document data
+ * @param {Object} req - Express request object
+ * @param {Object|Array} data - Document data (single object or array)
+ * @returns {Object|Array} Data with user_id added
+ */
+export const addUserToData = (req, data) => {
+  const userId = req.user._id;
+
+  if (Array.isArray(data)) {
+    return data.map(item => ({ ...item, user_id: userId }));
+  }
+
+  return { ...data, user_id: userId };
+};

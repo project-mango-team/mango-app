@@ -1,0 +1,5 @@
+{
+  "env": {
+    "DEV_GUEST_LOGIN": "true"
+  }
+}

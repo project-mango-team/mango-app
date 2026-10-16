@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Logo from '../components/Logo'
+import api from '../services/api'
 
 const Login = () => {
-  const { login, isAuthenticated, loading } = useAuth()
+  const { login, isAuthenticated, loading, checkAuth } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const error = searchParams.get('error')
@@ -14,6 +15,12 @@ const Login = () => {
       navigate('/', { replace: true })
     }
   }, [isAuthenticated, navigate])
+
+  // Solo en `npm run dev`: el backend además exige DEV_GUEST_LOGIN y localhost
+  const loginAsGuest = async () => {
+    await api.post('/auth/dev-login')
+    await checkAuth()
+  }
 
   if (loading) {
     return (
@@ -80,6 +87,15 @@ const Login = () => {
             </svg>
             Continuar con Google
           </button>
+
+          {import.meta.env.DEV && (
+            <button
+              onClick={loginAsGuest}
+              className="w-full mt-3 border border-dashed border-gray-600 hover:border-gray-400 text-gray-400 hover:text-gray-200 text-sm py-2 px-4 rounded-lg transition-colors"
+            >
+              Entrar como invitado (solo dev)
+            </button>
+          )}
 
           <div className="mt-6 pt-6 border-t border-gray-700">
             <p className="text-xs text-gray-500 text-center">

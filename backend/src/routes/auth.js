@@ -1,5 +1,6 @@
 import express from 'express';
 import passport from 'passport';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -96,5 +97,44 @@ router.get('/check', (req, res) => {
     } : null
   });
 });
+
+/**
+ * Login de invitado para desarrollo local, sin Google.
+ * Solo existe si DEV_GUEST_LOGIN=true (lo setea nodemon.json, o sea `npm run dev`),
+ * NODE_ENV no es production y la conexión viene de localhost.
+ */
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+export const isDevGuestEnabled = () =>
+  process.env.DEV_GUEST_LOGIN === 'true' && process.env.NODE_ENV !== 'production';
+
+if (isDevGuestEnabled()) {
+  console.warn('⚠️  DEV_GUEST_LOGIN activo: POST /api/auth/dev-login habilitado (solo localhost)');
+
+  router.post('/dev-login', async (req, res, next) => {
+    try {
+      // remoteAddress es el socket real; no depende de X-Forwarded-For
+      if (!LOOPBACK.has(req.socket.remoteAddress)) {
+        return res.status(404).json({ success: false, message: 'Not found' });
+      }
+
+      const user = await User.findOneAndUpdate(
+        { googleId: 'dev-guest' },
+        {
+          $setOnInsert: { googleId: 'dev-guest', email: 'guest@mango.local', name: 'Invitado (dev)' },
+          $set: { lastLogin: new Date() }
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.json({ success: true, data: { _id: user._id, email: user.email, name: user.name } });
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+}
 
 export default router;

@@ -45,6 +45,15 @@ const userSchema = new mongoose.Schema({
     of: [String],
     default: {}
   },
+  // Tipos de activo propios; los base están en config/investmentTypes.js
+  investmentTypes: {
+    type: [{
+      _id: false,
+      nombre: { type: String, required: true, trim: true },
+      liquido: { type: Boolean, default: false }
+    }],
+    default: []
+  },
   lastLogin: {
     type: Date,
     default: Date.now
