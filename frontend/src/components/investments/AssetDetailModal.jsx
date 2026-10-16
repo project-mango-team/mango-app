@@ -166,9 +166,11 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                   </button>
                 )}
                 <div className="flex-1" />
-                <button onClick={() => onEdit(asset)} className="px-3 py-2 text-sm text-gray-300 hover:text-white">
-                  Editar datos
-                </button>
+                {onEdit && (
+                  <button onClick={() => onEdit(asset)} className="px-3 py-2 text-sm text-gray-300 hover:text-white">
+                    Editar datos
+                  </button>
+                )}
                 <button onClick={() => setConfirmar({ tipo: 'activo' })} className="px-3 py-2 text-sm text-red-400 hover:text-red-300">
                   Borrar activo
                 </button>

@@ -30,7 +30,7 @@ export const getBlue = async (req, res, next) => {
   }
 };
 
-// Euro oficial (promedio compra/venta) usado para inversiones. ?fecha=YYYY-MM-DD opcional
+// Euro equivalente al blue (blue × cruce EUR/USD oficial) usado para inversiones. ?fecha=YYYY-MM-DD opcional
 export const getEuro = async (req, res, next) => {
   try {
     validarFechaQuery(req.query.fecha);

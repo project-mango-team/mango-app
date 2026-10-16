@@ -37,7 +37,7 @@ const investmentMovementSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  // ARS por EUR, solo para activos en EUR
+  // ARS por EUR equivalente al blue (blue × cruce EUR/USD), solo para activos en EUR
   cotizacion_eur: {
     type: Number,
     min: 0

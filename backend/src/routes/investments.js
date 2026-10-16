@@ -5,6 +5,7 @@ import {
   deleteType,
   getAssets,
   getPortfolio,
+  getPerformance,
   createValuations,
   getAsset,
   createAsset,
@@ -28,6 +29,7 @@ router.route('/types')
 router.delete('/types/:nombre', deleteType);
 
 router.get('/portfolio', getPortfolio);
+router.get('/performance', getPerformance);
 router.post('/valuations', createValuations);
 
 router.route('/assets')

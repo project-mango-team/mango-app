@@ -10,7 +10,11 @@ import {
   convertirMonto,
   calcularResumenActivo,
   calcularTotalesPortfolio,
-  ordenarMovimientos
+  ordenarMovimientos,
+  cotizacionEnFecha,
+  calcularRendimientoPeriodo,
+  cierresDeMes,
+  calcularSerieMensual
 } from '../utils/investmentCalc.js';
 
 // ---------- Helpers ----------
@@ -443,6 +447,111 @@ export const createValuations = async (req, res, next) => {
 
     const movimientos = await InvestmentMovement.insertMany(addUserToData(req, docs));
     res.status(201).json({ success: true, count: movimientos.length, data: movimientos });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------- Rendimientos ----------
+
+const validarFechaOpcional = (fecha, nombre) => {
+  if (fecha === undefined || fecha === '') return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || isNaN(new Date(`${fecha}T00:00:00Z`))) {
+    throw new AppError(`${nombre} debe tener formato YYYY-MM-DD`, 400);
+  }
+  return fecha;
+};
+
+/**
+ * Ganancias por activo (incluye cerrados), totales realizada/no realizada y serie mensual.
+ * ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD (opcionales; sin desde = desde el primer movimiento)
+ */
+export const getPerformance = async (req, res, next) => {
+  try {
+    const hoy = hoyArgentina();
+    const desde = validarFechaOpcional(req.query.desde, 'desde');
+    const hastaQuery = validarFechaOpcional(req.query.hasta, 'hasta');
+    const hasta = !hastaQuery || hastaQuery > hoy ? hoy : hastaQuery;
+    if (desde && desde > hasta) {
+      throw new AppError('La fecha desde no puede ser posterior a hasta', 400);
+    }
+
+    const assets = await InvestmentAsset.find(buildUserQuery(req)).sort({ nombre: 1 });
+    const movimientos = await InvestmentMovement.find(buildUserQuery(req)).lean();
+
+    const porActivo = new Map(assets.map(a => [a._id.toString(), []]));
+    for (const mov of movimientos) {
+      porActivo.get(mov.asset_id.toString())?.push(mov);
+    }
+
+    const necesitaEuro = assets.some(a => a.moneda === 'EUR');
+    const [historialUsd, historialEur, cotHoy] = await Promise.all([
+      DolarService.getHistorial('blue'),
+      necesitaEuro ? DolarService.getHistorialEuro() : null,
+      getCotizacionesHoy(necesitaEuro)
+    ]);
+    // Hoy usa la cotización en vivo (igual que Portfolio); días pasados, el historial.
+    // El historial del euro arranca en 2023: antes de eso se usa su primer valor.
+    const cotizacionesEn = (fecha) => (fecha >= hoy
+      ? cotHoy
+      : { usd: cotizacionEnFecha(historialUsd, fecha), eur: historialEur ? cotizacionEnFecha(historialEur, fecha) : undefined });
+
+    const activos = assets
+      .map(asset => {
+        const movs = porActivo.get(asset._id.toString());
+        return {
+          _id: asset._id,
+          nombre: asset.nombre,
+          tipo: asset.tipo,
+          moneda: asset.moneda,
+          plataforma: asset.plataforma,
+          cerrado: calcularResumenActivo(asset, movs, cotHoy).cerrado,
+          primer_movimiento: movs.length ? ordenarMovimientos(movs)[0].fecha : null,
+          ...calcularRendimientoPeriodo(asset, movs, { desde, hasta }, cotizacionesEn)
+        };
+      })
+      .filter(a => a.activo_en_periodo);
+
+    const totales = { ganancia_usd: 0, ganancia_ars: 0, realizada_usd: 0, realizada_ars: 0, no_realizada_usd: 0, no_realizada_ars: 0 };
+    for (const a of activos) {
+      const clave = a.cerrado ? 'realizada' : 'no_realizada';
+      totales.ganancia_usd += a.ganancia_usd;
+      totales.ganancia_ars += a.ganancia_ars;
+      totales[`${clave}_usd`] += a.ganancia_usd;
+      totales[`${clave}_ars`] += a.ganancia_ars;
+    }
+    const base = activos.reduce(
+      (acc, a) => ({ usd: acc.usd + a.valor_inicio_usd + a.aportado_usd, ars: acc.ars + a.valor_inicio_ars + a.aportado_ars }),
+      { usd: 0, ars: 0 }
+    );
+    for (const key of Object.keys(totales)) {
+      totales[key] = Math.round(totales[key] * 100) / 100;
+    }
+    totales.rendimiento_usd = base.usd > 0 ? totales.ganancia_usd / base.usd : 0;
+    totales.rendimiento_ars = base.ars > 0 ? totales.ganancia_ars / base.ars : 0;
+
+    const primeraFecha = movimientos.length
+      ? ordenarMovimientos(movimientos)[0].fecha.toISOString().slice(0, 10)
+      : null;
+    const inicioSerie = desde && primeraFecha && desde > primeraFecha ? desde : primeraFecha;
+    const serie = inicioSerie && inicioSerie <= hasta
+      ? calcularSerieMensual(
+        assets.map(a => ({ moneda: a.moneda, movimientos: porActivo.get(a._id.toString()) })),
+        cierresDeMes(inicioSerie, hasta),
+        cotizacionesEn
+      )
+      : [];
+
+    res.json({
+      success: true,
+      data: {
+        desde: desde || primeraFecha,
+        hasta,
+        totales,
+        activos: activos.sort((a, b) => b.ganancia_usd - a.ganancia_usd),
+        serie
+      }
+    });
   } catch (error) {
     next(error);
   }

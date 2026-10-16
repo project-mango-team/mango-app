@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { AppError } from '../middleware/errorHandler.js';
+import { cotizacionEnFecha } from '../utils/investmentCalc.js';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 let cache = null;
@@ -7,6 +8,10 @@ let cache = null;
 // Cotizaciones para inversiones: las de hoy vencen con CACHE_TTL_MS, las de días pasados no cambian
 const cotizacionesHoy = new Map();
 const cotizacionesHistoricas = new Map();
+
+// Historial completo por casa ({ data, fetchedAt }); se refresca cada HISTORIAL_TTL_MS
+const HISTORIAL_TTL_MS = 6 * 60 * 60 * 1000;
+const historiales = new Map();
 
 const ENDPOINTS_INVERSION = {
   blue: {
@@ -16,6 +21,10 @@ const ENDPOINTS_INVERSION = {
   eur: {
     actual: 'https://dolarapi.com/v1/cotizaciones/eur',
     historico: 'https://api.argentinadatos.com/v1/cotizaciones/eur'
+  },
+  oficial: {
+    actual: 'https://dolarapi.com/v1/dolares/oficial',
+    historico: 'https://api.argentinadatos.com/v1/cotizaciones/dolares/oficial'
   }
 };
 
@@ -96,11 +105,41 @@ export class DolarService {
   }
 
   /**
-   * Euro oficial (ARS por EUR) usado para valuar inversiones
+   * Euro equivalente al blue (ARS por EUR) usado para valuar inversiones:
+   * blue × (euro oficial / dólar oficial), o sea el cruce EUR/USD llevado al dólar blue.
+   * Usar el euro oficial directo mezclaría tipos de cambio y la brecha se vería como ganancia.
    * @param {string} [fecha] - YYYY-MM-DD; sin fecha o con fecha de hoy trae la actual
    */
   static async getEuro(fecha) {
-    return DolarService.getCotizacionInversion('eur', fecha);
+    const [eur, oficial, blue] = await Promise.all([
+      DolarService.getCotizacionInversion('eur', fecha),
+      DolarService.getCotizacionInversion('oficial', fecha),
+      DolarService.getCotizacionInversion('blue', fecha)
+    ]);
+    const cruce = eur.promedio / oficial.promedio;
+    return {
+      casa: 'eur',
+      promedio: blue.promedio * cruce,
+      cruce_eur_usd: cruce,
+      fecha: blue.fecha,
+      fuente: eur.fuente
+    };
+  }
+
+  /**
+   * Historial del euro equivalente al blue (ver getEuro), desde 2023
+   * @returns {Promise<Array<{ fecha: string, promedio: number }>>}
+   */
+  static async getHistorialEuro() {
+    const [eur, oficial, blue] = await Promise.all([
+      DolarService.getHistorial('eur'),
+      DolarService.getHistorial('oficial'),
+      DolarService.getHistorial('blue')
+    ]);
+    return eur.map(({ fecha, promedio }) => ({
+      fecha,
+      promedio: cotizacionEnFecha(blue, fecha) * (promedio / cotizacionEnFecha(oficial, fecha))
+    }));
   }
 
   static async getCotizacionInversion(casa, fecha) {
@@ -150,5 +189,32 @@ export class DolarService {
 
     const nombre = casa === 'eur' ? 'del euro' : 'del dólar blue';
     throw new AppError(`No se pudo obtener la cotización ${nombre} para el ${dia}. Ingresala manualmente.`, 503);
+  }
+
+  /**
+   * Historial diario completo (blue desde 2011, euro desde 2023) ordenado por fecha
+   * @param {'blue'|'eur'} casa
+   * @returns {Promise<Array<{ fecha: string, promedio: number }>>}
+   */
+  static async getHistorial(casa) {
+    const cached = historiales.get(casa);
+    if (cached && Date.now() - cached.fetchedAt < HISTORIAL_TTL_MS) {
+      return cached.data;
+    }
+
+    try {
+      const { data: raw } = await axios.get(ENDPOINTS_INVERSION[casa].historico, { timeout: 15000 });
+      const data = raw
+        .map(c => ({ fecha: c.fecha, promedio: (parseFloat(c.compra) + parseFloat(c.venta)) / 2 }))
+        .filter(c => c.promedio > 0)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));
+      historiales.set(casa, { data, fetchedAt: Date.now() });
+      return data;
+    } catch (error) {
+      console.warn(`Error fetching ${casa} history:`, error.message);
+      // Si falla el refresco, mejor un historial viejo que nada
+      if (cached) return cached.data;
+      throw new AppError('No se pudo obtener el historial de cotizaciones. Probá de nuevo en un rato.', 503);
+    }
   }
 }

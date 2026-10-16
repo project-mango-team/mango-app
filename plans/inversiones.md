@@ -65,7 +65,8 @@ Las colecciones nuevas no se comparten con `mango-py`, así que **`fecha` es un 
 ## Cotizaciones
 
 - Se extiende `DolarService` con `getBlue(fecha?)`. Para hoy usa `dolarapi.com/v1/dolares/blue`. Para fechas pasadas usa `api.argentinadatos.com/v1/cotizaciones/dolares/blue/YYYY/MM/DD`. En los dos casos devuelve `(compra+venta)/2`. Ambos endpoints están probados y responden.
-- Se agrega `getEuro()` con `dolarapi.com/v1/cotizaciones/eur`.
+- `getEuro()` devuelve un euro equivalente al blue: `blue × (euro oficial / dólar oficial)`. Usar el euro oficial directo con el dólar blue haría que los cambios en la brecha parezcan ganancia.
+- Para la serie de Rendimientos, `getHistorial()` trae el historial diario completo en una sola llamada (argentinadatos) y lo cachea 6 h.
 - Si la API falla, el form pide la cotización a mano. Sin fallback hardcodeado.
 - El `getCotizacion()` oficial de las tarjetas queda como está.
 

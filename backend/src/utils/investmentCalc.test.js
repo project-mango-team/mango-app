@@ -3,7 +3,11 @@ import {
   convertirMonto,
   calcularValorActual,
   calcularResumenActivo,
-  calcularTotalesPortfolio
+  calcularTotalesPortfolio,
+  cotizacionEnFecha,
+  calcularRendimientoPeriodo,
+  cierresDeMes,
+  calcularSerieMensual
 } from './investmentCalc.js';
 
 // Arma un movimiento con montos convertidos a la cotización indicada
@@ -187,5 +191,109 @@ describe('calcularTotalesPortfolio', () => {
     expect(totales.valor_usd).toBe(0);
     expect(totales.rendimiento_usd).toBe(0);
     expect(por_tipo).toEqual([]);
+  });
+});
+
+describe('cotizacionEnFecha', () => {
+  const hist = [
+    { fecha: '2025-01-02', promedio: 1000 },
+    { fecha: '2025-01-03', promedio: 1010 },
+    { fecha: '2025-01-06', promedio: 1020 }
+  ];
+
+  it('devuelve la del día exacto', () => {
+    expect(cotizacionEnFecha(hist, '2025-01-03')).toBe(1010);
+  });
+
+  it('en un día sin dato usa la anterior (fin de semana)', () => {
+    expect(cotizacionEnFecha(hist, '2025-01-05')).toBe(1010);
+    expect(cotizacionEnFecha(hist, '2025-02-01')).toBe(1020);
+  });
+
+  it('antes del historial usa la primera', () => {
+    expect(cotizacionEnFecha(hist, '2024-12-01')).toBe(1000);
+  });
+});
+
+describe('calcularRendimientoPeriodo', () => {
+  const cotFija = (usd) => () => ({ usd });
+
+  it('sin desde coincide con el resumen histórico', () => {
+    const cot = { usd: 1000 };
+    const movs = [
+      mov('Aporte', '2025-01-01', 1000, 'USD', cot),
+      mov('Valuacion', '2025-12-01', 1150, 'USD', cot),
+      mov('Retiro', '2026-01-15', 1150, 'USD', cot)
+    ];
+    const r = calcularRendimientoPeriodo({ moneda: 'USD' }, movs, { hasta: '2026-10-16' }, cotFija(1500));
+    expect(r.ganancia_usd).toBe(150);
+    expect(r.rendimiento_usd).toBeCloseTo(0.15);
+  });
+
+  it('con rango toma el valor al inicio como base y descuenta los aportes del período', () => {
+    const cot = { usd: 1000 };
+    const movs = [
+      mov('Aporte', '2025-01-01', 1000, 'USD', cot),
+      mov('Valuacion', '2025-12-31', 1100, 'USD', cot),
+      mov('Aporte', '2026-03-01', 500, 'USD', cot),
+      mov('Valuacion', '2026-06-30', 1700, 'USD', cot)
+    ];
+    // En 2026 arranca en 1100, aporta 500 y termina en 1700: ganó 100
+    const r = calcularRendimientoPeriodo({ moneda: 'USD' }, movs, { desde: '2026-01-01', hasta: '2026-06-30' }, cotFija(1000));
+    expect(r.valor_inicio_usd).toBe(1100);
+    expect(r.aportado_usd).toBe(500);
+    expect(r.ganancia_usd).toBe(100);
+    expect(r.rendimiento_usd).toBeCloseTo(100 / 1600);
+  });
+
+  it('activo en ARS: la suba del dólar en el período se ve como pérdida en USD', () => {
+    const movs = [mov('Aporte', '2025-01-01', 1000000, 'ARS', { usd: 1000 })];
+    const cotPorFecha = (f) => ({ usd: f < '2026-01-01' ? 1000 : 1250 });
+    const r = calcularRendimientoPeriodo({ moneda: 'ARS' }, movs, { desde: '2026-01-01', hasta: '2026-06-30' }, cotPorFecha);
+    expect(r.ganancia_ars).toBe(0);
+    expect(r.ganancia_usd).toBe(-200);
+  });
+
+  it('marca si el activo no tuvo nada en el período', () => {
+    const cot = { usd: 1000 };
+    const movs = [
+      mov('Aporte', '2025-01-01', 1000, 'USD', cot),
+      mov('Retiro', '2025-03-01', 1000, 'USD', cot)
+    ];
+    const r = calcularRendimientoPeriodo({ moneda: 'USD' }, movs, { desde: '2026-01-01', hasta: '2026-06-30' }, cotFija(1000));
+    expect(r.activo_en_periodo).toBe(false);
+    expect(r.ganancia_usd).toBe(0);
+  });
+});
+
+describe('cierresDeMes', () => {
+  it('lista fines de mes y termina en hasta', () => {
+    expect(cierresDeMes('2025-11-14', '2026-02-10')).toEqual(['2025-11-30', '2025-12-31', '2026-01-31', '2026-02-10']);
+  });
+
+  it('un solo mes', () => {
+    expect(cierresDeMes('2026-10-01', '2026-10-16')).toEqual(['2026-10-16']);
+  });
+});
+
+describe('calcularSerieMensual', () => {
+  it('valor vs capital neto acumulado por mes', () => {
+    const cot = { usd: 1000 };
+    const activos = [
+      {
+        moneda: 'USD',
+        movimientos: [
+          mov('Aporte', '2026-01-10', 1000, 'USD', cot),
+          mov('Valuacion', '2026-02-20', 1100, 'USD', cot),
+          mov('Retiro', '2026-03-05', 1100, 'USD', cot)
+        ]
+      }
+    ];
+    const serie = calcularSerieMensual(activos, ['2026-01-31', '2026-02-28', '2026-03-31'], () => cot);
+    expect(serie.map(p => [p.valor_usd, p.capital_usd, p.ganancia_usd])).toEqual([
+      [1000, 1000, 0],
+      [1100, 1000, 100],
+      [0, -100, 100]
+    ]);
   });
 });

@@ -6,6 +6,15 @@ export const investmentService = {
     return response.data;
   },
 
+  // { desde?, hasta? } en YYYY-MM-DD
+  getPerformance: async ({ desde, hasta } = {}) => {
+    const params = {};
+    if (desde) params.desde = desde;
+    if (hasta) params.hasta = hasta;
+    const response = await api.get('/investments/performance', { params });
+    return response.data;
+  },
+
   getAssets: async (estado = 'todos') => {
     const response = await api.get('/investments/assets', { params: { estado } });
     return response.data;

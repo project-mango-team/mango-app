@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import PortfolioTab from '../components/investments/PortfolioTab'
+import RendimientosTab from '../components/investments/RendimientosTab'
 
 const TABS = [
   { id: 'portfolio', label: 'Portfolio' },
-  { id: 'rendimientos', label: 'Rendimientos', pronto: true },
+  { id: 'rendimientos', label: 'Rendimientos' },
   { id: 'prestamos', label: 'Préstamos', pronto: true }
 ]
 
@@ -69,6 +70,7 @@ const Inversiones = () => {
       </div>
 
       {tab === 'portfolio' && <PortfolioTab moneda={moneda} />}
+      {tab === 'rendimientos' && <RendimientosTab moneda={moneda} />}
     </div>
   )
 }
