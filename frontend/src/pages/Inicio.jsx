@@ -3,6 +3,7 @@ import { statsService, transactionService, categoryService } from '../services/t
 import ExpensesPieChart, { COLORS } from '../components/charts/ExpensesPieChart'
 import MonthlyComparisonChart from '../components/charts/MonthlyComparisonChart'
 import BalanceLineChart from '../components/charts/BalanceLineChart'
+import InversionesNota from '../components/InversionesNota'
 
 const Inicio = () => {
   const [stats, setStats] = useState(null)
@@ -435,6 +436,7 @@ const Inicio = () => {
           <p className={`text-4xl font-bold ${balanceColor}`}>
             ${(stats?.balance ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
+          <InversionesNota inversiones={stats?.inversiones} />
         </div>
 
         <div className="card">

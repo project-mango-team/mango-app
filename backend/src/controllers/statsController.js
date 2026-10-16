@@ -1,5 +1,9 @@
 import Transaction from '../models/Transaction.js';
 import { buildUserQuery } from '../utils/userQuery.js';
+import { CATEGORIA_INVERSION } from '../models/User.js';
+
+// Plata que va o vuelve de inversiones: no es gasto ni ingreso, se muestra aparte
+const SIN_INVERSIONES = { categoria: { $ne: CATEGORIA_INVERSION } };
 
 // Helper function to build date filters
 const buildDateFilter = (year) => {
@@ -23,13 +27,12 @@ export const getStats = async (req, res, next) => {
 
     const transactions = await Transaction.find(query);
 
-    const gastos = transactions
-      .filter(t => t.tipo === 'Gasto')
+    const sumar = (tipo, esInversion) => transactions
+      .filter(t => t.tipo === tipo && (t.categoria === CATEGORIA_INVERSION) === esInversion)
       .reduce((sum, t) => sum + t.importe, 0);
 
-    const ingresos = transactions
-      .filter(t => t.tipo === 'Ingreso')
-      .reduce((sum, t) => sum + t.importe, 0);
+    const gastos = sumar('Gasto', false);
+    const ingresos = sumar('Ingreso', false);
 
     res.json({
       success: true,
@@ -37,7 +40,11 @@ export const getStats = async (req, res, next) => {
         total_gastos: gastos,
         total_ingresos: ingresos,
         balance: ingresos - gastos,
-        num_transacciones: transactions.length
+        num_transacciones: transactions.length,
+        inversiones: {
+          enviado: sumar('Gasto', true),
+          recibido: sumar('Ingreso', true)
+        }
       }
     });
   } catch (error) {
@@ -50,7 +57,7 @@ export const getGastosByCategoria = async (req, res, next) => {
   try {
     const { year } = req.query;
     const dateFilter = buildDateFilter(year);
-    const matchFilter = buildUserQuery(req, { tipo: 'Gasto', ...dateFilter });
+    const matchFilter = buildUserQuery(req, { tipo: 'Gasto', ...dateFilter, ...SIN_INVERSIONES });
     
     const gastos = await Transaction.aggregate([
       { $match: matchFilter },
@@ -87,7 +94,7 @@ export const getMonthlySummary = async (req, res, next) => {
     ];
 
     const gastos = await Transaction.aggregate([
-      { $match: buildUserQuery(req, { tipo: 'Gasto', ...dateFilter }) },
+      { $match: buildUserQuery(req, { tipo: 'Gasto', ...dateFilter, ...SIN_INVERSIONES }) },
       {
         $group: {
           _id: '$mes',
@@ -97,7 +104,7 @@ export const getMonthlySummary = async (req, res, next) => {
     ]);
 
     const ingresos = await Transaction.aggregate([
-      { $match: buildUserQuery(req, { tipo: 'Ingreso', ...dateFilter }) },
+      { $match: buildUserQuery(req, { tipo: 'Ingreso', ...dateFilter, ...SIN_INVERSIONES }) },
       {
         $group: {
           _id: '$mes',

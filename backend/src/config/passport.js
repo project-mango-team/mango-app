@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import User from '../models/User.js';
+import User, { DEFAULT_CATEGORIES } from '../models/User.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 
 // Serialize user to store in session
@@ -37,19 +37,7 @@ passport.use(
           
           // Ensure user has categories (migration for existing users)
           if (!user.categories || user.categories.length === 0) {
-            user.categories = [
-              'Transferencia',
-              'Transporte',
-              'Salud',
-              'Supermercado',
-              'Comida',
-              'Servicios',
-              'Ocio',
-              'Ropa',
-              'Mantenimiento',
-              'Ingreso',
-              'Otros'
-            ];
+            user.categories = [...DEFAULT_CATEGORIES];
           }
 
           if (!user.categoryKeywords || user.categoryKeywords.size === 0) {
