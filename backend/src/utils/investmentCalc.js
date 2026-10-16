@@ -113,3 +113,56 @@ export const calcularResumenActivo = (activo, movimientos, cotizacionesHoy) => {
     ultimo_movimiento: ultimaFecha
   };
 };
+
+/**
+ * Totales del portfolio a partir de activos que ya traen su `resumen`
+ * Solo cuenta activos abiertos; la liquidez sale del flag `liquido` de cada tipo.
+ * @param {Array<{ tipo: string, resumen: Object }>} activos
+ * @param {Array<{ nombre: string, liquido: boolean }>} tipos
+ */
+export const calcularTotalesPortfolio = (activos, tipos) => {
+  const liquidos = new Set(tipos.filter(t => t.liquido).map(t => t.nombre));
+  const totales = {
+    valor_usd: 0,
+    valor_ars: 0,
+    aportado_usd: 0,
+    aportado_ars: 0,
+    ganancia_usd: 0,
+    ganancia_ars: 0,
+    liquidez_usd: 0,
+    liquidez_ars: 0
+  };
+  const porTipo = new Map();
+
+  for (const { tipo, resumen } of activos) {
+    if (resumen.cerrado) continue;
+
+    totales.valor_usd += resumen.valor_actual_usd;
+    totales.valor_ars += resumen.valor_actual_ars;
+    totales.aportado_usd += resumen.aportado_usd;
+    totales.aportado_ars += resumen.aportado_ars;
+    totales.ganancia_usd += resumen.ganancia_usd;
+    totales.ganancia_ars += resumen.ganancia_ars;
+    if (liquidos.has(tipo)) {
+      totales.liquidez_usd += resumen.valor_actual_usd;
+      totales.liquidez_ars += resumen.valor_actual_ars;
+    }
+
+    const actual = porTipo.get(tipo) || { tipo, valor_usd: 0, valor_ars: 0, liquido: liquidos.has(tipo) };
+    actual.valor_usd += resumen.valor_actual_usd;
+    actual.valor_ars += resumen.valor_actual_ars;
+    porTipo.set(tipo, actual);
+  }
+
+  for (const key of Object.keys(totales)) {
+    totales[key] = redondear(totales[key]);
+  }
+  totales.rendimiento_usd = totales.aportado_usd > 0 ? totales.ganancia_usd / totales.aportado_usd : 0;
+  totales.rendimiento_ars = totales.aportado_ars > 0 ? totales.ganancia_ars / totales.aportado_ars : 0;
+
+  const por_tipo = [...porTipo.values()]
+    .map(t => ({ ...t, valor_usd: redondear(t.valor_usd), valor_ars: redondear(t.valor_ars) }))
+    .sort((a, b) => b.valor_usd - a.valor_usd);
+
+  return { totales, por_tipo };
+};

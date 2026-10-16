@@ -6,7 +6,12 @@ import { AppError } from '../middleware/errorHandler.js';
 import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { DolarService, hoyArgentina } from '../services/dolarService.js';
 import { getInvestmentTypes } from '../config/investmentTypes.js';
-import { convertirMonto, calcularResumenActivo, ordenarMovimientos } from '../utils/investmentCalc.js';
+import {
+  convertirMonto,
+  calcularResumenActivo,
+  calcularTotalesPortfolio,
+  ordenarMovimientos
+} from '../utils/investmentCalc.js';
 
 // ---------- Helpers ----------
 
@@ -173,27 +178,58 @@ export const deleteType = async (req, res, next) => {
 
 // ---------- Activos ----------
 
+/**
+ * Todos los activos del usuario con su resumen calculado a la cotización de hoy
+ */
+const cargarActivosConResumen = async (req) => {
+  const assets = await InvestmentAsset.find(buildUserQuery(req)).sort({ nombre: 1 });
+  const movimientos = await InvestmentMovement.find(buildUserQuery(req)).lean();
+
+  const porActivo = new Map();
+  for (const mov of movimientos) {
+    const key = mov.asset_id.toString();
+    if (!porActivo.has(key)) porActivo.set(key, []);
+    porActivo.get(key).push(mov);
+  }
+
+  const cotizaciones = await getCotizacionesHoy(assets.some(a => a.moneda === 'EUR'));
+  const activos = assets.map(a => conResumen(a, porActivo.get(a._id.toString()) || [], cotizaciones));
+  return { activos, cotizaciones };
+};
+
 // Lista de activos con su resumen. ?estado=abiertos|cerrados|todos (default todos)
 export const getAssets = async (req, res, next) => {
   try {
     const { estado = 'todos' } = req.query;
-    const assets = await InvestmentAsset.find(buildUserQuery(req)).sort({ nombre: 1 });
-    const movimientos = await InvestmentMovement.find(buildUserQuery(req)).lean();
+    const { activos, cotizaciones } = await cargarActivosConResumen(req);
 
-    const porActivo = new Map();
-    for (const mov of movimientos) {
-      const key = mov.asset_id.toString();
-      if (!porActivo.has(key)) porActivo.set(key, []);
-      porActivo.get(key).push(mov);
-    }
-
-    const cotizacionesHoy = await getCotizacionesHoy(assets.some(a => a.moneda === 'EUR'));
-    let data = assets.map(a => conResumen(a, porActivo.get(a._id.toString()) || [], cotizacionesHoy));
-
+    let data = activos;
     if (estado === 'abiertos') data = data.filter(a => !a.resumen.cerrado);
     if (estado === 'cerrados') data = data.filter(a => a.resumen.cerrado);
 
-    res.json({ success: true, count: data.length, cotizaciones: cotizacionesHoy, data });
+    res.json({ success: true, count: data.length, cotizaciones, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Vista Portfolio: activos abiertos + totales, liquidez y distribución por tipo
+export const getPortfolio = async (req, res, next) => {
+  try {
+    const { activos, cotizaciones } = await cargarActivosConResumen(req);
+    const tipos = getInvestmentTypes(req.user);
+    const { totales, por_tipo } = calcularTotalesPortfolio(activos, tipos);
+
+    res.json({
+      success: true,
+      data: {
+        cotizaciones,
+        totales,
+        por_tipo,
+        activos: activos.filter(a => !a.resumen.cerrado),
+        cantidad_cerrados: activos.filter(a => a.resumen.cerrado).length
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -363,6 +399,50 @@ export const deleteMovement = async (req, res, next) => {
       throw new AppError('Movimiento no encontrado', 404);
     }
     res.json({ success: true, message: 'Movimiento eliminado' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Carga varias valuaciones con la misma fecha: { fecha, cotizacion_usd?, cotizacion_eur?, valuaciones: [{ asset_id, monto }] }
+export const createValuations = async (req, res, next) => {
+  try {
+    const { fecha, valuaciones } = req.body;
+    const fechaDate = parseFecha(fecha);
+    if (!Array.isArray(valuaciones) || valuaciones.length === 0) {
+      throw new AppError('No hay valuaciones para guardar', 400);
+    }
+
+    const ids = valuaciones.map(v => v.asset_id);
+    if (!ids.every(id => mongoose.isValidObjectId(id)) || new Set(ids).size !== ids.length) {
+      throw new AppError('Lista de activos inválida', 400);
+    }
+    const assets = await InvestmentAsset.find(buildUserQuery(req, { _id: { $in: ids } }));
+    if (assets.length !== ids.length) {
+      throw new AppError('Activo no encontrado', 404);
+    }
+    const assetsById = new Map(assets.map(a => [a._id.toString(), a]));
+
+    // Una sola consulta de cotización para todo el lote
+    const necesitaEuro = assets.some(a => a.moneda === 'EUR');
+    const cot = await resolverCotizaciones(necesitaEuro ? 'EUR' : 'USD', fecha, req.body);
+
+    const docs = valuaciones.map(({ asset_id, monto }) => {
+      const asset = assetsById.get(asset_id);
+      const montoNum = parseMonto(monto);
+      return {
+        asset_id: asset._id,
+        tipo: 'Valuacion',
+        fecha: fechaDate,
+        monto: montoNum,
+        cotizacion_usd: cot.usd,
+        cotizacion_eur: asset.moneda === 'EUR' ? cot.eur : undefined,
+        ...convertirMonto(montoNum, asset.moneda, cot)
+      };
+    });
+
+    const movimientos = await InvestmentMovement.insertMany(addUserToData(req, docs));
+    res.status(201).json({ success: true, count: movimientos.length, data: movimientos });
   } catch (error) {
     next(error);
   }

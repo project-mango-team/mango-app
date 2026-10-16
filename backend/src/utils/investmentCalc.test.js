@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   convertirMonto,
   calcularValorActual,
-  calcularResumenActivo
+  calcularResumenActivo,
+  calcularTotalesPortfolio
 } from './investmentCalc.js';
 
 // Arma un movimiento con montos convertidos a la cotización indicada
@@ -146,5 +147,45 @@ describe('calcularResumenActivo', () => {
     expect(r.valor_actual_ars).toBe(450500);
     expect(r.aportado_usd).toBeCloseTo(291.5, 1);
     expect(r.valor_actual_usd).toBeCloseTo(300.33, 2);
+  });
+});
+
+describe('calcularTotalesPortfolio', () => {
+  const resumen = (valor_usd, aportado_usd, extra = {}) => ({
+    valor_actual_usd: valor_usd,
+    valor_actual_ars: valor_usd * 1000,
+    aportado_usd,
+    aportado_ars: aportado_usd * 1000,
+    ganancia_usd: valor_usd - aportado_usd,
+    ganancia_ars: (valor_usd - aportado_usd) * 1000,
+    cerrado: false,
+    ...extra
+  });
+  const tipos = [{ nombre: 'FCI', liquido: true }, { nombre: 'ETF', liquido: false }];
+
+  it('suma activos abiertos, separa liquidez y agrupa por tipo', () => {
+    const { totales, por_tipo } = calcularTotalesPortfolio([
+      { tipo: 'FCI', resumen: resumen(1100, 1000) },
+      { tipo: 'FCI', resumen: resumen(500, 500) },
+      { tipo: 'ETF', resumen: resumen(2000, 1500) },
+      { tipo: 'ETF', resumen: resumen(0, 800, { cerrado: true, ganancia_usd: 100 }) }
+    ], tipos);
+
+    expect(totales.valor_usd).toBe(3600);
+    expect(totales.liquidez_usd).toBe(1600);
+    expect(totales.aportado_usd).toBe(3000);
+    expect(totales.ganancia_usd).toBe(600);
+    expect(totales.rendimiento_usd).toBeCloseTo(0.2);
+    expect(por_tipo.map(t => [t.tipo, t.valor_usd, t.liquido])).toEqual([
+      ['ETF', 2000, false],
+      ['FCI', 1600, true]
+    ]);
+  });
+
+  it('portfolio vacío da todo en cero', () => {
+    const { totales, por_tipo } = calcularTotalesPortfolio([], tipos);
+    expect(totales.valor_usd).toBe(0);
+    expect(totales.rendimiento_usd).toBe(0);
+    expect(por_tipo).toEqual([]);
   });
 });

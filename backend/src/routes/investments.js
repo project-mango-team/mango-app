@@ -4,6 +4,8 @@ import {
   createType,
   deleteType,
   getAssets,
+  getPortfolio,
+  createValuations,
   getAsset,
   createAsset,
   updateAsset,
@@ -24,6 +26,9 @@ router.route('/types')
   .post(createType);
 
 router.delete('/types/:nombre', deleteType);
+
+router.get('/portfolio', getPortfolio);
+router.post('/valuations', createValuations);
 
 router.route('/assets')
   .get(getAssets)
