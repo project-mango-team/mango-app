@@ -19,8 +19,7 @@ const PerformanceTable = ({ activos, moneda, conRango, onSelect }) => {
             <th className="px-4 py-3 font-medium">Activo</th>
             <th className="px-4 py-3 font-medium">Estado</th>
             {conRango && <th className="px-4 py-3 font-medium text-right">Valor al inicio</th>}
-            <th className="px-4 py-3 font-medium text-right">Aportado</th>
-            <th className="px-4 py-3 font-medium text-right">Retirado</th>
+            <th className="px-4 py-3 font-medium text-right" title="Aportes menos retiros del período">Aporte neto</th>
             <th className="px-4 py-3 font-medium text-right">{conRango ? 'Valor al final' : 'Valor actual'}</th>
             <th className="px-4 py-3 font-medium text-right">Ganancia</th>
             <th className="px-4 py-3 font-medium text-right">%</th>
@@ -43,8 +42,7 @@ const PerformanceTable = ({ activos, moneda, conRango, onSelect }) => {
                 </span>
               </td>
               {conRango && <td className="px-4 py-3 text-right text-gray-400 tabular-nums">{formatMoney(a[`valor_inicio_${s}`], moneda)}</td>}
-              <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{formatMoney(a[`aportado_${s}`], moneda)}</td>
-              <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{formatMoney(a[`retirado_${s}`], moneda)}</td>
+              <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{formatMoney(a[`aporte_neto_${s}`], moneda)}</td>
               <td className="px-4 py-3 text-right text-white tabular-nums">{formatMoney(a[`valor_fin_${s}`], moneda)}</td>
               <td className={`px-4 py-3 text-right tabular-nums font-medium ${colorGanancia(a[`ganancia_${s}`])}`}>
                 {formatMoney(a[`ganancia_${s}`], moneda, { signo: true })}

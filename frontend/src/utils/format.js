@@ -15,6 +15,8 @@ export const formatMoney = (value, moneda = 'ARS', { signo = false } = {}) => {
 }
 
 export const formatPercent = (ratio, { signo = true } = {}) => {
+  // null = no hay capital contra el cual medir
+  if (ratio === null || ratio === undefined) return '—'
   const n = (Number(ratio) || 0) * 100
   const prefijo = signo && n > 0 ? '+' : ''
   return `${prefijo}${n.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`

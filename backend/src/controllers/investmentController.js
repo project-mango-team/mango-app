@@ -509,15 +509,16 @@ export const getPerformance = async (req, res, next) => {
       totales[`${clave}_usd`] += a.ganancia_usd;
       totales[`${clave}_ars`] += a.ganancia_ars;
     }
+    // % del total: ganancia sobre la suma de los capitales promedio de cada activo
     const base = activos.reduce(
-      (acc, a) => ({ usd: acc.usd + a.valor_inicio_usd + a.aportado_usd, ars: acc.ars + a.valor_inicio_ars + a.aportado_ars }),
+      (acc, a) => ({ usd: acc.usd + a.capital_promedio_usd, ars: acc.ars + a.capital_promedio_ars }),
       { usd: 0, ars: 0 }
     );
     for (const key of Object.keys(totales)) {
       totales[key] = Math.round(totales[key] * 100) / 100;
     }
-    totales.rendimiento_usd = base.usd > 0 ? totales.ganancia_usd / base.usd : 0;
-    totales.rendimiento_ars = base.ars > 0 ? totales.ganancia_ars / base.ars : 0;
+    totales.rendimiento_usd = base.usd > 0 ? totales.ganancia_usd / base.usd : null;
+    totales.rendimiento_ars = base.ars > 0 ? totales.ganancia_ars / base.ars : null;
 
     const primeraFecha = movimientos.length
       ? ordenarMovimientos(movimientos)[0].fecha.toISOString().slice(0, 10)

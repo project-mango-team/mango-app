@@ -25,10 +25,11 @@ const serieValor = (movimientosDesc) => {
   })
 }
 
-const Stat = ({ label, value, className = 'text-white' }) => (
+const Stat = ({ label, value, hint, className = 'text-white' }) => (
   <div>
     <p className="text-xs text-gray-400">{label}</p>
     <p className={`text-lg font-semibold tabular-nums ${className}`}>{value}</p>
+    {hint && <p className="text-xs text-gray-500">{hint}</p>}
   </div>
 )
 
@@ -105,8 +106,16 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Stat label={`Valor actual (${asset.moneda})`} value={formatMoney(r.valor_actual, asset.moneda)} />
-              <Stat label="Aportado" value={formatMoney(r[`aportado_${s}`], moneda)} />
-              <Stat label="Retirado" value={formatMoney(r[`retirado_${s}`], moneda)} />
+              <Stat
+                label="Aporte neto"
+                value={formatMoney(r[`aporte_neto_${s}`], moneda)}
+                hint={`Aportes ${formatMoney(r[`aportado_${s}`], moneda)} · Retiros ${formatMoney(r[`retirado_${s}`], moneda)}`}
+              />
+              <Stat
+                label="Capital promedio"
+                value={formatMoney(r[`capital_promedio_${s}`], moneda)}
+                hint="Plata invertida en promedio; base del %"
+              />
               <Stat
                 label="Ganancia"
                 value={`${formatMoney(r[`ganancia_${s}`], moneda, { signo: true })} (${formatPercent(r[`rendimiento_${s}`])})`}

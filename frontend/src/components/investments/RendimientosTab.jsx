@@ -118,7 +118,7 @@ const RendimientosTab = ({ moneda }) => {
               label="Ganancia total"
               value={formatMoney(t[`ganancia_${s}`], moneda, { signo: true })}
               valueClass={colorGanancia(t[`ganancia_${s}`])}
-              hint={`${formatPercent(t[`rendimiento_${s}`])} sobre lo invertido en el período`}
+              hint={`${formatPercent(t[`rendimiento_${s}`])} sobre el capital promedio del período`}
             />
             <Card
               label="Realizada"

@@ -141,7 +141,7 @@ describe('calcularResumenActivo', () => {
     const r = calcularResumenActivo({ moneda: 'USD' }, [], { usd: 1500 });
     expect(r.valor_actual_usd).toBe(0);
     expect(r.ganancia_usd).toBe(0);
-    expect(r.rendimiento_usd).toBe(0);
+    expect(r.rendimiento_usd).toBeNull();
     expect(r.cerrado).toBe(false);
   });
 
@@ -162,6 +162,10 @@ describe('calcularTotalesPortfolio', () => {
     aportado_ars: aportado_usd * 1000,
     ganancia_usd: valor_usd - aportado_usd,
     ganancia_ars: (valor_usd - aportado_usd) * 1000,
+    aporte_neto_usd: aportado_usd,
+    aporte_neto_ars: aportado_usd * 1000,
+    capital_promedio_usd: aportado_usd,
+    capital_promedio_ars: aportado_usd * 1000,
     cerrado: false,
     ...extra
   });
@@ -189,7 +193,7 @@ describe('calcularTotalesPortfolio', () => {
   it('portfolio vacío da todo en cero', () => {
     const { totales, por_tipo } = calcularTotalesPortfolio([], tipos);
     expect(totales.valor_usd).toBe(0);
-    expect(totales.rendimiento_usd).toBe(0);
+    expect(totales.rendimiento_usd).toBeNull();
     expect(por_tipo).toEqual([]);
   });
 });
@@ -243,7 +247,39 @@ describe('calcularRendimientoPeriodo', () => {
     expect(r.valor_inicio_usd).toBe(1100);
     expect(r.aportado_usd).toBe(500);
     expect(r.ganancia_usd).toBe(100);
-    expect(r.rendimiento_usd).toBeCloseTo(100 / 1600);
+    // Los 500 estuvieron 121 de los 180 días del período
+    expect(r.capital_promedio_usd).toBeCloseTo(1100 + 500 * 121 / 180, 1);
+    expect(r.rendimiento_usd).toBeCloseTo(100 / (1100 + 500 * 121 / 180));
+  });
+
+  it('cuenta usada como caja: el % se mide contra la plata que estuvo, no contra lo que pasó', () => {
+    // Saldo de 1000 todo el año, pero entra y sale 10.000 cada mes; rindió 100 en el año
+    const cot = { usd: 1000 };
+    const movs = [mov('Aporte', '2026-01-01', 1000, 'USD', cot)];
+    for (let mes = 2; mes <= 12; mes++) {
+      const m = String(mes).padStart(2, '0');
+      movs.push(mov('Aporte', `2026-${m}-01`, 10000, 'USD', cot));
+      movs.push(mov('Retiro', `2026-${m}-02`, 10000, 'USD', cot));
+    }
+    movs.push(mov('Valuacion', '2026-12-31', 1100, 'USD', cot));
+    const r = calcularRendimientoPeriodo({ moneda: 'USD' }, movs, { hasta: '2026-12-31' }, cotFija(1000));
+    expect(r.aportado_usd).toBe(111000);
+    expect(r.aporte_neto_usd).toBe(1000);
+    expect(r.ganancia_usd).toBe(100);
+    // Los 10.000 de cada mes estuvieron invertidos un día: capital ≈ 1000 + 11 × 10.000 / 364
+    expect(r.capital_promedio_usd).toBeCloseTo(1000 + 11 * 10000 / 364, 0);
+    // ~7,7%, no 0,09% (100 / 111.000)
+    expect(r.rendimiento_usd).toBeCloseTo(100 / (1000 + 11 * 10000 / 364), 3);
+  });
+
+  it('activo comprado a mitad del rango se mide desde que se compró', () => {
+    const cot = { usd: 1000 };
+    const movs = [
+      mov('Aporte', '2026-07-01', 1000, 'USD', cot),
+      mov('Valuacion', '2026-12-31', 1100, 'USD', cot)
+    ];
+    const r = calcularRendimientoPeriodo({ moneda: 'USD' }, movs, { desde: '2026-01-01', hasta: '2026-12-31' }, cotFija(1000));
+    expect(r.rendimiento_usd).toBeCloseTo(0.1);
   });
 
   it('activo en ARS: la suba del dólar en el período se ve como pérdida en USD', () => {

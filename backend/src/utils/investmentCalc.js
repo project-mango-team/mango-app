@@ -64,50 +64,38 @@ export const calcularValorActual = (movimientos) =>
 const redondear = (n) => Math.round(n * 100) / 100;
 
 /**
- * Resumen de un activo: valor actual, aportado, retirado, ganancia y rendimiento, en USD y ARS
+ * Resumen histórico de un activo: valor actual, flujos, ganancia y rendimiento, en USD y ARS.
+ * Es el rendimiento del período "desde siempre hasta hoy" (ver calcularRendimientoPeriodo).
  * @param {{ moneda: string }} activo
  * @param {Array} movimientos - Con monto, monto_usd y monto_ars ya calculados
  * @param {{ usd: number, eur?: number }} cotizacionesHoy
+ * @param {string} [hoy] - YYYY-MM-DD; por defecto la fecha actual
  */
-export const calcularResumenActivo = (activo, movimientos, cotizacionesHoy) => {
+export const calcularResumenActivo = (activo, movimientos, cotizacionesHoy, hoy = new Date().toISOString().slice(0, 10)) => {
   const valorActual = calcularValorActual(movimientos);
-  const { monto_usd: valorUsd, monto_ars: valorArs } = convertirMonto(
-    valorActual,
-    activo.moneda,
-    cotizacionesHoy
+  const ultimaFecha = movimientos.reduce(
+    (max, m) => (!max || new Date(m.fecha) > max ? new Date(m.fecha) : max),
+    null
   );
-
-  const totales = { aportado_usd: 0, aportado_ars: 0, retirado_usd: 0, retirado_ars: 0 };
-  let ultimaFecha = null;
-
-  for (const mov of movimientos) {
-    if (mov.tipo === 'Aporte') {
-      totales.aportado_usd += mov.monto_usd;
-      totales.aportado_ars += mov.monto_ars;
-    } else if (mov.tipo === 'Retiro') {
-      totales.retirado_usd += mov.monto_usd;
-      totales.retirado_ars += mov.monto_ars;
-    }
-    if (!ultimaFecha || new Date(mov.fecha) > ultimaFecha) {
-      ultimaFecha = new Date(mov.fecha);
-    }
-  }
-
-  const gananciaUsd = valorUsd + totales.retirado_usd - totales.aportado_usd;
-  const gananciaArs = valorArs + totales.retirado_ars - totales.aportado_ars;
+  const hasta = ultimaFecha && toISO(ultimaFecha) > hoy ? toISO(ultimaFecha) : hoy;
+  const r = calcularRendimientoPeriodo(activo, movimientos, { hasta }, () => cotizacionesHoy);
 
   return {
     valor_actual: redondear(valorActual),
-    valor_actual_usd: redondear(valorUsd),
-    valor_actual_ars: redondear(valorArs),
-    aportado_usd: redondear(totales.aportado_usd),
-    aportado_ars: redondear(totales.aportado_ars),
-    retirado_usd: redondear(totales.retirado_usd),
-    retirado_ars: redondear(totales.retirado_ars),
-    ganancia_usd: redondear(gananciaUsd),
-    ganancia_ars: redondear(gananciaArs),
-    rendimiento_usd: totales.aportado_usd > 0 ? gananciaUsd / totales.aportado_usd : 0,
-    rendimiento_ars: totales.aportado_ars > 0 ? gananciaArs / totales.aportado_ars : 0,
+    valor_actual_usd: r.valor_fin_usd,
+    valor_actual_ars: r.valor_fin_ars,
+    aportado_usd: r.aportado_usd,
+    aportado_ars: r.aportado_ars,
+    retirado_usd: r.retirado_usd,
+    retirado_ars: r.retirado_ars,
+    aporte_neto_usd: r.aporte_neto_usd,
+    aporte_neto_ars: r.aporte_neto_ars,
+    capital_promedio_usd: r.capital_promedio_usd,
+    capital_promedio_ars: r.capital_promedio_ars,
+    ganancia_usd: r.ganancia_usd,
+    ganancia_ars: r.ganancia_ars,
+    rendimiento_usd: r.rendimiento_usd,
+    rendimiento_ars: r.rendimiento_ars,
     cerrado: movimientos.length > 0 && Math.abs(valorActual) < EPSILON,
     cantidad_movimientos: movimientos.length,
     ultimo_movimiento: ultimaFecha
@@ -127,6 +115,10 @@ export const calcularTotalesPortfolio = (activos, tipos) => {
     valor_ars: 0,
     aportado_usd: 0,
     aportado_ars: 0,
+    aporte_neto_usd: 0,
+    aporte_neto_ars: 0,
+    capital_promedio_usd: 0,
+    capital_promedio_ars: 0,
     ganancia_usd: 0,
     ganancia_ars: 0,
     liquidez_usd: 0,
@@ -141,6 +133,10 @@ export const calcularTotalesPortfolio = (activos, tipos) => {
     totales.valor_ars += resumen.valor_actual_ars;
     totales.aportado_usd += resumen.aportado_usd;
     totales.aportado_ars += resumen.aportado_ars;
+    totales.aporte_neto_usd += resumen.aporte_neto_usd;
+    totales.aporte_neto_ars += resumen.aporte_neto_ars;
+    totales.capital_promedio_usd += resumen.capital_promedio_usd;
+    totales.capital_promedio_ars += resumen.capital_promedio_ars;
     totales.ganancia_usd += resumen.ganancia_usd;
     totales.ganancia_ars += resumen.ganancia_ars;
     if (liquidos.has(tipo)) {
@@ -157,8 +153,8 @@ export const calcularTotalesPortfolio = (activos, tipos) => {
   for (const key of Object.keys(totales)) {
     totales[key] = redondear(totales[key]);
   }
-  totales.rendimiento_usd = totales.aportado_usd > 0 ? totales.ganancia_usd / totales.aportado_usd : 0;
-  totales.rendimiento_ars = totales.aportado_ars > 0 ? totales.ganancia_ars / totales.aportado_ars : 0;
+  totales.rendimiento_usd = totales.capital_promedio_usd > EPSILON ? totales.ganancia_usd / totales.capital_promedio_usd : null;
+  totales.rendimiento_ars = totales.capital_promedio_ars > EPSILON ? totales.ganancia_ars / totales.capital_promedio_ars : null;
 
   const por_tipo = [...porTipo.values()]
     .map(t => ({ ...t, valor_usd: redondear(t.valor_usd), valor_ars: redondear(t.valor_ars) }))
@@ -200,11 +196,19 @@ const diaAnterior = (fecha) => {
   return d.toISOString().slice(0, 10);
 };
 
+const DIA_MS = 24 * 60 * 60 * 1000;
+const diasEntre = (desde, hasta) => (new Date(`${hasta}T00:00:00Z`) - new Date(`${desde}T00:00:00Z`)) / DIA_MS;
+
 /**
  * Ganancia de un activo en un período [desde, hasta] (YYYY-MM-DD; sin desde = desde siempre)
- * ganancia = valor_fin − valor_inicio + retiros − aportes del período
+ *   ganancia = valor_fin − valor_inicio + retiros − aportes del período
  * El valor inicial se convierte con la cotización del día anterior a `desde`, el final con la de `hasta`
  * y los flujos con la cotización guardada en cada movimiento.
+ *
+ * El % es ganancia / capital promedio (Modified Dietz): cada aporte o retiro pesa según cuánto tiempo
+ * del período estuvo invertido. Así una cuenta que se usa como caja (aportes y retiros todos los días)
+ * se mide contra la plata que realmente tuvo, no contra la suma bruta de todo lo que entró.
+ * Para un activo que se compró al principio y no se tocó, da lo mismo que ganancia / aportado.
  * @param {(fecha: string) => { usd: number, eur?: number }} cotizacionesEn
  */
 export const calcularRendimientoPeriodo = (activo, movimientos, { desde, hasta }, cotizacionesEn) => {
@@ -216,40 +220,58 @@ export const calcularRendimientoPeriodo = (activo, movimientos, { desde, hasta }
   const ini = valorInicio ? convertirMonto(valorInicio, activo.moneda, cotizacionesEn(inicio)) : cero;
   const fin = valorFin ? convertirMonto(valorFin, activo.moneda, cotizacionesEn(hasta)) : cero;
 
-  const flujos = { aportado_usd: 0, aportado_ars: 0, retirado_usd: 0, retirado_ars: 0 };
-  for (const m of movimientos) {
+  const delPeriodo = movimientos.filter(m => {
     const f = toISO(m.fecha);
-    if ((inicio && f <= inicio) || f > hasta) continue;
-    if (m.tipo === 'Aporte') {
-      flujos.aportado_usd += m.monto_usd;
-      flujos.aportado_ars += m.monto_ars;
-    } else if (m.tipo === 'Retiro') {
-      flujos.retirado_usd += m.monto_usd;
-      flujos.retirado_ars += m.monto_ars;
-    }
+    return (!inicio || f > inicio) && f <= hasta;
+  });
+  const flujos = delPeriodo.filter(m => m.tipo === 'Aporte' || m.tipo === 'Retiro');
+
+  const sumas = { aportado_usd: 0, aportado_ars: 0, retirado_usd: 0, retirado_ars: 0 };
+  for (const m of flujos) {
+    const clave = m.tipo === 'Aporte' ? 'aportado' : 'retirado';
+    sumas[`${clave}_usd`] += m.monto_usd;
+    sumas[`${clave}_ars`] += m.monto_ars;
   }
 
-  const gananciaUsd = fin.monto_usd - ini.monto_usd + flujos.retirado_usd - flujos.aportado_usd;
-  const gananciaArs = fin.monto_ars - ini.monto_ars + flujos.retirado_ars - flujos.aportado_ars;
-  // Base del %: lo que había al inicio más lo aportado en el período
-  const baseUsd = ini.monto_usd + flujos.aportado_usd;
-  const baseArs = ini.monto_ars + flujos.aportado_ars;
+  // Ventana para ponderar: desde que hubo plata (o el inicio del rango) hasta `hasta`,
+  // o hasta el último movimiento si en el período el activo terminó en cero (se cerró)
+  const fechas = delPeriodo.map(m => toISO(m.fecha)).sort();
+  const comienzo = desde && (valorInicio > EPSILON || !fechas.length || fechas[0] < desde) ? desde : (fechas[0] || hasta);
+  const finVentana = valorFin < EPSILON && fechas.length ? fechas.at(-1) : hasta;
+  const largo = diasEntre(comienzo, finVentana);
+  const peso = (fecha) => (largo > 0 ? Math.min(1, Math.max(0, diasEntre(fecha, finVentana) / largo)) : 1);
+
+  const capital = { usd: ini.monto_usd, ars: ini.monto_ars };
+  for (const m of flujos) {
+    const signo = m.tipo === 'Aporte' ? 1 : -1;
+    const w = peso(toISO(m.fecha));
+    capital.usd += signo * w * m.monto_usd;
+    capital.ars += signo * w * m.monto_ars;
+  }
+
+  const gananciaUsd = fin.monto_usd - ini.monto_usd + sumas.retirado_usd - sumas.aportado_usd;
+  const gananciaArs = fin.monto_ars - ini.monto_ars + sumas.retirado_ars - sumas.aportado_ars;
 
   return {
     valor_inicio_usd: redondear(ini.monto_usd),
     valor_inicio_ars: redondear(ini.monto_ars),
     valor_fin_usd: redondear(fin.monto_usd),
     valor_fin_ars: redondear(fin.monto_ars),
-    aportado_usd: redondear(flujos.aportado_usd),
-    aportado_ars: redondear(flujos.aportado_ars),
-    retirado_usd: redondear(flujos.retirado_usd),
-    retirado_ars: redondear(flujos.retirado_ars),
+    aportado_usd: redondear(sumas.aportado_usd),
+    aportado_ars: redondear(sumas.aportado_ars),
+    retirado_usd: redondear(sumas.retirado_usd),
+    retirado_ars: redondear(sumas.retirado_ars),
+    aporte_neto_usd: redondear(sumas.aportado_usd - sumas.retirado_usd),
+    aporte_neto_ars: redondear(sumas.aportado_ars - sumas.retirado_ars),
+    capital_promedio_usd: redondear(capital.usd),
+    capital_promedio_ars: redondear(capital.ars),
     ganancia_usd: redondear(gananciaUsd),
     ganancia_ars: redondear(gananciaArs),
-    rendimiento_usd: baseUsd > 0 ? gananciaUsd / baseUsd : 0,
-    rendimiento_ars: baseArs > 0 ? gananciaArs / baseArs : 0,
+    // null si no hubo capital invertido en el período (no hay contra qué medir)
+    rendimiento_usd: capital.usd > EPSILON ? gananciaUsd / capital.usd : null,
+    rendimiento_ars: capital.ars > EPSILON ? gananciaArs / capital.ars : null,
     // false si en el período no tuvo valor ni movimientos (no hace falta mostrarlo)
-    activo_en_periodo: valorInicio > EPSILON || valorFin > EPSILON || flujos.aportado_usd > 0 || flujos.retirado_usd > 0
+    activo_en_periodo: valorInicio > EPSILON || valorFin > EPSILON || flujos.length > 0
   };
 };
 

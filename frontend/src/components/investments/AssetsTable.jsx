@@ -23,7 +23,7 @@ const AssetsTable = ({ activos, totales, moneda, onSelect }) => {
             <th className="px-4 py-3 font-medium">Activo</th>
             <th className="px-4 py-3 font-medium">Tipo</th>
             <th className="px-4 py-3 font-medium text-right">Valor (moneda orig.)</th>
-            <th className="px-4 py-3 font-medium text-right">Aportado</th>
+            <th className="px-4 py-3 font-medium text-right" title="Aportes menos retiros">Aporte neto</th>
             <th className="px-4 py-3 font-medium text-right">Valor actual</th>
             <th className="px-4 py-3 font-medium text-right">Ganancia</th>
             <th className="px-4 py-3 font-medium text-right">%</th>
@@ -47,13 +47,13 @@ const AssetsTable = ({ activos, totales, moneda, onSelect }) => {
                   {a.renta !== 'N/A' && <span className="text-xs text-gray-500"> · {a.renta}</span>}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-400 tabular-nums">{formatMoney(r.valor_actual, a.moneda)}</td>
-                <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{formatMoney(r[`aportado_${s}`], moneda)}</td>
+                <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{formatMoney(r[`aporte_neto_${s}`], moneda)}</td>
                 <td className="px-4 py-3 text-right text-white tabular-nums">{formatMoney(r[`valor_actual_${s}`], moneda)}</td>
                 <td className={`px-4 py-3 text-right tabular-nums ${colorGanancia(r[`ganancia_${s}`])}`}>
                   {formatMoney(r[`ganancia_${s}`], moneda, { signo: true })}
                 </td>
                 <td className={`px-4 py-3 text-right tabular-nums ${colorGanancia(r[`ganancia_${s}`])}`}>
-                  {r[`aportado_${s}`] > 0 ? formatPercent(r[`rendimiento_${s}`]) : '—'}
+                  {formatPercent(r[`rendimiento_${s}`])}
                 </td>
               </tr>
             )
@@ -62,7 +62,7 @@ const AssetsTable = ({ activos, totales, moneda, onSelect }) => {
         <tfoot>
           <tr className="text-white font-semibold">
             <td className="px-4 py-3" colSpan={3}>Total</td>
-            <td className="px-4 py-3 text-right tabular-nums">{formatMoney(totales[`aportado_${s}`], moneda)}</td>
+            <td className="px-4 py-3 text-right tabular-nums">{formatMoney(totales[`aporte_neto_${s}`], moneda)}</td>
             <td className="px-4 py-3 text-right tabular-nums">{formatMoney(totales[`valor_${s}`], moneda)}</td>
             <td className={`px-4 py-3 text-right tabular-nums ${colorGanancia(totales[`ganancia_${s}`])}`}>
               {formatMoney(totales[`ganancia_${s}`], moneda, { signo: true })}

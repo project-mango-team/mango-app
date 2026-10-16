@@ -34,12 +34,12 @@ const SummaryCards = ({ totales, moneda }) => {
         value={formatMoney(liquidez, moneda)}
         hint={patrimonio > 0 ? `${formatPercent(liquidez / patrimonio, { signo: false })} del patrimonio` : 'Según el tipo de cada activo'}
       />
-      <Card label="Capital aportado" value={formatMoney(totales[`aportado_${s}`], moneda)} hint="Aportes de los activos abiertos" />
+      <Card label="Aporte neto" value={formatMoney(totales[`aporte_neto_${s}`], moneda)} hint="Aportes menos retiros de los activos abiertos" />
       <Card
         label="Ganancia"
         value={formatMoney(ganancia, moneda, { signo: true })}
         valueClass={ganancia > 0 ? 'text-green-400' : ganancia < 0 ? 'text-red-400' : 'text-white'}
-        hint={`${formatPercent(rendimiento)} sobre lo aportado`}
+        hint={`${formatPercent(rendimiento)} sobre el capital promedio`}
       />
     </div>
   )
