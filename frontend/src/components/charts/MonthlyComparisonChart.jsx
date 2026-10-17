@@ -9,8 +9,9 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import { useState, useEffect, useRef } from 'react'
+import { simboloMoneda, formatImporte } from '../../utils/format'
 
-const MonthlyComparisonChart = ({ data }) => {
+const MonthlyComparisonChart = ({ data, moneda = 'ARS' }) => {
   const [animate, setAnimate] = useState(false)
   const chartRef = useRef()
 
@@ -58,11 +59,11 @@ const MonthlyComparisonChart = ({ data }) => {
   // Función para formatear números grandes
   const formatLargeNumber = (value) => {
     if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(0)}M`
+      return `${simboloMoneda(moneda)}${(value / 1000000).toFixed(0)}M`
     } else if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`
+      return `${simboloMoneda(moneda)}${(value / 1000).toFixed(0)}K`
     } else {
-      return `$${value}`
+      return `${simboloMoneda(moneda)}${value}`
     }
   }
 
@@ -72,13 +73,13 @@ const MonthlyComparisonChart = ({ data }) => {
         <div className="bg-gray-800 border border-gray-700 p-3 rounded-lg shadow-lg">
           <p className="text-white font-semibold mb-2">{label}</p>
           <p className="text-green-400">
-            Ingresos: ${payload[1]?.value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Ingresos: {formatImporte(payload[1]?.value, moneda)}
           </p>
           <p className="text-red-400">
-            Gastos: ${payload[0]?.value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Gastos: {formatImporte(payload[0]?.value, moneda)}
           </p>
           <p className="text-primary mt-1 pt-1 border-t border-gray-600">
-            Balance: ${(payload[1]?.value - payload[0]?.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            Balance: {formatImporte(payload[1]?.value - payload[0]?.value, moneda)}
           </p>
         </div>
       )

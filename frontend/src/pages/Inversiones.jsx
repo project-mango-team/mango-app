@@ -2,6 +2,8 @@ import { useState } from 'react'
 import PortfolioTab from '../components/investments/PortfolioTab'
 import RendimientosTab from '../components/investments/RendimientosTab'
 import PrestamosTab from '../components/loans/PrestamosTab'
+import MonedaToggle from '../components/MonedaToggle'
+import useMonedaPreferida from '../hooks/useMonedaPreferida'
 
 const TABS = [
   { id: 'portfolio', label: 'Portfolio' },
@@ -9,28 +11,10 @@ const TABS = [
   { id: 'prestamos', label: 'Préstamos' }
 ]
 
-const MONEDA_KEY = 'mango.inversiones.moneda'
-
-const leerMoneda = () => {
-  try {
-    return localStorage.getItem(MONEDA_KEY) === 'ARS' ? 'ARS' : 'USD'
-  } catch {
-    return 'USD'
-  }
-}
 
 const Inversiones = () => {
   const [tab, setTab] = useState('portfolio')
-  const [moneda, setMonedaState] = useState(leerMoneda)
-
-  const setMoneda = (m) => {
-    setMonedaState(m)
-    try {
-      localStorage.setItem(MONEDA_KEY, m)
-    } catch {
-      // Sin storage disponible: el toggle funciona igual, solo no se recuerda
-    }
-  }
+  const [moneda, setMoneda] = useMonedaPreferida('mango.inversiones.moneda', 'USD')
 
   return (
     <div className="space-y-6">
@@ -39,17 +23,7 @@ const Inversiones = () => {
           <h1 className="text-3xl font-bold text-white">Inversiones</h1>
           <p className="text-gray-400 mt-1">Lo que tenés, cómo está distribuido y cuánto te rindió</p>
         </div>
-        <div className="flex rounded-lg border border-gray-700 overflow-hidden">
-          {['USD', 'ARS'].map(m => (
-            <button
-              key={m}
-              onClick={() => setMoneda(m)}
-              className={`px-4 py-2 text-sm font-medium ${moneda === m ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        <MonedaToggle moneda={moneda} onChange={setMoneda} opciones={['USD', 'ARS']} />
       </div>
 
       <div className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#374151]">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { formatImporte } from '../../utils/format'
 
 export const COLORS = [
   '#FF6B6B', // Coral Red
@@ -16,7 +17,7 @@ export const COLORS = [
   '#5F9EA0'  // Cadet Blue
 ]
 
-const ExpensesPieChart = ({ data }) => {
+const ExpensesPieChart = ({ data, moneda = 'ARS' }) => {
   const [hiddenCategories, setHiddenCategories] = useState({})
 
   useEffect(() => {
@@ -120,7 +121,7 @@ const ExpensesPieChart = ({ data }) => {
         <div className="bg-gray-800 border border-gray-700 p-3 rounded-lg shadow-lg">
           <p className="text-white font-semibold">{payload[0].name}</p>
           <p className="text-primary">
-            ${payload[0].value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatImporte(payload[0].value, moneda)}
           </p>
           <p className="text-gray-400 text-sm">
             {percent}%
@@ -149,7 +150,7 @@ const ExpensesPieChart = ({ data }) => {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm text-gray-400">
-          Total visible: <span className="text-white font-semibold">${visibleTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          Total visible: <span className="text-white font-semibold">{formatImporte(visibleTotal, moneda)}</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <button

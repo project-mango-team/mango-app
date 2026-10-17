@@ -4,6 +4,9 @@ import ExpensesPieChart, { COLORS } from '../components/charts/ExpensesPieChart'
 import MonthlyComparisonChart from '../components/charts/MonthlyComparisonChart'
 import BalanceLineChart from '../components/charts/BalanceLineChart'
 import InversionesNota from '../components/InversionesNota'
+import MonedaToggle from '../components/MonedaToggle'
+import useMonedaPreferida from '../hooks/useMonedaPreferida'
+import { formatImporte } from '../utils/format'
 
 const Inicio = () => {
   const [stats, setStats] = useState(null)
@@ -11,6 +14,7 @@ const Inicio = () => {
   const [monthlyData, setMonthlyData] = useState([])
   const [availableYears, setAvailableYears] = useState([])
   const [selectedYear, setSelectedYear] = useState('all')
+  const [moneda, setMoneda] = useMonedaPreferida('mango.inicio.moneda', 'ARS')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [chartKey, setChartKey] = useState(0)
@@ -56,8 +60,8 @@ const Inicio = () => {
   }, [])
 
   useEffect(() => {
-    loadStats(selectedYear)
-  }, [selectedYear])
+    loadStats(selectedYear, moneda)
+  }, [selectedYear, moneda])
 
   useEffect(() => {
     // Load first page of transactions when year changes or on initial mount
@@ -101,13 +105,13 @@ const Inicio = () => {
     }
   }
 
-  const loadStats = async (year) => {
+  const loadStats = async (year, monedaStats) => {
     try {
       setLoading(true)
       const [statsResponse, categoriesResponse, monthlyResponse] = await Promise.all([
-        statsService.getStats(year),
-        statsService.getByCategory(year),
-        statsService.getMonthlySummary(year)
+        statsService.getStats(year, monedaStats),
+        statsService.getByCategory(year, monedaStats),
+        statsService.getMonthlySummary(year, monedaStats)
       ])
       
       setStats(statsResponse.data)
@@ -404,9 +408,16 @@ const Inicio = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Vista general</h1>
-        <p className="text-gray-400">Gráficos con métricas y análisis</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Vista general</h1>
+          <p className="text-gray-400">
+            {moneda === 'USD'
+              ? 'En dólares: cada movimiento al dólar blue del día en que se hizo'
+              : 'Gráficos con métricas y análisis'}
+          </p>
+        </div>
+        <MonedaToggle moneda={moneda} onChange={setMoneda} />
       </div>
 
       {/* Filtro de año */}
@@ -434,22 +445,22 @@ const Inicio = () => {
         <div className="card">
           <p className="text-sm text-gray-400 mb-2">Balance</p>
           <p className={`text-4xl font-bold ${balanceColor}`}>
-            ${(stats?.balance ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatImporte(stats?.balance ?? 0, moneda)}
           </p>
-          <InversionesNota inversiones={stats?.inversiones} />
+          <InversionesNota inversiones={stats?.inversiones} moneda={moneda} />
         </div>
 
         <div className="card">
           <div className="mb-4">
             <p className="text-xs text-gray-400 mb-1">Total Ingresos</p>
             <p className="text-2xl font-semibold text-green-400">
-              ${(stats?.total_ingresos ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatImporte(stats?.total_ingresos ?? 0, moneda)}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-400 mb-1">Total Gastos</p>
             <p className="text-2xl font-semibold text-red-400">
-              ${(stats?.total_gastos ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatImporte(stats?.total_gastos ?? 0, moneda)}
             </p>
           </div>
         </div>
@@ -471,7 +482,7 @@ const Inicio = () => {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Pie Chart */}
             <div className="flex-1 min-w-0">
-              <ExpensesPieChart key={`pie-${chartKey}`} data={categoriesData} />
+              <ExpensesPieChart key={`pie-${chartKey}`} data={categoriesData} moneda={moneda} />
             </div>
             
             {/* Categories List */}
@@ -663,13 +674,13 @@ const Inicio = () => {
         {/* Gráfico de barras - Comparativa mensual */}
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Comparativa Mensual</h2>
-          <MonthlyComparisonChart data={monthlyData} />
+          <MonthlyComparisonChart data={monthlyData} moneda={moneda} />
         </div>
 
         {/* Gráfico de línea - Balance mensual */}
         <div className="card">
           <h2 className="text-xl font-bold mb-4">Evolución del Balance</h2>
-          <BalanceLineChart data={monthlyData} />
+          <BalanceLineChart data={monthlyData} moneda={moneda} />
         </div>
       </div>
 

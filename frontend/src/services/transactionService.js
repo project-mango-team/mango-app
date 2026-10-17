@@ -39,25 +39,30 @@ export const transactionService = {
   }
 };
 
+// moneda 'USD' convierte cada transacción con el dólar blue de su fecha (lo calcula el backend)
+const statsParams = (year, moneda) => {
+  const params = {};
+  if (year && year !== 'all') params.year = year;
+  if (moneda === 'USD') params.moneda = 'USD';
+  return { params };
+};
+
 export const statsService = {
   // Get general stats
-  getStats: async (year = null) => {
-    const params = year && year !== 'all' ? `?year=${year}` : '';
-    const response = await api.get(`/stats${params}`);
+  getStats: async (year = null, moneda = 'ARS') => {
+    const response = await api.get('/stats', statsParams(year, moneda));
     return response.data;
   },
 
   // Get expenses by category
-  getByCategory: async (year = null) => {
-    const params = year && year !== 'all' ? `?year=${year}` : '';
-    const response = await api.get(`/stats/categorias${params}`);
+  getByCategory: async (year = null, moneda = 'ARS') => {
+    const response = await api.get('/stats/categorias', statsParams(year, moneda));
     return response.data;
   },
 
   // Get monthly summary
-  getMonthlySummary: async (year = null) => {
-    const params = year && year !== 'all' ? `?year=${year}` : '';
-    const response = await api.get(`/stats/monthly${params}`);
+  getMonthlySummary: async (year = null, moneda = 'ARS') => {
+    const response = await api.get('/stats/monthly', statsParams(year, moneda));
     return response.data;
   },
 

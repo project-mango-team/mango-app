@@ -14,6 +14,14 @@ export const formatMoney = (value, moneda = 'ARS', { signo = false } = {}) => {
   return `${prefijo}${SIMBOLOS[moneda] || ''} ${texto}`
 }
 
+/**
+ * Importe con 2 decimales y el símbolo pegado, como en Inicio ("$1.234,56", "US$1.234,56")
+ */
+export const simboloMoneda = (moneda) => (moneda === 'USD' ? 'US$' : '$')
+
+export const formatImporte = (value, moneda = 'ARS') =>
+  `${simboloMoneda(moneda)}${(Number(value) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
 export const formatPercent = (ratio, { signo = true } = {}) => {
   // null = no hay capital contra el cual medir
   if (ratio === null || ratio === undefined) return '—'

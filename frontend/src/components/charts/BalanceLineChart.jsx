@@ -9,8 +9,9 @@ import {
   ReferenceLine
 } from 'recharts'
 import { useState, useEffect, useRef } from 'react'
+import { simboloMoneda, formatImporte } from '../../utils/format'
 
-const BalanceLineChart = ({ data }) => {
+const BalanceLineChart = ({ data, moneda = 'ARS' }) => {
   const [animate, setAnimate] = useState(false)
   const [animatedData, setAnimatedData] = useState([])
   const chartRef = useRef()
@@ -112,11 +113,11 @@ const BalanceLineChart = ({ data }) => {
   // Función para formatear números grandes
   const formatLargeNumber = (value) => {
     if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(0)}M`
+      return `${simboloMoneda(moneda)}${(value / 1000000).toFixed(0)}M`
     } else if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`
+      return `${simboloMoneda(moneda)}${(value / 1000).toFixed(0)}K`
     } else {
-      return `$${value}`
+      return `${simboloMoneda(moneda)}${value}`
     }
   }
 
@@ -129,7 +130,7 @@ const BalanceLineChart = ({ data }) => {
         <div className="bg-gray-800 border border-gray-700 p-3 rounded-lg shadow-lg">
           <p className="text-white font-semibold mb-1">{label}</p>
           <p className={`${balanceColor} text-lg font-bold`}>
-            ${balance.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatImporte(balance, moneda)}
           </p>
         </div>
       )

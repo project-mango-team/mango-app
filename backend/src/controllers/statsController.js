@@ -1,9 +1,13 @@
 import Transaction from '../models/Transaction.js';
 import { buildUserQuery } from '../utils/userQuery.js';
 import { CATEGORIA_INVERSION } from '../models/User.js';
+import { DolarService } from '../services/dolarService.js';
+import { montoTransaccionUsd } from '../utils/transactionCurrency.js';
 
-// Plata que va o vuelve de inversiones: no es gasto ni ingreso, se muestra aparte
-const SIN_INVERSIONES = { categoria: { $ne: CATEGORIA_INVERSION } };
+const MESES_ORDEN = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
 
 // Helper function to build date filters
 const buildDateFilter = (year) => {
@@ -14,28 +18,47 @@ const buildDateFilter = (year) => {
   
   // Match dates in format DD/MM/YYYY for the given year
   return {
-    fecha: { $regex: `\\/${yearNum}$` }
+    fecha: { $regex: `\/${yearNum}$` }
   };
 };
+
+/**
+ * Transacciones del filtro de año con una función que da el monto en la moneda pedida.
+ * ?moneda=USD convierte cada transacción con el dólar blue de su fecha (o usa el monto original
+ * si fue en dólares); no modifica nada guardado. Por defecto, ARS (el importe tal cual).
+ */
+const cargarTransacciones = async (req) => {
+  const moneda = req.query.moneda === 'USD' ? 'USD' : 'ARS';
+  const query = buildUserQuery(req, buildDateFilter(req.query.year));
+  const transactions = await Transaction.find(query)
+    .select('tipo categoria mes fecha importe moneda monto_original')
+    .lean();
+
+  if (moneda === 'ARS') {
+    return { moneda, transactions, monto: (t) => t.importe };
+  }
+  const historial = await DolarService.getHistorial('blue');
+  return { moneda, transactions, monto: (t) => montoTransaccionUsd(t, historial) };
+};
+
+// La plata que va o vuelve de inversiones no es gasto ni ingreso: se muestra aparte
+const esInversion = (t) => t.categoria === CATEGORIA_INVERSION;
 
 // Get general stats
 export const getStats = async (req, res, next) => {
   try {
-    const { year } = req.query;
-    const dateFilter = buildDateFilter(year);
-    const query = buildUserQuery(req, dateFilter);
+    const { moneda, transactions, monto } = await cargarTransacciones(req);
 
-    const transactions = await Transaction.find(query);
-
-    const sumar = (tipo, esInversion) => transactions
-      .filter(t => t.tipo === tipo && (t.categoria === CATEGORIA_INVERSION) === esInversion)
-      .reduce((sum, t) => sum + t.importe, 0);
+    const sumar = (tipo, inversion) => transactions
+      .filter(t => t.tipo === tipo && esInversion(t) === inversion)
+      .reduce((sum, t) => sum + monto(t), 0);
 
     const gastos = sumar('Gasto', false);
     const ingresos = sumar('Ingreso', false);
 
     res.json({
       success: true,
+      moneda,
       data: {
         total_gastos: gastos,
         total_ingresos: ingresos,
@@ -55,27 +78,20 @@ export const getStats = async (req, res, next) => {
 // Get expenses by category
 export const getGastosByCategoria = async (req, res, next) => {
   try {
-    const { year } = req.query;
-    const dateFilter = buildDateFilter(year);
-    const matchFilter = buildUserQuery(req, { tipo: 'Gasto', ...dateFilter, ...SIN_INVERSIONES });
-    
-    const gastos = await Transaction.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: '$categoria',
-          total: { $sum: '$importe' }
-        }
-      },
-      { $sort: { total: -1 } }
-    ]);
+    const { moneda, transactions, monto } = await cargarTransacciones(req);
+
+    const totales = new Map();
+    for (const t of transactions) {
+      if (t.tipo !== 'Gasto' || esInversion(t)) continue;
+      totales.set(t.categoria, (totales.get(t.categoria) || 0) + monto(t));
+    }
 
     res.json({
       success: true,
-      data: gastos.map(g => ({
-        categoria: g._id,
-        total: g.total
-      }))
+      moneda,
+      data: [...totales.entries()]
+        .map(([categoria, total]) => ({ categoria, total }))
+        .sort((a, b) => b.total - a.total)
     });
   } catch (error) {
     next(error);
@@ -85,53 +101,22 @@ export const getGastosByCategoria = async (req, res, next) => {
 // Get monthly summary
 export const getMonthlySummary = async (req, res, next) => {
   try {
-    const { year } = req.query;
-    const dateFilter = buildDateFilter(year);
-    
-    const mesesOrden = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
+    const { moneda, transactions, monto } = await cargarTransacciones(req);
 
-    const gastos = await Transaction.aggregate([
-      { $match: buildUserQuery(req, { tipo: 'Gasto', ...dateFilter, ...SIN_INVERSIONES }) },
-      {
-        $group: {
-          _id: '$mes',
-          total: { $sum: '$importe' }
-        }
-      }
-    ]);
-
-    const ingresos = await Transaction.aggregate([
-      { $match: buildUserQuery(req, { tipo: 'Ingreso', ...dateFilter, ...SIN_INVERSIONES }) },
-      {
-        $group: {
-          _id: '$mes',
-          total: { $sum: '$importe' }
-        }
-      }
-    ]);
-
-    // Combinar datos
-    const summary = mesesOrden.map(mes => {
-      const gastoData = gastos.find(g => g._id === mes);
-      const ingresoData = ingresos.find(i => i._id === mes);
-
-      const gastoTotal = gastoData ? gastoData.total : 0;
-      const ingresoTotal = ingresoData ? ingresoData.total : 0;
-
-      return {
-        mes,
-        gastos: gastoTotal,
-        ingresos: ingresoTotal,
-        balance: ingresoTotal - gastoTotal
-      };
-    });
+    const porMes = new Map(MESES_ORDEN.map(mes => [mes, { gastos: 0, ingresos: 0 }]));
+    for (const t of transactions) {
+      if (esInversion(t) || !porMes.has(t.mes)) continue;
+      const clave = t.tipo === 'Gasto' ? 'gastos' : t.tipo === 'Ingreso' ? 'ingresos' : null;
+      if (clave) porMes.get(t.mes)[clave] += monto(t);
+    }
 
     res.json({
       success: true,
-      data: summary
+      moneda,
+      data: MESES_ORDEN.map(mes => {
+        const { gastos, ingresos } = porMes.get(mes);
+        return { mes, gastos, ingresos, balance: ingresos - gastos };
+      })
     });
   } catch (error) {
     next(error);

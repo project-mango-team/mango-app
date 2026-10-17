@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom'
+import { formatImporte } from '../utils/format'
 
-const formatPesos = (n) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // Aclara que los movimientos con categoría Inversión no cuentan como gasto ni ingreso
-const InversionesNota = ({ inversiones }) => {
+const InversionesNota = ({ inversiones, moneda = 'ARS' }) => {
   const enviado = inversiones?.enviado || 0
   const recibido = inversiones?.recibido || 0
   if (enviado === 0 && recibido === 0) return null
 
   const partes = []
-  if (enviado > 0) partes.push(`${formatPesos(enviado)} enviados`)
-  if (recibido > 0) partes.push(`${formatPesos(recibido)} recibidos`)
+  if (enviado > 0) partes.push(`${formatImporte(enviado, moneda)} enviados`)
+  if (recibido > 0) partes.push(`${formatImporte(recibido, moneda)} recibidos`)
 
   return (
     <p className="text-xs text-gray-500 mt-3">
