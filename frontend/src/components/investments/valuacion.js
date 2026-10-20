@@ -3,7 +3,7 @@
 export const FUENTES_PRECIO = [
   { value: 'manual', label: 'Manual', ayuda: 'Cargás el valor vos con "Actualizar valor".' },
   { value: 'cafci', label: 'FCI (CAFCI)', ayuda: 'Cuotapartes × valor de la cuotaparte que publica la CAFCI.' },
-  { value: 'ticker', label: 'Ticker (ETF, CEDEAR, acción)', ayuda: 'Cantidad × precio del ticker.' },
+  { value: 'ticker', label: 'Ticker (ETF, CEDEAR, acción)', ayuda: 'Cantidad × precio del ticker (Yahoo Finance, con delay).' },
   { value: 'coingecko', label: 'Cripto (CoinGecko)', ayuda: 'Cantidad × precio de la moneda.' },
   { value: 'tasa_fija', label: 'Tasa fija', ayuda: 'Devenga el interés con la tasa anual, sin unidades.' }
 ]
@@ -24,8 +24,8 @@ export const formatUnidades = (n) =>
  */
 export const unidadesAInput = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 
-// Fuentes que ya valúan solas (los tickers llegan con VAL-04)
-export const tienePrecioAutomatico = (fuente) => ['cafci', 'coingecko', 'tasa_fija'].includes(fuente)
+// Todas las fuentes salvo manual valúan solas
+export const tienePrecioAutomatico = (fuente) => Boolean(fuente) && fuente !== 'manual'
 
 const SIMBOLOS = { ARS: '$', USD: 'US$', EUR: '€' }
 

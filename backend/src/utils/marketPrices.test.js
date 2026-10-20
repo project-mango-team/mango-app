@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCoingecko, convertirPrecio } from './marketPrices.js';
+import { parseYahooChart, parseCoingecko, convertirPrecio } from './marketPrices.js';
 
 describe('parseCoingecko', () => {
   it('lee el precio en USD y EUR', () => {
@@ -25,5 +25,26 @@ describe('convertirPrecio', () => {
   it('rechaza monedas que no maneja y cotizaciones faltantes', () => {
     expect(() => convertirPrecio(1, 'GBP', 'USD', cot)).toThrow(/GBP/);
     expect(() => convertirPrecio(1, 'EUR', 'ARS', { usd: 1500 })).toThrow(/cotización/);
+  });
+});
+
+describe('parseYahooChart', () => {
+  // 2026-10-17 20:00 UTC = 17:00 en Buenos Aires
+  const chart = (meta) => ({ chart: { result: [{ meta }] } });
+
+  it('lee el último precio, la moneda y la fecha en el huso de la bolsa', () => {
+    expect(parseYahooChart(chart({ currency: 'ars', regularMarketPrice: 5765, regularMarketTime: 1792267200, gmtoffset: -10800 }), 'X.BA'))
+      .toEqual({ precio: 5765, moneda: 'ARS', fecha: '2026-10-17' });
+  });
+
+  it('usa el offset para no correr la fecha al día siguiente', () => {
+    // 2026-10-18 02:00 UTC = 17/10 23:00 en Nueva York (UTC-4)
+    expect(parseYahooChart(chart({ currency: 'USD', regularMarketPrice: 1, regularMarketTime: 1792288800, gmtoffset: -14400 }), 'X').fecha)
+      .toBe('2026-10-17');
+  });
+
+  it('un ticker inexistente avisa y sugiere .BA', () => {
+    const noEncontrado = { chart: { result: null, error: { code: 'Not Found' } } };
+    expect(() => parseYahooChart(noEncontrado, 'GGAL')).toThrow(/\.BA/);
   });
 });

@@ -24,3 +24,16 @@ describe('MarketPriceService.getCripto', () => {
     await expect(MarketPriceService.getCripto('moneda-b')).rejects.toMatchObject({ statusCode: 503 });
   });
 });
+
+describe('MarketPriceService.getTicker', () => {
+  it('trae el chart de Yahoo y lo parsea', async () => {
+    axios.get.mockResolvedValue({ data: { chart: { result: [{ meta: { currency: 'USD', regularMarketPrice: 700, regularMarketTime: 1792267200, gmtoffset: 0 } }] } } });
+    await expect(MarketPriceService.getTicker('TICK-A')).resolves.toEqual({ precio: 700, moneda: 'USD', fecha: '2026-10-17' });
+    expect(axios.get.mock.calls[0][0]).toBe('https://query1.finance.yahoo.com/v8/finance/chart/TICK-A');
+  });
+
+  it('un 404 de Yahoo es un ticker inexistente, no una caída', async () => {
+    axios.get.mockRejectedValue({ response: { status: 404, data: { chart: { result: null } } } });
+    await expect(MarketPriceService.getTicker('TICK-B')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});

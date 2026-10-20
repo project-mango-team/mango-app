@@ -33,7 +33,8 @@ const PriceSourceFields = ({ value, onChange, tenencia }) => {
       {fuente === 'ticker' && (
         <label className="block">
           <span className="text-sm text-gray-400">Ticker</span>
-          <input type="text" value={config.ticker || ''} onChange={setConfig('ticker')} placeholder="ej: SPY, GGAL" className="input-field w-full mt-1" required />
+          <input type="text" value={config.ticker || ''} onChange={setConfig('ticker')} placeholder="ej: SPY, GGAL.BA" className="input-field w-full mt-1" required />
+          <span className="text-xs text-gray-500">CEDEARs y acciones argentinas con .BA (cotizan en pesos, ej: SPY.BA). Sin .BA es el precio en Estados Unidos, en dólares.</span>
         </label>
       )}
       {fuente === 'coingecko' && (

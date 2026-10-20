@@ -11,8 +11,17 @@ import { convertirMonto } from '../utils/investmentCalc.js';
 // Valuación automática de activos según su fuente de precio (VAL).
 // Todo se filtra por el user_id del activo, así sirve tanto desde un request como desde un job.
 
-// Fuentes que ya valúan solas (los tickers llegan con VAL-04)
-export const FUENTES_AUTOMATICAS = ['cafci', 'coingecko', 'tasa_fija'];
+export const FUENTES_AUTOMATICAS = ['cafci', 'ticker', 'coingecko', 'tasa_fija'];
+
+/**
+ * Precio de un ticker en la moneda del activo. Si cotiza en otra moneda (ej: SPY en USD para un activo en ARS)
+ * se convierte con el dólar blue de la fecha del precio; para CEDEARs en pesos conviene el ticker .BA.
+ */
+const precioTicker = async (asset) => {
+  const { precio, moneda, fecha } = await MarketPriceService.getTicker(asset.precio_config?.ticker);
+  const cot = moneda === asset.moneda ? {} : await cotizacionesEn(fecha, moneda === 'EUR' || asset.moneda === 'EUR');
+  return { precio: convertirPrecio(precio, moneda, asset.moneda, cot), fecha, fuente: 'Yahoo Finance' };
+};
 
 /**
  * Precio de una cripto en la moneda del activo: USD o EUR directo de CoinGecko, ARS al dólar blue de hoy
@@ -21,13 +30,13 @@ const precioCripto = async (asset) => {
   const { usd, eur } = await MarketPriceService.getCripto(asset.precio_config?.coingecko_id);
   const fecha = hoyArgentina();
   if (asset.moneda === 'EUR' && eur) return { precio: eur, fecha, fuente: 'CoinGecko' };
-  const cot = asset.moneda === 'USD' ? { usd: 1 } : await cotizacionesHoy(asset.moneda);
+  const cot = asset.moneda === 'USD' ? { usd: 1 } : await cotizacionesEn(undefined, asset.moneda === 'EUR');
   return { precio: convertirPrecio(usd, 'USD', asset.moneda, cot), fecha, fuente: 'CoinGecko' };
 };
 
-const cotizacionesHoy = async (moneda) => {
-  const usd = (await DolarService.getBlue()).promedio;
-  return moneda === 'EUR' ? { usd, eur: (await DolarService.getEuro()).promedio } : { usd };
+const cotizacionesEn = async (fecha, conEuro) => {
+  const usd = (await DolarService.getBlue(fecha)).promedio;
+  return conEuro ? { usd, eur: (await DolarService.getEuro(fecha)).promedio } : { usd };
 };
 
 /**
@@ -38,6 +47,8 @@ export const obtenerPrecio = async (asset) => {
   switch (asset.fuente_precio) {
     case 'cafci':
       return FciService.getPrecio(asset.precio_config || {});
+    case 'ticker':
+      return precioTicker(asset);
     case 'coingecko':
       return precioCripto(asset);
     case 'manual':

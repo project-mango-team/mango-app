@@ -6,7 +6,12 @@ vi.mock('./fciService.js', () => ({
   FciService: { getPrecio: vi.fn(async () => ({ precio: 2.5, fecha: '2026-10-16', fuente: 'CAFCI' })) }
 }));
 vi.mock('./marketPriceService.js', () => ({
-  MarketPriceService: { getCripto: vi.fn(async () => ({ usd: 80000, eur: 70000 })) }
+  MarketPriceService: {
+    getCripto: vi.fn(async () => ({ usd: 80000, eur: 70000 })),
+    getTicker: vi.fn(async (ticker) => (ticker.endsWith('.BA')
+      ? { precio: 20900, moneda: 'ARS', fecha: '2026-10-17' }
+      : { precio: 700, moneda: 'USD', fecha: '2026-10-17' }))
+  }
 }));
 vi.mock('./dolarService.js', () => ({
   hoyArgentina: () => '2026-10-20',
@@ -24,7 +29,7 @@ describe('obtenerPrecio', () => {
 
   it('manual no tiene precio y las fuentes que faltan avisan', async () => {
     await expect(obtenerPrecio({ fuente_precio: 'manual' })).rejects.toMatchObject({ statusCode: 400 });
-    await expect(obtenerPrecio({ fuente_precio: 'ticker' })).rejects.toMatchObject({ statusCode: 501 });
+    await expect(obtenerPrecio({ fuente_precio: 'otra' })).rejects.toMatchObject({ statusCode: 501 });
   });
 });
 
@@ -106,5 +111,20 @@ describe('cripto', () => {
 
   it('ARS se convierte con el dólar blue de hoy', async () => {
     await expect(obtenerPrecio(btc('ARS'))).resolves.toMatchObject({ precio: 120000000 });
+  });
+});
+
+describe('tickers', () => {
+  const activo = (ticker, moneda) => ({ fuente_precio: 'ticker', moneda, precio_config: { ticker } });
+
+  it('en la moneda de cotización va directo, con la fecha del mercado', async () => {
+    await expect(obtenerPrecio(activo('SPY', 'USD'))).resolves.toEqual({ precio: 700, fecha: '2026-10-17', fuente: 'Yahoo Finance' });
+    await expect(obtenerPrecio(activo('SPY.BA', 'ARS'))).resolves.toMatchObject({ precio: 20900 });
+  });
+
+  it('en otra moneda se convierte con el blue de la fecha del precio', async () => {
+    const { DolarService } = await import('./dolarService.js');
+    await expect(obtenerPrecio(activo('SPY', 'ARS'))).resolves.toMatchObject({ precio: 1050000 });
+    expect(DolarService.getBlue).toHaveBeenCalledWith('2026-10-17');
   });
 });

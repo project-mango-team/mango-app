@@ -1,8 +1,25 @@
-// Precios de mercado para la valuación automática: cripto (CoinGecko).
+// Precios de mercado para la valuación automática: tickers (Yahoo Finance) y cripto (CoinGecko).
 // Funciones puras: no tocan la red.
 import { AppError } from '../middleware/errorHandler.js';
 
 const MONEDAS = ['ARS', 'USD', 'EUR'];
+
+const aISO = (fecha) => new Date(fecha).toISOString().slice(0, 10);
+
+/**
+ * Último precio de la respuesta de /v8/finance/chart de Yahoo Finance
+ * @returns {{ precio: number, moneda: string, fecha: string }}
+ */
+export const parseYahooChart = (raw, ticker) => {
+  const meta = raw?.chart?.result?.[0]?.meta;
+  const precio = Number(meta?.regularMarketPrice);
+  if (!meta || !(precio > 0)) {
+    throw new AppError(`No se encontró el ticker "${ticker}". Para CEDEARs y acciones argentinas usá el sufijo .BA (ej: GGAL.BA)`, 404);
+  }
+  // La fecha del precio en el huso horario de la bolsa
+  const segundos = Number(meta.regularMarketTime) + Number(meta.gmtoffset || 0);
+  return { precio, moneda: String(meta.currency || '').toUpperCase(), fecha: aISO(segundos * 1000) };
+};
 
 /**
  * Precio de una moneda en la respuesta de /simple/price de CoinGecko

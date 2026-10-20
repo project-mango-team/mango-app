@@ -4,7 +4,7 @@ import { valuarTodos } from '../services/valuationService.js';
 // La CAFCI publica el valor de la cuotaparte del día hábil anterior, así que alcanza con correr una vez por día.
 export default {
   nombre: 'valuacion-diaria',
-  descripcion: 'Valúa las inversiones con fuente de precio automática (FCI, cripto, tasa fija)',
+  descripcion: 'Valúa las inversiones con fuente de precio automática (FCI, tickers, cripto, tasa fija)',
   hora: '19:00',
   run: async () => {
     const { resumen, errores } = await valuarTodos();
