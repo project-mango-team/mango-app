@@ -17,7 +17,7 @@ Lo que manda hoy cada fuente, según los mails que ya le llegaban al usuario (20
 | Fuente | Remitente | Asunto | ¿Adjunto? | Datos en el cuerpo | Estado |
 |---|---|---|---|---|---|
 | Galicia Mastercard | `e-resumen@bancogalicia.com.ar` | "Resumen de Tarjeta MasterCard" | **Sí, PDF** sin contraseña | Vencimiento, total en pesos, total en dólares, pago mínimo | ✅ El `GaliciaParser` actual (`tarjeta`) lo lee tal cual |
-| Galicia Visa | `e-resumen@mensajesgalicia.com.ar` | "Resumen de Cuenta VISA" | **No, pero el link sirve**: "Conocer resumen" lleva a `eresumen.com.ar`, que genera el PDF | Vencimiento, saldo en pesos, saldo en dólares, pago mínimo | ⚠️ El PDF de eresumen tiene **otro formato** que el del homebanking (mismos movimientos): el parser actual no lo lee (ING-13). Configurar "Recibir por mail" en Galicia no agrega el adjunto |
+| Galicia Visa | `e-resumen@mensajesgalicia.com.ar` | "Resumen de Cuenta VISA" | **No, pero el link sirve**: "Conocer resumen" lleva a `eresumen.com.ar`, que genera el PDF | Vencimiento, saldo en pesos, saldo en dólares, pago mínimo | ✅ El PDF de eresumen tiene otro formato que el del homebanking, pero `GaliciaParser` ya lo lee (ING-13) y da las mismas transacciones que el PDF del homebanking del mismo mes. Configurar "Recibir por mail" en Galicia no agrega el adjunto |
 | Galicia caja de ahorro | (a confirmar) | "Ya está listo el resumen de tu cuenta" | **No**, ni link: indica descargarlo desde la App u Online Banking | — | Solo aviso → flujo ING-08 (pendiente en la bandeja + subir el XLSX) |
 | Santander (tarjetas y cuenta) | — | — | — | — | Falta relevar |
 | Mercado Pago | — | — | — | — | Va por API (épica MP) |
