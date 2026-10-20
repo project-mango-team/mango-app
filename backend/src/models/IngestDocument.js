@@ -5,8 +5,8 @@ export const FUENTES_INGESTA = ['upload', 'email', 'email_aviso', 'api'];
 // recibido → listo (detectado y parseado) → importado | descartado
 // no_reconocido: no se detectó el formato, hay que elegir banco y tipo a mano
 // error: se detectó pero falló el parseo (el archivo se conserva para reintentar)
-// pendiente_descarga: llegó un aviso sin archivo (ING-08)
-export const ESTADOS_INGESTA = ['recibido', 'listo', 'no_reconocido', 'error', 'importado', 'descartado', 'pendiente_descarga'];
+// pendiente_descarga: llegó un aviso sin archivo (ING-08) → resuelto cuando se sube el archivo que coincide
+export const ESTADOS_INGESTA = ['recibido', 'listo', 'no_reconocido', 'error', 'importado', 'descartado', 'pendiente_descarga', 'resuelto'];
 
 // Un resumen que entró a la bandeja (subido, o más adelante por mail), antes y después de importarlo
 const ingestDocumentSchema = new mongoose.Schema({
@@ -82,7 +82,16 @@ const ingestDocumentSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  importado_at: Date
+  importado_at: Date,
+  // ING-08: en un aviso, el documento con el archivo que lo cerró; en un archivo, el aviso que cerró
+  resuelto_por: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  cierra_aviso: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

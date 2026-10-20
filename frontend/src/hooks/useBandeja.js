@@ -51,9 +51,11 @@ const useBandeja = () => {
     const nuevos = res.data.filter(r => r.ok && !r.existente).length
     const repetidos = res.data.filter(r => r.ok && r.existente).length
     const fallidos = res.data.filter(r => !r.ok)
+    const avisos = res.data.filter(r => r.ok && !r.existente && r.documento?.cierra_aviso).length
     return [
       `${nuevos} archivo(s) agregados`,
       repetidos && `${repetidos} ya estaban en la bandeja`,
+      avisos && `${avisos === 1 ? 'se cerró 1 aviso' : `se cerraron ${avisos} avisos`} de resumen pendiente`,
       fallidos.length && `no se pudieron leer: ${fallidos.map(f => f.filename).join(', ')}`
     ].filter(Boolean).join(' · ')
   })

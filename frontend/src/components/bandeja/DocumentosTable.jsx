@@ -7,10 +7,12 @@ const ESTADOS = {
   error: { texto: 'Error', clase: 'bg-red-900/40 text-red-300' },
   recibido: { texto: 'Procesando', clase: 'bg-gray-700 text-gray-300' },
   pendiente_descarga: { texto: 'Falta el archivo', clase: 'bg-yellow-900/40 text-yellow-300' },
-  descartado: { texto: 'Descartado', clase: 'bg-gray-700 text-gray-400' }
+  descartado: { texto: 'Descartado', clase: 'bg-gray-700 text-gray-400' },
+  resuelto: { texto: 'Archivo recibido', clase: 'bg-gray-700 text-gray-400' }
 }
 
 const periodoDe = (doc) => {
+  if (doc.fuente === 'email_aviso') return doc.email?.received_at ? `Mail del ${formatFecha(doc.email.received_at)}` : '—'
   const d = doc.deteccion
   if (d?.cierre) return `Cierre ${formatFecha(d.cierre)}`
   const p = d?.periodo || (doc.preview?.desde && doc.preview)
@@ -62,8 +64,14 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
               <tr key={doc._id} className="border-b border-gray-700/50 align-top">
                 <td className="px-4 py-3">
                   <p className="text-white font-medium">
-                    {doc.deteccion?.descripcion || (doc.estado === 'pendiente_descarga' ? doc.email?.subject || 'Aviso de resumen' : 'Sin reconocer')}
+                    {doc.deteccion?.descripcion || doc.aviso?.nombre || (doc.fuente === 'email_aviso' ? doc.email?.subject || 'Aviso de resumen' : 'Sin reconocer')}
                   </p>
+                  {doc.estado === 'pendiente_descarga' && (
+                    <p className="text-xs text-gray-400 mt-1 max-w-[18rem]">
+                      Bajalo del homebanking y soltalo arriba: este aviso se cierra solo.
+                    </p>
+                  )}
+                  {doc.cierra_aviso && <p className="text-xs text-green-400 mt-1">Cerró el aviso del mail</p>}
                   {doc.email?.from && <p className="text-xs text-gray-500">Por mail · {doc.email.from}</p>}
                   <p className="text-xs text-gray-500 truncate max-w-[18rem]" title={doc.filename}>{doc.filename}</p>
                   {doc.archivo_ya_importado && doc.estado !== 'importado' && (
@@ -88,6 +96,16 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-1.5">
+                    {doc.estado === 'pendiente_descarga' && doc.aviso?.homebanking && (
+                      <a
+                        href={doc.aviso.homebanking}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded text-xs font-medium bg-primary hover:bg-primary-dark text-white"
+                      >
+                        Ir al homebanking
+                      </a>
+                    )}
                     {doc.estado === 'listo' && (
                       <>
                         <Boton onClick={() => onRevisar(doc)} disabled={ocupado}>Revisar</Boton>
@@ -102,7 +120,7 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     {doc.estado === 'importado' && (
                       <Boton onClick={() => onDeshacer(doc)} disabled={ocupado}>Deshacer</Boton>
                     )}
-                    {doc.estado !== 'importado' && (
+                    {!['importado', 'resuelto'].includes(doc.estado) && (
                       <Boton variante="peligro" onClick={() => onDescartar(doc)} disabled={ocupado}>Descartar</Boton>
                     )}
                   </div>

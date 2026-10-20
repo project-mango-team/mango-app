@@ -4,6 +4,7 @@ import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { isExcelFilename } from '../utils/excelToCsv.js';
 import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
+import { FUENTES, fuenteDeAviso, homebankingDe, avisoCoincide, elegirAviso, fuenteDeDeteccion } from '../utils/fuentesResumen.js';
 import {
   detectarDocumento,
   parsearDocumento,
@@ -130,10 +131,28 @@ const procesar = async (req, doc, { redetectar = true } = {}) => {
   return doc.save();
 };
 
-// Lo que se devuelve a la UI (sin el contenido binario)
+// Lo que se devuelve a la UI (sin el contenido binario). Los avisos llevan su fuente y el link al homebanking.
 const vista = (doc) => {
   const { contenido, ...resto } = doc.toObject ? doc.toObject() : doc;
-  return resto;
+  if (resto.fuente !== 'email_aviso') return resto;
+  const { banco, fuente } = fuenteDeAviso(resto.email);
+  return { ...resto, aviso: { fuente, nombre: FUENTES[fuente]?.nombre || null, homebanking: homebankingDe(banco) } };
+};
+
+/**
+ * Si el archivo es el que anunciaba un aviso pendiente (misma fuente y período), cierra el aviso
+ */
+const cerrarAvisoCoincidente = async (req, doc) => {
+  if (doc.cierra_aviso || doc.estado === 'descartado' || !fuenteDeDeteccion(doc.deteccion)) return;
+  const avisos = await IngestDocument.find(buildUserQuery(req, { estado: 'pendiente_descarga' })).lean();
+  const aviso = elegirAviso(avisos, doc.deteccion);
+  if (!aviso) return;
+  await IngestDocument.updateOne(
+    buildUserQuery(req, { _id: aviso._id, estado: 'pendiente_descarga' }),
+    { estado: 'resuelto', resuelto_por: doc._id }
+  );
+  doc.cierra_aviso = aviso._id;
+  await doc.save();
 };
 
 // ---------- Casos de uso ----------
@@ -157,6 +176,7 @@ export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload
   if (existente) {
     if (reabrir && ['descartado', 'error'].includes(existente.estado)) {
       await procesar(req, existente);
+      await cerrarAvisoCoincidente(req, existente);
     }
     return { documento: vista(existente), existente: true };
   }
@@ -170,6 +190,7 @@ export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload
     ...(email && { email })
   }));
   await procesar(req, doc);
+  await cerrarAvisoCoincidente(req, doc);
   return { documento: vista(doc), existente: false };
 };
 
@@ -196,22 +217,36 @@ export const registrarAviso = async (req, { message_id, from, subject, received_
   if (existente) {
     return { documento: existente, existente: true };
   }
+  const email = { message_id, from, subject, received_at };
+
+  // Si el archivo ya se había subido antes de que llegara el mail, el aviso nace cerrado
+  const archivos = await IngestDocument.find(buildUserQuery(req, {
+    fuente: { $ne: 'email_aviso' },
+    estado: { $ne: 'descartado' },
+    cierra_aviso: null
+  })).select('_id deteccion').sort({ created_at: -1 }).lean();
+  const archivo = archivos.find(a => avisoCoincide({ email }, a.deteccion));
+
   const doc = await IngestDocument.create(addUserToData(req, {
     fuente: 'email_aviso',
     filename: subject || 'Aviso de resumen',
-    estado: 'pendiente_descarga',
-    email: { message_id, from, subject, received_at }
+    estado: archivo ? 'resuelto' : 'pendiente_descarga',
+    resuelto_por: archivo?._id || null,
+    email
   }));
+  if (archivo) {
+    await IngestDocument.updateOne(buildUserQuery(req, { _id: archivo._id }), { cierra_aviso: doc._id });
+  }
   return { documento: vista(doc), existente: false };
 };
 
 /**
- * Documentos de la bandeja, más nuevos primero. Por defecto oculta los descartados.
+ * Documentos de la bandeja, más nuevos primero. Por defecto oculta los descartados y los avisos ya resueltos.
  */
 export const listarDocumentos = async (req, { incluirDescartados = false } = {}) => {
-  const filtro = incluirDescartados ? {} : { estado: { $ne: 'descartado' } };
+  const filtro = incluirDescartados ? {} : { estado: { $nin: ['descartado', 'resuelto'] } };
   const docs = await IngestDocument.find(buildUserQuery(req, filtro)).sort({ created_at: -1 }).limit(200).lean();
-  return docs;
+  return docs.map(vista);
 };
 
 /**
@@ -306,6 +341,14 @@ export const descartarDocumento = async (req, id) => {
     throw new AppError('El documento ya se importó: deshacé la importación desde el historial', 400);
   }
   doc.estado = 'descartado';
+  // Si este archivo había cerrado un aviso, el aviso vuelve a quedar pendiente
+  if (doc.cierra_aviso) {
+    await IngestDocument.updateOne(
+      buildUserQuery(req, { _id: doc.cierra_aviso, estado: 'resuelto' }),
+      { estado: 'pendiente_descarga', resuelto_por: null }
+    );
+    doc.cierra_aviso = null;
+  }
   await doc.save();
   return vista(doc);
 };
