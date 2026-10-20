@@ -1,5 +1,5 @@
 import express from 'express';
-import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS } from '../models/User.js';
+import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS, CATEGORIA_INTERNO } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 
@@ -40,6 +40,11 @@ router.get('/', async (req, res, next) => {
     await User.updateOne(
       { _id: req.user._id, categoriaImpuestosAgregada: { $ne: true } },
       { $addToSet: { categories: CATEGORIA_IMPUESTOS }, $set: { categoriaImpuestosAgregada: true } }
+    );
+    // Y anteriores a REV-01: Movimiento interno
+    await User.updateOne(
+      { _id: req.user._id, categoriaInternoAgregada: { $ne: true } },
+      { $addToSet: { categories: CATEGORIA_INTERNO }, $set: { categoriaInternoAgregada: true } }
     );
 
     const user = await User.findById(req.user._id).select('categories');

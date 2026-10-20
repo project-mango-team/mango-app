@@ -6,6 +6,10 @@ export const CATEGORIA_INVERSION = 'Inversión';
 // Impuestos y percepciones del resumen de tarjeta (sellos, IIBB, IVA, RG 5617)
 export const CATEGORIA_IMPUESTOS = 'Impuestos';
 
+// Transferencias entre cuentas propias, pago de la tarjeta desde la caja de ahorro (REV-01):
+// tampoco cuentan como gasto ni ingreso
+export const CATEGORIA_INTERNO = 'Movimiento interno';
+
 export const DEFAULT_CATEGORIES = [
   'Transferencia',
   'Transporte',
@@ -19,6 +23,7 @@ export const DEFAULT_CATEGORIES = [
   'Ingreso',
   CATEGORIA_INVERSION,
   CATEGORIA_IMPUESTOS,
+  CATEGORIA_INTERNO,
   'Otros'
 ];
 
@@ -60,6 +65,11 @@ const userSchema = new mongoose.Schema({
   },
   // Igual para la categoría Impuestos (ING-14)
   categoriaImpuestosAgregada: {
+    type: Boolean,
+    default: false
+  },
+  // Igual para Movimiento interno (REV-01)
+  categoriaInternoAgregada: {
     type: Boolean,
     default: false
   },

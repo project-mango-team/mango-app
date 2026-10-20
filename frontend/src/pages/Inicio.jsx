@@ -447,7 +447,7 @@ const Inicio = () => {
           <p className={`text-4xl font-bold ${balanceColor}`}>
             {formatImporte(stats?.balance ?? 0, moneda)}
           </p>
-          <InversionesNota inversiones={stats?.inversiones} moneda={moneda} />
+          <InversionesNota inversiones={stats?.inversiones} internos={stats?.internos} moneda={moneda} />
         </div>
 
         <div className="card">

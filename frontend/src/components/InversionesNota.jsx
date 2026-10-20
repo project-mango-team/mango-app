@@ -2,21 +2,31 @@ import { Link } from 'react-router-dom'
 import { formatImporte } from '../utils/format'
 
 
-// Aclara que los movimientos con categoría Inversión no cuentan como gasto ni ingreso
-const InversionesNota = ({ inversiones, moneda = 'ARS' }) => {
-  const enviado = inversiones?.enviado || 0
-  const recibido = inversiones?.recibido || 0
-  if (enviado === 0 && recibido === 0) return null
-
+const describir = (grupo, moneda) => {
   const partes = []
-  if (enviado > 0) partes.push(`${formatImporte(enviado, moneda)} enviados`)
-  if (recibido > 0) partes.push(`${formatImporte(recibido, moneda)} recibidos`)
+  if (grupo?.enviado > 0) partes.push(`${formatImporte(grupo.enviado, moneda)} enviados`)
+  if (grupo?.recibido > 0) partes.push(`${formatImporte(grupo.recibido, moneda)} recibidos`)
+  return partes.join(' · ')
+}
+
+// Aclara que los movimientos de Inversión y Movimiento interno no cuentan como gasto ni ingreso
+const InversionesNota = ({ inversiones, internos, moneda = 'ARS' }) => {
+  const deInversion = describir(inversiones, moneda)
+  const deInternos = describir(internos, moneda)
+  if (!deInversion && !deInternos) return null
 
   return (
-    <p className="text-xs text-gray-500 mt-3">
-      Sin contar movimientos de inversión ({partes.join(' · ')}).{' '}
-      <Link to="/inversiones" className="text-primary hover:underline">Ver inversiones</Link>
-    </p>
+    <div className="text-xs text-gray-500 mt-3 space-y-1">
+      {deInversion && (
+        <p>
+          Sin contar movimientos de inversión ({deInversion}).{' '}
+          <Link to="/inversiones" className="text-primary hover:underline">Ver inversiones</Link>
+        </p>
+      )}
+      {deInternos && (
+        <p>Sin contar movimientos internos entre tus cuentas ({deInternos}).</p>
+      )}
+    </div>
   )
 }
 

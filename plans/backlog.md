@@ -40,7 +40,7 @@ Que Mango muestre solo lo dudoso y aprenda de cada corrección.
 
 | ID | Ticket | Depende de | Tam. | Estado |
 |---|---|---|---|---|
-| REV-01 | **"Movimiento interno".** Una categoría o flag para transferencias entre cuentas propias, rescates y suscripciones de FCI, y pago de la tarjeta desde la caja de ahorro: no cuentan como gasto ni ingreso (como hoy `Inversión`). Definir si es una categoría nueva o reutiliza `Inversión`/`Transferencia`. | — | S | pendiente |
+| REV-01 | **"Movimiento interno".** Una categoría o flag para transferencias entre cuentas propias, rescates y suscripciones de FCI, y pago de la tarjeta desde la caja de ahorro: no cuentan como gasto ni ingreso (como hoy `Inversión`). Definir si es una categoría nueva o reutiliza `Inversión`/`Transferencia`. → Categoría nueva `Movimiento interno` (FCI sigue en `Inversión`); Inicio la muestra aparte. | — | S | hecho |
 | REV-02 | **Reglas con condiciones y acciones.** Reemplazar el substring→categoría por reglas: condiciones (detalle contiene o regex, origen, tipo, rango de monto) → acciones (categoría, marcar interno, ignorar). Se aplican al importar, después de las keywords actuales. Migrar las keywords actuales a reglas sin perder nada. | REV-01 | M | pendiente |
 | REV-03 | **Aprender de las correcciones.** Al cambiar la categoría de una transacción: "¿Aplicar a las futuras parecidas?" crea una regla y "¿y a las N ya cargadas?" las actualiza (con confirmación y opción de deshacer). | REV-02 | M | pendiente |
 | REV-04 | **Detectar transferencias entre cuentas propias.** Emparejar un egreso en una cuenta con un ingreso del mismo monto en otra, con ±2 días de diferencia; sugerirlas como movimiento interno en la revisión. | REV-01, ING-04 | M | pendiente |
