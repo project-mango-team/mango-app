@@ -1,94 +1,27 @@
 import express from 'express';
 import multer from 'multer';
-import { v4 as uuidv4 } from 'uuid';
-import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
-import { SantanderParser } from '../parsers/SantanderParser.js';
-import { GaliciaParser } from '../parsers/GaliciaParser.js';
-import { DolarService } from '../services/dolarService.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
-import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from '../utils/userQuery.js';
-import { excelToCsvBuffer, isExcelFilename } from '../utils/excelToCsv.js';
+import { buildUserQuery } from '../utils/userQuery.js';
 import { requireAuth } from '../middleware/auth.js';
-import { AppError } from '../middleware/errorHandler.js';
+import {
+  parsearDocumento,
+  guardarImportacion,
+  detectarTarjetasSantander
+} from '../services/statementImportService.js';
 
 const router = express.Router();
 
 // All upload routes require authentication
 router.use(requireAuth);
 
-// Helper function to ensure valid numbers
-const safeNumber = (value) => {
-  const num = Number(value);
-  return isNaN(num) || !isFinite(num) ? 0 : num;
-};
-
-const normalizeUploadBuffer = async (file, tipo, tipoResumen = null) => {
-  if (!file) return null;
-
-  const filename = file.originalname || '';
-
-  if (!isExcelFilename(filename)) {
-    return file.buffer;
-  }
-
-  if (tipo === 'mercadopago') {
-    throw new AppError('El archivo Excel no esta soportado para Mercado Pago', 400);
-  }
-
-  const resumen = tipoResumen || 'cuenta';
-  if (tipo === 'galicia' && resumen === 'tarjeta') {
-    throw new AppError('El resumen de tarjeta Galicia debe ser TXT o PDF, no Excel', 400);
-  }
-
-  if (tipo !== 'santander' && tipo !== 'galicia') {
-    throw new AppError('El archivo Excel solo esta soportado para Santander y Galicia', 400);
-  }
-
-  const encoding = tipo === 'santander' ? 'latin1' : 'utf8';
-  return await excelToCsvBuffer(file.buffer, encoding);
-};
-
 // Configurar multer para manejar uploads en memoria
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
 
-// Helper function to convert DD-MM-YYYY or DD/MM/YYYY to standardized format
-const normalizeDate = (dateStr) => {
-  if (!dateStr) return '';
-
-  const normalized = String(dateStr).trim().replace(/-/g, '/');
-  const parts = normalized.split('/');
-
-  if (parts.length === 3) {
-    let [day, month, year] = parts;
-
-    if (year && year.length === 2) {
-      year = `20${year}`;
-    }
-
-    return `${day}/${month}/${year}`;
-  }
-
-  return normalized;
-};
-
-// Helper function to extract month name from date
-const getMonthName = (dateStr) => {
-  const meses = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ];
-  
-  const parts = dateStr.split('/');
-  if (parts.length === 3) {
-    const month = parseInt(parts[1]) - 1; // Month is 0-indexed
-    return meses[month] || '';
-  }
-  return '';
-};
+const archivoDe = (file) => ({ buffer: file.buffer, filename: file.originalname || '' });
 
 /**
  * POST /api/upload/detect-cards
@@ -115,10 +48,7 @@ router.post('/detect-cards', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    // Use SantanderParser to detect cards
-    const fileBuffer = await normalizeUploadBuffer(req.file, 'santander');
-    const parser = new SantanderParser(fileBuffer, 1); // Dollar value not needed for detection
-    const cards = parser.getCards();
+    const cards = await detectarTarjetasSantander(archivoDe(req.file));
 
     res.json({
       success: true,
@@ -147,58 +77,14 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
 
     const { tipo, valorDolar, cardType, selectedCards, tipoResumen } = req.body;
 
-    if (!tipo || !['mercadopago', 'santander', 'galicia'].includes(tipo)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tipo de archivo inválido. Debe ser "mercadopago", "santander" o "galicia"'
-      });
-    }
-
-    let transactions = [];
-    let parser;
-    let cardFilter = null; // Declare at function scope
-
-    const fileBuffer = await normalizeUploadBuffer(req.file, tipo, tipoResumen);
-    const categoryKeywords = req.user?.categoryKeywords || null;
-
-    // Parse based on type
-    if (tipo === 'mercadopago') {
-      parser = new MercadoPagoParser(fileBuffer, categoryKeywords);
-      transactions = await parser.parse();
-    } else if (tipo === 'santander') {
-      // Get dollar value (use provided or fetch from API)
-      let dolarVal = parseFloat(valorDolar);
-      if (!dolarVal || isNaN(dolarVal)) {
-        dolarVal = await DolarService.getCotizacion();
-      }
-      
-      // Parse selectedCards if provided as JSON string
-      if (selectedCards) {
-        try {
-          cardFilter = typeof selectedCards === 'string' ? JSON.parse(selectedCards) : selectedCards;
-        } catch (e) {
-          cardFilter = selectedCards;
-        }
-      }
-      
-      parser = new SantanderParser(fileBuffer, dolarVal, cardFilter, categoryKeywords);
-      transactions = await parser.parse();
-    } else if (tipo === 'galicia') {
-      // Get tipo de resumen (cuenta or tarjeta)
-      const tipoRes = tipoResumen || 'cuenta';
-      
-      // Get dollar value for tarjeta (use provided or fetch from API)
-      let dolarVal = 0;
-      if (tipoRes === 'tarjeta') {
-        dolarVal = parseFloat(valorDolar);
-        if (!dolarVal || isNaN(dolarVal)) {
-          dolarVal = await DolarService.getCotizacion();
-        }
-      }
-      
-      parser = new GaliciaParser(fileBuffer, tipoRes, dolarVal, categoryKeywords);
-      transactions = await parser.parse();
-    }
+    const { transactions, valorDolar: dolarUsado, cardFilter } = await parsearDocumento({
+      ...archivoDe(req.file),
+      tipo,
+      tipoResumen,
+      valorDolar,
+      selectedCards,
+      categoryKeywords: req.user?.categoryKeywords || null
+    });
 
     if (transactions.length === 0) {
       return res.status(400).json({
@@ -215,7 +101,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         filename: req.file.originalname,
         tipo,
         transactions,
-        valorDolar: tipo === 'santander' ? (parseFloat(valorDolar) || await DolarService.getCotizacion()) : null,
+        valorDolar: tipo === 'santander' ? dolarUsado : null,
         cardType: cardType || null,
         selectedCards: cardFilter || null
       }
@@ -232,7 +118,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
  */
 router.post('/', upload.single('file'), async (req, res, next) => {
   try {
-    const { tipo, valorDolar, transactions: editedTransactions, filename, cardType, selectedCards, tipoResumen } = req.body;
+    const { tipo, valorDolar, transactions: editedTransactions, filename, selectedCards, tipoResumen } = req.body;
 
     let transactions = [];
     let sourceFilename = filename;
@@ -241,8 +127,8 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     if (editedTransactions) {
       // Transactions sent from editor or manual entry (either as string or already parsed)
       try {
-        transactions = typeof editedTransactions === 'string' 
-          ? JSON.parse(editedTransactions) 
+        transactions = typeof editedTransactions === 'string'
+          ? JSON.parse(editedTransactions)
           : editedTransactions;
       } catch (e) {
         return res.status(400).json({
@@ -250,7 +136,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
           message: 'Error al parsear las transacciones editadas'
         });
       }
-      
+
       // For manual entry, set filename if not provided
       if (tipo === 'manual' && !sourceFilename) {
         sourceFilename = 'Carga Manual';
@@ -259,57 +145,14 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       // Legacy path: parse from uploaded file
       sourceFilename = req.file.originalname;
 
-      if (!tipo || !['mercadopago', 'santander', 'galicia'].includes(tipo)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tipo de archivo inválido. Debe ser "mercadopago", "santander" o "galicia"'
-        });
-      }
-
-      let parser;
-      let cardFilter = null; // Declare at function scope
-
-      const fileBuffer = await normalizeUploadBuffer(req.file, tipo, tipoResumen);
-      const categoryKeywords = req.user?.categoryKeywords || null;
-
-      // Parse based on type
-      if (tipo === 'mercadopago') {
-        parser = new MercadoPagoParser(fileBuffer, categoryKeywords);
-        transactions = await parser.parse();
-      } else if (tipo === 'santander') {
-        // Get dollar value (use provided or fetch from API)
-        let dolarVal = parseFloat(valorDolar);
-        if (!dolarVal || isNaN(dolarVal)) {
-          dolarVal = await DolarService.getCotizacion();
-        }
-        
-        // Parse selectedCards if provided as JSON string
-        if (selectedCards) {
-          try {
-            cardFilter = typeof selectedCards === 'string' ? JSON.parse(selectedCards) : selectedCards;
-          } catch (e) {
-            cardFilter = selectedCards;
-          }
-        }
-        
-        parser = new SantanderParser(fileBuffer, dolarVal, cardFilter, categoryKeywords);
-        transactions = await parser.parse();
-      } else if (tipo === 'galicia') {
-        // Get tipo de resumen (cuenta or tarjeta)
-        const tipoRes = tipoResumen || 'cuenta';
-        
-        // Get dollar value for tarjeta (use provided or fetch from API)
-        let dolarVal = 0;
-        if (tipoRes === 'tarjeta') {
-          dolarVal = parseFloat(valorDolar);
-          if (!dolarVal || isNaN(dolarVal)) {
-            dolarVal = await DolarService.getCotizacion();
-          }
-        }
-        
-        parser = new GaliciaParser(fileBuffer, tipoRes, dolarVal, categoryKeywords);
-        transactions = await parser.parse();
-      }
+      ({ transactions } = await parsearDocumento({
+        ...archivoDe(req.file),
+        tipo,
+        tipoResumen,
+        valorDolar,
+        selectedCards,
+        categoryKeywords: req.user?.categoryKeywords || null
+      }));
     } else {
       // No transactions or file provided
       return res.status(400).json({
@@ -325,66 +168,12 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    // Generate unique operation ID for this import
-    const operationId = uuidv4();
-    const batchId = uuidv4();
-    const timestamp = new Date();
-
-    // Transform transactions to MongoDB format and save
-    const transactionsToSave = addUserToTransactionData(req, transactions.map(t => ({
-      fecha: normalizeDate(t.fecha),
-      mes: getMonthName(normalizeDate(t.fecha)),
-      categoria: t.categoria,
-      detalle: t.detalle,
-      importe: t.importe,
-      moneda: t.moneda,
-      monto_original: t.monto_original,
-      tipo: t.tipo,
-      origen: t.origen,
-      operation_id: operationId,
-      batch_id: batchId,
-      batch_filename: sourceFilename,
-      batch_timestamp: timestamp
-    })));
-
-    // Calculate totals
-    const gastos = transactionsToSave.filter(t => t.tipo === 'Gasto').reduce((sum, t) => sum + (t.importe || 0), 0);
-    const ingresos = transactionsToSave.filter(t => t.tipo === 'Ingreso').reduce((sum, t) => sum + (t.importe || 0), 0);
-
-    // Insert transactions into MongoDB
-    const result = await Transaction.insertMany(transactionsToSave, { ordered: false });
-
-    // Create operation record with safe numeric values
-    await Operation.create(addUserToOperationData(req, {
-      operation_id: operationId,
-      type: 'upload',
-      status: 'completed',
-      origen: transactions[0]?.origen || tipo,
-      filename: sourceFilename,
-      transactions_count: result.length,
-      total_gastos: safeNumber(gastos),
-      total_ingresos: safeNumber(ingresos),
-      balance: safeNumber(ingresos - gastos),
-      metadata: {
-        batch_id: batchId,
-        tipo,
-        transacciones_procesadas: transactions.length
-      },
-      created_at: timestamp
-    }));
+    const data = await guardarImportacion({ req, transactions, tipo, filename: sourceFilename });
 
     res.json({
       success: true,
-      message: `Se importaron ${result.length} transacciones exitosamente`,
-      data: {
-        operation_id: operationId,
-        batch_id: batchId,
-        filename: sourceFilename,
-        tipo,
-        transacciones_procesadas: transactions.length,
-        transacciones_guardadas: result.length,
-        timestamp
-      }
+      message: `Se importaron ${data.transacciones_guardadas} transacciones exitosamente`,
+      data
     });
   } catch (error) {
     // Handle duplicate key errors (if transaction already exists)
