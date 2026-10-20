@@ -13,6 +13,8 @@ import {
   marcarDuplicados,
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
+import { reabrirPorRollback } from '../services/ingestService.js';
+import { nombreArchivo } from '../utils/uploadFilename.js';
 
 const router = express.Router();
 
@@ -25,7 +27,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
 
-const archivoDe = (file) => ({ buffer: file.buffer, filename: file.originalname || '' });
+const archivoDe = (file) => ({ buffer: file.buffer, filename: nombreArchivo(file) });
 
 /**
  * POST /api/upload/detect
@@ -129,7 +131,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       success: true,
       message: `Se encontraron ${transactions.length} transacciones`,
       data: {
-        filename: req.file.originalname,
+        filename: nombreArchivo(req.file),
         tipo,
         transactions: conDuplicados,
         duplicados: conDuplicados.filter(t => t.duplicado).length,
@@ -178,7 +180,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       }
     } else if (req.file) {
       // Legacy path: parse from uploaded file
-      sourceFilename = req.file.originalname;
+      sourceFilename = nombreArchivo(req.file);
       sha256 = hashArchivo(req.file.buffer);
 
       ({ transactions } = await parsearDocumento({
@@ -311,6 +313,9 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
     operation.status = 'rolled_back';
     operation.rolled_back_at = new Date();
     await operation.save();
+
+    // Si vino de la bandeja, el documento vuelve a quedar para revisar
+    await reabrirPorRollback(req, operation.operation_id);
 
     res.json({
       success: true,

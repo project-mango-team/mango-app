@@ -1,12 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect } from 'react'
+import useBandejaPendientes from '../hooks/useBandejaPendientes'
 
 const Layout = () => {
   const location = useLocation()
   const { user, logout, isAuthenticated } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pendientesBandeja = useBandejaPendientes()
 
   // Cerrar el drawer al navegar
   useEffect(() => {
@@ -15,6 +17,7 @@ const Layout = () => {
 
   const navItems = [
     { name: 'Inicio', path: '/inicio' },
+    { name: 'Bandeja', path: '/bandeja', badge: pendientesBandeja },
     { name: 'Datos', path: '/datos' },
     { name: 'Inversiones', path: '/inversiones' },
     { name: 'Migración', path: '/migracion' }
@@ -63,7 +66,14 @@ const Layout = () => {
                       : 'text-gray-300 hover:bg-gray-700'
                   }`}
                 >
-                  <span className="font-medium">{item.name}</span>
+                  <span className="font-medium flex-1">{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className={`min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-xs font-semibold text-center ${
+                      isActive(item.path) ? 'bg-white/20 text-white' : 'bg-primary text-white'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               </li>
             ))}
