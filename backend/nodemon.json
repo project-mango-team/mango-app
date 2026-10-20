@@ -1,5 +1,6 @@
 {
   "env": {
-    "DEV_GUEST_LOGIN": "true"
+    "DEV_GUEST_LOGIN": "true",
+    "MONGODB_DATABASE": "Mango_dev"
   }
 }
