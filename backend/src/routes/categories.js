@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 import { renombrarCategoriaEnReglas, eliminarReglasDeCategoria } from '../services/ruleService.js';
 import rulesRouter from './rules.js';
+import aiSuggestionsRouter from './aiSuggestions.js';
 
 const router = express.Router();
 
@@ -12,6 +13,8 @@ router.use(requireAuth);
 
 // Reglas de categorización (REV-02); va antes de /:oldName y /:name
 router.use('/reglas', rulesRouter);
+// Sugerencias con IA (REV-06)
+router.use('/sugerencias', aiSuggestionsRouter);
 
 const normalizeKeywordList = (keywords) => {
   if (!Array.isArray(keywords)) return [];

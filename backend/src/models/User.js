@@ -78,6 +78,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // REV-06: el usuario aceptó mandar detalles de movimientos a la API de Anthropic para sugerir categorías
+  iaSugerencias: {
+    type: Boolean,
+    default: false
+  },
   // Tipos de activo propios; los base están en config/investmentTypes.js
   investmentTypes: {
     type: [{

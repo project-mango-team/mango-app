@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
 import { motivosDeRevision, etiquetaMotivo } from '../utils/revision'
+import useSugerenciasIA from '../hooks/useSugerenciasIA'
+import SugerenciaIAFila from './SugerenciaIAFila'
 
 const MONEDAS = ['ARS', 'USD']
 const INTERNO = 'Movimiento interno'
@@ -13,6 +15,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   const [paraRevisar, setParaRevisar] = useState(new Set())
   const [soloRevisar, setSoloRevisar] = useState(false)
   const [revisadas, setRevisadas] = useState(new Set())
+  const ia = useSugerenciasIA(!isManualMode)
   const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
   const [undoState, setUndoState] = useState(null)
@@ -168,6 +171,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   const cantidadIgnoradas = transactions.filter(t => t.ignorada && !t.duplicado).length
   const internosPendientes = transactions.filter(t => t.interno_sugerido && t.incluir && t.categoria !== INTERNO)
   const pendientesRevision = transactions.filter(t => paraRevisar.has(t._id) && !revisadas.has(t._id) && motivosDeRevision(t, limites).length > 0).length
+  const sinCategoria = transactions.filter(t => t.incluir && t.categoria === 'Otros' && t.detalle)
   const marcarRevisada = (id) => setRevisadas(prev => new Set(prev).add(id))
   // Las filas agregadas a mano (_id fuera de las iniciales) se ven siempre
   const visibles = soloRevisar
@@ -191,6 +195,15 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
         <div className="p-3 rounded-lg border border-sky-800 bg-sky-900/20 text-sm text-sky-200 flex flex-wrap items-center gap-2">
           <span>{internosPendientes.length} transaccion(es) parecen transferencias entre tus cuentas (mismo monto en otra cuenta, ±2 días).</span>
           <button type="button" onClick={marcarInternos} className="underline hover:text-white">Marcarlas como movimiento interno</button>
+        </div>
+      )}
+      {ia.disponible && sinCategoria.length > 0 && (
+        <div className="p-3 rounded-lg border border-violet-800 bg-violet-900/20 text-sm text-violet-200 flex flex-wrap items-center gap-2">
+          <span>{sinCategoria.length} transaccion(es) sin categoría.</span>
+          <button type="button" onClick={() => ia.pedir(sinCategoria)} disabled={ia.cargando} className="underline hover:text-white disabled:opacity-50">
+            {ia.cargando ? 'Consultando a la IA…' : 'Sugerir categorías con IA'}
+          </button>
+          {ia.error && <span className="text-red-300">{ia.error}</span>}
         </div>
       )}
       {cantidadIgnoradas > 0 && (
@@ -313,6 +326,12 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     value={t.detalle}
                     onChange={(e) => handleCellChange(t._id, 'detalle', e.target.value)}
                     className="w-full min-w-[200px] bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                  />
+                  <SugerenciaIAFila
+                    sugerencia={ia.sugerencias.get(t._id)}
+                    fila={t}
+                    onUsar={(categoria) => handleCellChange(t._id, 'categoria', categoria)}
+                    crearRegla={ia.crearRegla}
                   />
                   <MotivosRevision
                     t={t}
