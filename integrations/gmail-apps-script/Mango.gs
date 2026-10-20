@@ -1,7 +1,7 @@
 /**
  * Mango · resúmenes por mail
  *
- * Corre en tu cuenta de Gmail (Google Apps Script). Cada hora busca los mails con la etiqueta
+ * Corre en tu cuenta de Gmail (Google Apps Script). Una vez por día busca los mails con la etiqueta
  * "Mango/Resumenes" y los manda a la Bandeja de Mango:
  *   - adjuntos PDF/XLSX/CSV/TXT → se suben como documentos
  *   - mails con link "Conocer resumen" (Visa Galicia) → baja el PDF del link y lo sube
@@ -11,6 +11,8 @@
  * Configuración (Configuración del proyecto → Propiedades del script):
  *   MANGO_URL    URL de Mango, por ejemplo https://mi-mango.com (sin barra final)
  *   MANGO_TOKEN  Token de integración creado en Mango → Configuración
+ *   MANGO_DESDE  (la pone `configurar`) Solo se mandan mails recibidos desde esta fecha (YYYY-MM-DD),
+ *                así los resúmenes viejos que ya tienen la etiqueta no se procesan
  *
  * Instalación: ver README.md en esta misma carpeta. Ejecutá `configurar` una vez.
  */
@@ -22,26 +24,32 @@ const CONFIG = {
   EXTENSIONES: ['pdf', 'xlsx', 'xls', 'csv', 'txt'],
   // Texto del botón que lleva al resumen cuando el mail no lo trae adjunto
   TEXTO_LINK: /conocer\s+resumen|ver\s+resumen|descargar\s+resumen/i,
-  MAX_HILOS_POR_CORRIDA: 20
+  MAX_HILOS_POR_CORRIDA: 20,
+  // Hora del día (zona horaria del proyecto) en que corre: los resúmenes llegan una vez por mes
+  HORA_DIARIA: 9
 };
 
 // ---------- Funciones que ejecutás a mano ----------
 
 /**
- * Ejecutala una vez: verifica la configuración, crea las etiquetas, prueba la conexión
- * y programa la corrida cada hora.
+ * Ejecutala una vez: verifica la configuración, crea las etiquetas, prueba la conexión,
+ * fija la fecha de corte (si no estaba) y programa la corrida diaria.
  */
 function configurar() {
   const { url } = leerConfiguracion();
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('MANGO_DESDE')) {
+    props.setProperty('MANGO_DESDE', new Date().toISOString().slice(0, 10));
+  }
   [CONFIG.ETIQUETA_ENTRADA, CONFIG.ETIQUETA_OK, CONFIG.ETIQUETA_ERROR].forEach(obtenerEtiqueta);
   probarConexion();
 
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === 'procesarResumenes')
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('procesarResumenes').timeBased().everyHours(1).create();
+  ScriptApp.newTrigger('procesarResumenes').timeBased().everyDays(1).atHour(CONFIG.HORA_DIARIA).create();
 
-  console.log(`Listo: cada hora se van a mandar a ${url} los mails con la etiqueta "${CONFIG.ETIQUETA_ENTRADA}".`);
+  console.log(`Listo: todos los días a las ${CONFIG.HORA_DIARIA} se van a mandar a ${url} los mails con la etiqueta "${CONFIG.ETIQUETA_ENTRADA}" recibidos desde el ${props.getProperty('MANGO_DESDE')}.`);
 }
 
 /**
@@ -61,13 +69,13 @@ function probarConexion() {
 }
 
 /**
- * Procesa los mails pendientes. La corre el disparador cada hora (también se puede correr a mano).
+ * Procesa los mails pendientes. La corre el disparador una vez por día (también se puede correr a mano).
  */
 function procesarResumenes() {
   const config = leerConfiguracion();
   const ok = obtenerEtiqueta(CONFIG.ETIQUETA_OK);
   const error = obtenerEtiqueta(CONFIG.ETIQUETA_ERROR);
-  const consulta = `label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_ENTRADA)} -label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_OK)} -label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_ERROR)}`;
+  const consulta = consultaPendientes(PropertiesService.getScriptProperties().getProperty('MANGO_DESDE'));
   const hilos = GmailApp.search(consulta, 0, CONFIG.MAX_HILOS_POR_CORRIDA);
 
   let enviados = 0;
@@ -201,6 +209,23 @@ function metadataDe(mensaje) {
 // ---------- Funciones puras (testeadas en Node) ----------
 
 /**
+ * Búsqueda de Gmail de los hilos a procesar: con la etiqueta de entrada, sin procesar ni con error,
+ * y (si hay fecha de corte) recibidos desde esa fecha
+ */
+function consultaPendientes(desde) {
+  const partes = [
+    `label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_ENTRADA)}`,
+    `-label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_OK)}`,
+    `-label:${etiquetaParaBusqueda(CONFIG.ETIQUETA_ERROR)}`
+  ];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(desde || '')) {
+    // Gmail: "after:AAAA/MM/DD" incluye los mails de ese día en adelante
+    partes.push(`after:${desde.replace(/-/g, '/')}`);
+  }
+  return partes.join(' ');
+}
+
+/**
  * "Mango/Resumenes" → "mango-resumenes" (así se escriben las etiquetas anidadas en la búsqueda de Gmail)
  */
 function etiquetaParaBusqueda(nombre) {
@@ -258,7 +283,7 @@ function nombreSeguro(texto) {
 // Para los tests en Node (en Apps Script `module` no existe)
 if (typeof module !== 'undefined') {
   module.exports = {
-    CONFIG, procesarResumenes, procesarMensaje, configurar, probarConexion,
+    CONFIG, procesarResumenes, procesarMensaje, configurar, probarConexion, consultaPendientes,
     etiquetaParaBusqueda, esAdjuntoDeResumen, linkDeResumen, esPdf, linkPdfEnHtml, nombreSeguro
   };
 }

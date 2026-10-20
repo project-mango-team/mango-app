@@ -1,6 +1,6 @@
 # Mango · resúmenes desde Gmail
 
-Script de Google Apps Script que corre en tu cuenta de Gmail y manda a la **Bandeja** de Mango los resúmenes que te llegan por mail. No hay que mantener ningún servidor: Google lo ejecuta cada hora.
+Script de Google Apps Script que corre en tu cuenta de Gmail y manda a la **Bandeja** de Mango los resúmenes que te llegan por mail. No hay que mantener ningún servidor: Google lo ejecuta una vez por día, a las 9.
 
 Qué hace con cada mail que tenga la etiqueta `Mango/Resumenes`:
 
@@ -11,6 +11,8 @@ Qué hace con cada mail que tenga la etiqueta `Mango/Resumenes`:
 | Solo un aviso, sin archivo (ej. caja de ahorro Galicia) | Lo registra en la Bandeja como "Falta el archivo" |
 
 Después etiqueta el hilo `Mango/Procesado`, o `Mango/Error` si algo falló, así no se procesa dos veces. Aunque lo procese de nuevo, Mango no duplica nada.
+
+Solo procesa mails recibidos **desde el día en que lo configurás** (ver *Fecha de corte*), así los resúmenes viejos que ya tienen la etiqueta no se mandan.
 
 ## Instalación (una sola vez, ~10 minutos)
 
@@ -24,7 +26,7 @@ En Gmail, creá un filtro (lupa → *Mostrar opciones de búsqueda*):
 
 - **De:** `e-resumen@bancogalicia.com.ar OR e-resumen@mensajesgalicia.com.ar`
 - **Crear filtro** → ✅ *Aplicar la etiqueta* → *Nueva etiqueta* → `Mango/Resumenes` (es decir, la etiqueta `Resumenes` anidada en `Mango`).
-- Opcional: ✅ *Aplicar también a las conversaciones que coinciden*. Si lo tildás, se procesan también los resúmenes viejos. La Bandeja marca lo que ya estaba cargado, así que no duplica, pero vas a tener que descartarlos.
+- Opcional: ✅ *Aplicar también a las conversaciones que coinciden*. Los resúmenes viejos quedan etiquetados, pero por la fecha de corte no se mandan.
 
 Cuando sepas el remitente de otros bancos (Santander, el aviso de la caja de ahorro), agregalo al mismo filtro.
 
@@ -40,9 +42,12 @@ Cuando sepas el remitente de otros bancos (Santander, el aviso de la caja de aho
 1. Volvé al editor, elegí la función **`configurar`** en el selector de arriba y tocá **Ejecutar**.
 2. Google te pide permisos: leer y etiquetar tu Gmail, conectarse a servicios externos (Mango y eresumen.com.ar) y ejecutarse de forma programada.
    Va a aparecer *"Google no verificó esta app"*: es normal porque el script es tuyo. Tocá **Configuración avanzada → Ir a Mango resúmenes (no seguro) → Permitir**.
-3. En el registro tiene que aparecer `Conexión con Mango OK` y `Listo: cada hora se van a mandar...`.
+3. En el registro tiene que aparecer `Conexión con Mango OK` y `Listo: todos los días a las 9 se van a mandar...`.
 
 Listo. Para probarlo sin esperar, ejecutá **`procesarResumenes`** y mirá la Bandeja de Mango.
+
+## Fecha de corte
+`configurar` guarda la fecha del día en la propiedad `MANGO_DESDE`, y el script solo manda mails recibidos desde esa fecha. Si alguna vez querés mandar resúmenes anteriores, cambiá `MANGO_DESDE` a una fecha más vieja (formato `AAAA-MM-DD`) o borrala, y ejecutá `procesarResumenes`. Lo que ya estaba importado en Mango aparece marcado como "ya cargado" en la Bandeja.
 
 ## Si algo no anda
 
@@ -58,4 +63,4 @@ Listo. Para probarlo sin esperar, ejecutá **`procesarResumenes`** y mirá la Ba
 - El link de "Conocer resumen" funciona como una llave a tu resumen: el script lo usa solo para bajar el PDF y nunca lo escribe en el registro.
 
 ## Actualizar el script
-Cuando cambie `Mango.gs` en el repo, volvé a pegarlo entero en el editor y guardá. Las propiedades y el activador se mantienen.
+Cuando cambie `Mango.gs` en el repo, volvé a pegarlo entero en el editor, guardá y ejecutá `configurar` de nuevo: reemplaza el activador y mantiene las propiedades, incluida la fecha de corte.

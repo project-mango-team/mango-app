@@ -39,7 +39,7 @@ let llamadas;
 let etiquetas;
 let logs;
 
-const cargar = ({ mango = () => respuesta(201, '{}'), links = {} } = {}) => {
+const cargar = ({ mango = () => respuesta(201, '{}'), links = {}, props = {} } = {}) => {
   llamadas = [];
   etiquetas = {};
   logs = [];
@@ -47,7 +47,8 @@ const cargar = ({ mango = () => respuesta(201, '{}'), links = {} } = {}) => {
   ctx = {
     module: { exports: {} },
     console: { log: (m) => logs.push(m), warn: (m) => logs.push(m), error: (m) => logs.push(m) },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => ({ MANGO_URL: 'https://mango.test/', MANGO_TOKEN: 'mango_tokenDePrueba' })[k] }) },
+    _props: { MANGO_URL: 'https://mango.test/', MANGO_TOKEN: 'mango_tokenDePrueba', ...props },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => ctx._props[k] ?? null, setProperty: (k, v) => { ctx._props[k] = v; } }) },
     GmailApp: {
       getUserLabelByName: (n) => ({ nombre: n }),
       createLabel: (n) => ({ nombre: n }),
@@ -60,7 +61,11 @@ const cargar = ({ mango = () => respuesta(201, '{}'), links = {} } = {}) => {
         return links[url] ? links[url]() : respuesta(404);
       }
     },
-    ScriptApp: { getProjectTriggers: () => [], deleteTrigger: () => {}, newTrigger: () => ({ timeBased: () => ({ everyHours: () => ({ create: () => {} }) }) }) },
+    ScriptApp: {
+      getProjectTriggers: () => [],
+      deleteTrigger: () => {},
+      newTrigger: (fn) => ({ timeBased: () => ({ everyDays: (n) => ({ atHour: (h) => ({ create: () => { ctx._trigger = { fn, n, h }; } }) }) }) })
+    },
     _hilos: hilos
   };
   vm.createContext(ctx);
@@ -161,10 +166,31 @@ describe('procesarResumenes', () => {
   });
 });
 
+describe('fecha de corte y frecuencia', () => {
+  it('con MANGO_DESDE solo busca mails desde esa fecha', () => {
+    const s = cargar({ props: { MANGO_DESDE: '2026-10-20' } });
+    s.procesarResumenes();
+    expect(ctx._consulta).toBe('label:mango-resumenes -label:mango-procesado -label:mango-error after:2026/10/20');
+  });
+
+  it('configurar fija la fecha de corte de hoy y programa una corrida diaria', () => {
+    const s = cargar({ mango: () => respuesta(200, '{}') });
+    s.configurar();
+    expect(ctx._props.MANGO_DESDE).toBe(new Date().toISOString().slice(0, 10));
+    expect(ctx._trigger).toEqual({ fn: 'procesarResumenes', n: 1, h: 9 });
+  });
+
+  it('configurar no pisa una fecha de corte ya elegida', () => {
+    const s = cargar({ mango: () => respuesta(200, '{}'), props: { MANGO_DESDE: '2026-01-01' } });
+    s.configurar();
+    expect(ctx._props.MANGO_DESDE).toBe('2026-01-01');
+  });
+});
+
 describe('configuración', () => {
   it('sin MANGO_URL o MANGO_TOKEN falla con un mensaje claro', () => {
     const s = cargar();
-    ctx.PropertiesService.getScriptProperties = () => ({ getProperty: () => null });
+    ctx._props = {};
     expect(() => s.procesarResumenes()).toThrow(/MANGO_URL/);
   });
 
