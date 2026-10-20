@@ -65,7 +65,7 @@ MP tiene API oficial: los movimientos pueden llegar solos sin descargar nada.
 | ID | Ticket | Depende de | Tam. | Estado |
 |---|---|---|---|---|
 | MP-01 | **Spike de la API.** Qué endpoint da los movimientos de la cuenta personal (búsqueda de pagos o reportes de dinero en cuenta), con qué token (access token de desarrollador propio) y qué campos trae comparado con el CSV que parsea hoy `MercadoPagoParser`. Hecho: reporte de liberaciones con access token de una app propia, mapeo al CSV del parser para entrar por la Bandeja y probe de solo lectura; detalle en [mercadopago.md](mercadopago.md). | — | S | hecho |
-| MP-02 | **Conectar la cuenta.** Guardar el token cifrado y probar la conexión desde la UI. | MP-01, PLAT-03 | S | pendiente |
+| MP-02 | **Conectar la cuenta.** Guardar el token cifrado y probar la conexión desde la UI. Hecho: tarjeta "Mercado Pago" en Configuración con los pasos para sacar el token; se prueba contra MP antes de guardarlo (secreto `mercadopago`), con probar, cambiar y desconectar. | MP-01, PLAT-03 | S | hecho |
 | MP-03 | **Sync diaria.** Un job que trae los movimientos nuevos, los mapea al mismo formato que el parser actual y los deja en la bandeja (o los importa con ING-10), con deduplicación. | MP-02, PLAT-01, ING-04, ING-05 | M | pendiente |
 | MP-04 | **Saldo de MP en Inversiones.** El saldo remunerado de MP como activo "Cuenta remunerada" con valuación diaria automática. | MP-03, VAL-01 | S | pendiente |
 
