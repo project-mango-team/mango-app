@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcularUnidades, parseUnidades, normalizarFuentePrecio } from './investmentValuation.js';
+import { calcularUnidades, parseUnidades, normalizarFuentePrecio, calcularValuacionPorPrecio } from './investmentValuation.js';
 
 const mov = (tipo, fecha, unidades, created = fecha) => ({
   tipo,
@@ -88,5 +88,28 @@ describe('normalizarFuentePrecio', () => {
     expect(() => normalizarFuentePrecio('tasa_fija', { tasa_anual: -1 })).toThrow(/tasa anual/);
     expect(() => normalizarFuentePrecio('cafci', { fci_nombre: 'X' })).toThrow(/Categoría/);
     expect(() => normalizarFuentePrecio('cafci', { fci_categoria: 'rentaFija' })).toThrow(/fondo/);
+  });
+});
+
+describe('calcularValuacionPorPrecio', () => {
+  const movs = [mov('Aporte', '2026-10-01', 1000), mov('Retiro', '2026-10-10', 200), mov('Aporte', '2026-10-17', 500)];
+
+  it('unidades a la fecha del precio × precio, redondeado a centavos', () => {
+    expect(calcularValuacionPorPrecio({}, movs, { precio: 86.021448, fecha: '2026-10-16' }))
+      .toEqual({ fecha: '2026-10-16', precio: 86.021448, unidades: 800, monto: 68817.16 });
+  });
+
+  it('cuenta los movimientos del mismo día del precio', () => {
+    expect(calcularValuacionPorPrecio({}, movs, { precio: 1, fecha: '2026-10-17' }).unidades).toBe(1300);
+  });
+
+  it('usa las unidades manuales si los movimientos no traen', () => {
+    expect(calcularValuacionPorPrecio({ unidades: 0.5 }, [mov('Aporte', '2026-10-01')], { precio: 60000, fecha: '2026-10-16' }).monto)
+      .toBe(30000);
+  });
+
+  it('sin unidades o sin precio válido, falla con un mensaje claro', () => {
+    expect(() => calcularValuacionPorPrecio({}, [], { precio: 10, fecha: '2026-10-16' })).toThrow(/Faltan las unidades/);
+    expect(() => calcularValuacionPorPrecio({ unidades: 1 }, [], { precio: 0, fecha: '2026-10-16' })).toThrow(/precio válido/);
   });
 });

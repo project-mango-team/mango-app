@@ -59,6 +59,11 @@ const investmentMovementSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Valuación calculada por Mango con la fuente de precio del activo (no la cargó el usuario)
+  automatica: {
+    type: Boolean,
+    default: false
+  },
   created_at: {
     type: Date,
     default: Date.now

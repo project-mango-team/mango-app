@@ -126,7 +126,13 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
               />
             </div>
 
-            <ValuationSourceInfo asset={asset} />
+            <ValuationSourceInfo
+              asset={asset}
+              onValuated={async () => {
+                await cargar()
+                onChanged()
+              }}
+            />
 
             {serie.length >= 2 && (
               <div className="h-40">

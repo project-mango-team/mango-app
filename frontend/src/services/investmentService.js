@@ -74,6 +74,23 @@ export const investmentService = {
     return response.data;
   },
 
+  // Fondos de la CAFCI cuyo nombre contiene q: [{ nombre, categoria, fecha, precio }]
+  searchFci: async (q) => {
+    const response = await api.get('/investments/fci', { params: { q } });
+    return response.data;
+  },
+
+  // Valor del activo con el último precio de su fuente: { fecha, precio, unidades, monto, fuente }
+  getAutoValuation: async (assetId) => {
+    const response = await api.get(`/investments/assets/${assetId}/auto-valuation`);
+    return response.data;
+  },
+
+  createAutoValuation: async (assetId) => {
+    const response = await api.post(`/investments/assets/${assetId}/auto-valuation`);
+    return response.data;
+  },
+
   getTypes: async () => {
     const response = await api.get('/investments/types');
     return response.data;

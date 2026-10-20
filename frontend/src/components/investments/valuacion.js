@@ -23,3 +23,14 @@ export const formatUnidades = (n) =>
  * Unidades a texto editable, sin separador de miles y sin redondear a 2 decimales
  */
 export const unidadesAInput = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
+
+// Fuentes que ya traen precio (las demás llegan con VAL-04 a VAL-06)
+export const tienePrecioAutomatico = (fuente) => ['cafci'].includes(fuente)
+
+const SIMBOLOS = { ARS: '$', USD: 'US$', EUR: '€' }
+
+/**
+ * Precio unitario con hasta 4 decimales ("$ 86,0214"): las cuotapartes valen poco y los centavos no alcanzan
+ */
+export const formatPrecio = (n, moneda = 'ARS') =>
+  `${SIMBOLOS[moneda] || ''} ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`

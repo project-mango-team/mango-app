@@ -23,7 +23,6 @@ const valuacionDe = (asset) => asset
 // Arma fuente_precio, precio_config y unidades para la API (los números vienen en formato argentino)
 const datosValuacion = ({ fuente_precio, precio_config, unidades }) => {
   const config = { ...precio_config }
-  if (fuente_precio === 'cafci') config.fci_categoria = config.fci_categoria || 'mercadoDinero'
   if (fuente_precio === 'tasa_fija') config.tasa_anual = parseNumeroAR(config.tasa_anual)
   const unidadesNum = parseNumeroAR(unidades)
   return {

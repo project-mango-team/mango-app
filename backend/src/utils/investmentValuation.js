@@ -108,3 +108,23 @@ export const normalizarFuentePrecio = (fuente = 'manual', config = {}) => {
       return { fuente_precio: 'manual', precio_config: {} };
   }
 };
+
+const aISO = (fecha) => new Date(fecha).toISOString().slice(0, 10);
+
+/**
+ * Valuación de un activo con un precio de mercado: unidades en tenencia a la fecha del precio × precio.
+ * Los movimientos posteriores a la fecha del precio no cuentan (la valuación queda fechada ese día).
+ * @param {{ unidades?: number }} activo
+ * @param {Array} movimientos
+ * @param {{ precio: number, fecha: string }} cotizacion - precio de UNA unidad en la moneda del activo
+ * @returns {{ fecha: string, precio: number, unidades: number, monto: number }}
+ */
+export const calcularValuacionPorPrecio = (activo, movimientos, { precio, fecha }) => {
+  if (!(precio > 0)) throw new AppError('La fuente no devolvió un precio válido', 502);
+  const hastaFecha = movimientos.filter(m => aISO(m.fecha) <= fecha);
+  const { unidades } = calcularUnidades(activo, hastaFecha);
+  if (unidades === null) {
+    throw new AppError('Faltan las unidades del activo: cargalas en Editar datos o en los movimientos', 400);
+  }
+  return { fecha, precio, unidades, monto: Math.round(unidades * precio * 100) / 100 };
+};

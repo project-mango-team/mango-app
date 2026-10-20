@@ -1,3 +1,4 @@
+import FciPicker from './FciPicker'
 import { FUENTES_PRECIO, usaUnidades } from './valuacion'
 
 /**
@@ -27,29 +28,7 @@ const PriceSourceFields = ({ value, onChange, tenencia }) => {
       </label>
 
       {fuente === 'cafci' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <label className="block sm:col-span-2">
-            <span className="text-sm text-gray-400">Fondo y clase</span>
-            <input
-              type="text"
-              value={config.fci_nombre || ''}
-              onChange={setConfig('fci_nombre')}
-              placeholder="ej: Fima Premium - Clase A"
-              className="input-field w-full mt-1"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm text-gray-400">Categoría</span>
-            <select value={config.fci_categoria || 'mercadoDinero'} onChange={setConfig('fci_categoria')} className="input-field w-full mt-1">
-              <option value="mercadoDinero">Money market</option>
-              <option value="rentaFija">Renta fija</option>
-              <option value="rentaVariable">Renta variable</option>
-              <option value="rentaMixta">Renta mixta</option>
-              <option value="otros">Otros</option>
-            </select>
-          </label>
-        </div>
+        <FciPicker value={config} onChange={fci => onChange({ ...value, precio_config: { ...config, ...fci } })} />
       )}
       {fuente === 'ticker' && (
         <label className="block">

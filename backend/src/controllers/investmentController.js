@@ -10,6 +10,8 @@ import { getInvestmentTypes } from '../config/investmentTypes.js';
 import { resumirPrestamos } from '../utils/loanCalc.js';
 import { parseOperacionesFima, emparejarExistentes } from '../utils/investmentImport.js';
 import { calcularUnidades, parseUnidades, normalizarFuentePrecio } from '../utils/investmentValuation.js';
+import { FciService } from '../services/fciService.js';
+import { calcularValuacionAutomatica, guardarValuacionAutomatica } from '../services/valuationService.js';
 import { parseFecha, parseMonto, parseCotizacion } from '../utils/inputParsers.js';
 import {
   convertirMonto,
@@ -378,6 +380,8 @@ export const updateMovement = async (req, res, next) => {
       movimiento.tipo = tipo;
     }
     if (notas !== undefined) movimiento.notas = String(notas);
+    // Si el usuario edita una valuación automática, pasa a ser suya y el job ya no la pisa
+    movimiento.automatica = false;
     const unidades = parseUnidades(req.body.unidades);
     if (unidades !== undefined) movimiento.unidades = unidades ?? undefined;
 
@@ -460,6 +464,53 @@ export const createValuations = async (req, res, next) => {
 
     const movimientos = await InvestmentMovement.insertMany(addUserToData(req, docs));
     res.status(201).json({ success: true, count: movimientos.length, data: movimientos });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------- Valuación automática ----------
+
+// Busca FCI en el reporte diario de la CAFCI: ?q=fima premium
+export const searchFci = async (req, res, next) => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (q.length < 2) {
+      throw new AppError('Escribí al menos 2 letras para buscar', 400);
+    }
+    const data = await FciService.buscar(q);
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const valuacionAutomaticaDe = async (req) => {
+  const asset = await findAssetOrFail(req, req.params.id);
+  const movimientos = await InvestmentMovement.find(buildUserQuery(req, { asset_id: asset._id })).lean();
+  return { asset, valuacion: await calcularValuacionAutomatica(asset, movimientos) };
+};
+
+// Valor del activo con el último precio de su fuente (sin guardar)
+export const previewAutoValuation = async (req, res, next) => {
+  try {
+    const { valuacion } = await valuacionAutomaticaDe(req);
+    res.json({ success: true, data: valuacion });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Guarda la valuación automática (reemplaza la automática del mismo día, nunca una manual)
+export const createAutoValuation = async (req, res, next) => {
+  try {
+    const { asset, valuacion } = await valuacionAutomaticaDe(req);
+    const cot = await resolverCotizaciones(asset.moneda, valuacion.fecha, {});
+    const resultado = await guardarValuacionAutomatica(asset, valuacion, cot);
+    if (resultado.estado === 'omitida') {
+      throw new AppError(`${resultado.motivo} (${valuacion.fecha.split('-').reverse().join('/')}): no se reemplaza`, 409);
+    }
+    res.status(201).json({ success: true, data: { valuacion, movimiento: resultado.movimiento } });
   } catch (error) {
     next(error);
   }
