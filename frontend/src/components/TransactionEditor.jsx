@@ -207,9 +207,9 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
               <th className="text-left py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Tipo</th>
               <th className="text-left py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Categoría</th>
               <th className="text-left py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Detalle</th>
-              <th className="text-right py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Importe</th>
+              <th className="text-right py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide" title="Siempre en pesos: los consumos en dólares se pesifican con la cotización del resumen">Importe ($)</th>
               <th className="text-center py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Moneda</th>
-              <th className="text-right py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide">Monto Original</th>
+              <th className="text-right py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide" title="En la moneda del consumo (US$ si la moneda es USD)">Monto original</th>
               <th className="text-center py-3 px-3 text-gray-400 font-medium text-xs uppercase tracking-wide w-16"></th>
             </tr>
           </thead>

@@ -55,9 +55,10 @@ export class BaseParser {
       fecha: data.fecha,
       categoria: data.categoria,
       detalle: data.detalle,
-      importe: Math.abs(data.importe),
+      // Redondeado a centavos: los consumos en USD se pesifican con una multiplicación
+      importe: Math.round(Math.abs(data.importe) * 100) / 100,
       moneda: data.moneda || 'ARS',
-      monto_original: Math.abs(data.monto_original || data.importe),
+      monto_original: Math.round(Math.abs(data.monto_original || data.importe) * 100) / 100,
       tipo: data.tipo,
       origen: data.origen
     };
