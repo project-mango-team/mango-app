@@ -2,6 +2,8 @@ import InvestmentAsset from '../models/InvestmentAsset.js';
 import InvestmentMovement from '../models/InvestmentMovement.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { FciService } from './fciService.js';
+import { MarketPriceService } from './marketPriceService.js';
+import { convertirPrecio } from '../utils/marketPrices.js';
 import { DolarService, hoyArgentina } from './dolarService.js';
 import { calcularValuacionPorPrecio, calcularUnidades, devengarTasaFija } from '../utils/investmentValuation.js';
 import { convertirMonto } from '../utils/investmentCalc.js';
@@ -9,8 +11,24 @@ import { convertirMonto } from '../utils/investmentCalc.js';
 // Valuación automática de activos según su fuente de precio (VAL).
 // Todo se filtra por el user_id del activo, así sirve tanto desde un request como desde un job.
 
-// Fuentes que ya valúan solas (las demás llegan con VAL-04 y VAL-05)
-export const FUENTES_AUTOMATICAS = ['cafci', 'tasa_fija'];
+// Fuentes que ya valúan solas (los tickers llegan con VAL-04)
+export const FUENTES_AUTOMATICAS = ['cafci', 'coingecko', 'tasa_fija'];
+
+/**
+ * Precio de una cripto en la moneda del activo: USD o EUR directo de CoinGecko, ARS al dólar blue de hoy
+ */
+const precioCripto = async (asset) => {
+  const { usd, eur } = await MarketPriceService.getCripto(asset.precio_config?.coingecko_id);
+  const fecha = hoyArgentina();
+  if (asset.moneda === 'EUR' && eur) return { precio: eur, fecha, fuente: 'CoinGecko' };
+  const cot = asset.moneda === 'USD' ? { usd: 1 } : await cotizacionesHoy(asset.moneda);
+  return { precio: convertirPrecio(usd, 'USD', asset.moneda, cot), fecha, fuente: 'CoinGecko' };
+};
+
+const cotizacionesHoy = async (moneda) => {
+  const usd = (await DolarService.getBlue()).promedio;
+  return moneda === 'EUR' ? { usd, eur: (await DolarService.getEuro()).promedio } : { usd };
+};
 
 /**
  * Precio de UNA unidad del activo en su moneda, según su fuente
@@ -20,6 +38,8 @@ export const obtenerPrecio = async (asset) => {
   switch (asset.fuente_precio) {
     case 'cafci':
       return FciService.getPrecio(asset.precio_config || {});
+    case 'coingecko':
+      return precioCripto(asset);
     case 'manual':
     case undefined:
       throw new AppError('El activo no tiene una fuente de precio automática', 400);

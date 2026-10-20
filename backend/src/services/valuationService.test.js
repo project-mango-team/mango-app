@@ -5,6 +5,13 @@ import { obtenerPrecio, calcularValuacionAutomatica, valuarActivos } from './val
 vi.mock('./fciService.js', () => ({
   FciService: { getPrecio: vi.fn(async () => ({ precio: 2.5, fecha: '2026-10-16', fuente: 'CAFCI' })) }
 }));
+vi.mock('./marketPriceService.js', () => ({
+  MarketPriceService: { getCripto: vi.fn(async () => ({ usd: 80000, eur: 70000 })) }
+}));
+vi.mock('./dolarService.js', () => ({
+  hoyArgentina: () => '2026-10-20',
+  DolarService: { getBlue: vi.fn(async () => ({ promedio: 1500 })), getEuro: vi.fn(async () => ({ promedio: 1700 })) }
+}));
 
 const movimiento = (tipo, fecha, unidades) => ({ tipo, fecha: new Date(`${fecha}T00:00:00Z`), monto: 1, unidades });
 
@@ -17,7 +24,7 @@ describe('obtenerPrecio', () => {
 
   it('manual no tiene precio y las fuentes que faltan avisan', async () => {
     await expect(obtenerPrecio({ fuente_precio: 'manual' })).rejects.toMatchObject({ statusCode: 400 });
-    await expect(obtenerPrecio({ fuente_precio: 'coingecko' })).rejects.toMatchObject({ statusCode: 501 });
+    await expect(obtenerPrecio({ fuente_precio: 'ticker' })).rejects.toMatchObject({ statusCode: 501 });
   });
 });
 
@@ -86,5 +93,18 @@ describe('tasa fija', () => {
       { movimientosDe: async () => [], calcular, cotizaciones: async () => ({ usd: 1500 }), guardar }
     );
     expect(resumen).toEqual({ activos: 2, guardadas: 1, omitidas: 0, sin_tenencia: 1, errores: 0 });
+  });
+});
+
+describe('cripto', () => {
+  const btc = (moneda) => ({ fuente_precio: 'coingecko', moneda, precio_config: { coingecko_id: 'bitcoin' } });
+
+  it('USD y EUR salen directo de CoinGecko, con la fecha de hoy', async () => {
+    await expect(obtenerPrecio(btc('USD'))).resolves.toEqual({ precio: 80000, fecha: '2026-10-20', fuente: 'CoinGecko' });
+    await expect(obtenerPrecio(btc('EUR'))).resolves.toMatchObject({ precio: 70000 });
+  });
+
+  it('ARS se convierte con el dólar blue de hoy', async () => {
+    await expect(obtenerPrecio(btc('ARS'))).resolves.toMatchObject({ precio: 120000000 });
   });
 });
