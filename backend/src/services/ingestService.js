@@ -4,6 +4,7 @@ import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { isExcelFilename } from '../utils/excelToCsv.js';
 import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
+import { compararTotales } from '../utils/totalesResumen.js';
 import { FUENTES, fuenteDeAviso, homebankingDe, avisoCoincide, elegirAviso, fuenteDeDeteccion } from '../utils/fuentesResumen.js';
 import {
   detectarDocumento,
@@ -120,7 +121,7 @@ const procesar = async (req, doc, { redetectar = true } = {}) => {
     if (transacciones.length === 0) {
       throw new Error('No se encontraron transacciones en el archivo');
     }
-    doc.preview = resumirPreview(transacciones);
+    doc.preview = { ...resumirPreview(transacciones), control: compararTotales(doc.deteccion?.totales, transacciones) };
     doc.archivo_ya_importado = await buscarImportacionDelArchivo(req, doc.sha256);
     doc.estado = 'listo';
   } catch (error) {

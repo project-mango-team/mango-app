@@ -1,4 +1,5 @@
 import { formatFecha, formatImporte } from '../../utils/format'
+import { ControlTotalesResumen } from './ControlTotales'
 
 const ESTADOS = {
   listo: { texto: 'Listo para importar', clase: 'bg-primary/20 text-orange-300' },
@@ -89,7 +90,10 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     </>
                   ) : '—'}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-gray-300">{p ? formatImporte(p.gastos) : '—'}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-gray-300">
+                  {p ? formatImporte(p.gastos) : '—'}
+                  <ControlTotalesResumen control={p?.control} />
+                </td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap ${estado.clase}`}>{estado.texto}</span>
                   {doc.error && <p className="text-xs text-gray-400 mt-1 max-w-[16rem]">{doc.error}</p>}

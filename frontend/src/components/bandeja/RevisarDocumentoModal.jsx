@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Modal from '../Modal'
 import TransactionEditor from '../TransactionEditor'
+import ControlTotales from './ControlTotales'
 import { bandejaService } from '../../services/bandejaService'
 import { mensajeError } from '../../utils/format'
 
@@ -75,6 +76,8 @@ const RevisarDocumentoModal = ({ documento, onClose, onImportar }) => {
           </button>
         </div>
       )}
+
+      {datos && <ControlTotales control={datos.documento.preview?.control} />}
 
       {cargando && !datos && <p className="text-gray-400">Cargando transacciones...</p>}
 

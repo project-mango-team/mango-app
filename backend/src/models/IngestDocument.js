@@ -68,7 +68,9 @@ const ingestDocumentSchema = new mongoose.Schema({
     gastos: Number,
     ingresos: Number,
     desde: String,
-    hasta: String
+    hasta: String,
+    // ING-12: lo leído contra el total del resumen (utils/totalesResumen.compararTotales)
+    control: mongoose.Schema.Types.Mixed
   },
   archivo_ya_importado: {
     type: mongoose.Schema.Types.Mixed,

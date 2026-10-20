@@ -26,7 +26,24 @@ Consecuencias para el diseño:
 - **Mastercard Galicia queda automática de punta a punta** con ING-06 + ING-07: el adjunto llega, se detecta y se parsea.
 - **Visa Galicia puede quedar automática siguiendo el link**: el script toma la URL de "Conocer resumen", la abre y baja el PDF de `eresumen.com.ar`. ✅ Confirmado (20/10/2026): en una ventana de incógnito genera el PDF **sin pedir login**. Falta confirmar en ING-07 que `UrlFetchApp` llegue al PDF sin ejecutar JavaScript; si la página arma el PDF con JS, queda como aviso. El link es una credencial: nunca se loguea ni se guarda completo.
 - **La caja de ahorro de Galicia va por aviso (ING-08)**: el mail no trae ni adjunto ni link. Queda "pendiente" en la bandeja y el XLSX se sube a mano (detectado solo por ING-03).
-- **Los totales del cuerpo del mail sirven de control (ING-12).** En el Mastercard de ejemplo, el parser suma $131.077 en 2 consumos y el mail dice "Total en pesos: 132.649,92". La diferencia ($1.572,92) probablemente sean impuestos o cargos que el parser no toma como consumos; falta verificarlo. Mostrar esa comparación en la revisión ayuda a ver si se perdió algo.
+- **Los totales del cuerpo del mail sirven de control (ING-12).** En el Mastercard de ejemplo, el parser suma $131.077 en 2 consumos y el mail dice "Total en pesos: 132.649,92". La diferencia ($1.572,92) es el impuesto de sellos. Mostrar esa comparación en la revisión ayuda a ver si se perdió algo.
+
+### Qué explica la diferencia (ING-12, 20/10/2026)
+
+Se leen del PDF, no del mail: el PDF del homebanking (Visa y Mastercard) y el de eresumen traen el total ("TOTAL A PAGAR" / "SALDO ACTUAL"), el pago mínimo, el saldo anterior, los pagos y cada impuesto. El texto copiado del homebanking (TXT) no trae totales, así que no tiene control.
+
+El total del resumen es: **saldo anterior + pagos (negativos) + consumos + impuestos y percepciones − devoluciones**. Con los 6 PDF de tarjeta reales (Visa feb, jul, ago y sep/oct en los dos formatos; Mastercard sep) la diferencia queda **explicada al 100%** ("sin explicar" $0) y los dólares cierran exactos. Lo que aparece:
+
+| Línea del resumen | Qué es | ¿El parser la importa? | ¿Conviene como gasto? |
+|---|---|---|---|
+| IMPUESTO DE SELLOS (`$` y `P $`) | Impuesto provincial sobre el saldo | No | **Sí**, es un costo real (alrededor del 1–1,5% del resumen) |
+| IIBB PERCEP-BSAS 2% | Percepción de Ingresos Brutos sobre servicios del exterior | No | **Sí**, salvo que el usuario la compute en IIBB |
+| IVA RG 4240 21% | IVA de servicios digitales del exterior | No | **Sí** |
+| DB.RG 5617 30% | Percepción a cuenta de Ganancias sobre consumos en moneda extranjera | **Sí** (no está en la lista de exclusión) | Solo junto con su devolución |
+| DEV.IMP. RG 5617 | Devolución de esa percepción el mes siguiente (en los resúmenes reales coincide con meses en que el saldo en dólares se pagó con dólares) | No (queda en el consolidado) | Sí, como **ingreso**, para que la percepción neta dé 0 |
+| Saldo anterior − SU PAGO | Arrastre del mes anterior | No | No: el usuario paga el total y da 0 |
+
+Conclusión: hoy se infla el gasto con la percepción RG 5617 que después se devuelve, y faltan los impuestos chicos. **ING-14** propone importar todo esto (impuestos como categoría Impuestos, la devolución como ingreso) para que el control cierre en $0. No aparecieron intereses ni comisiones; si aparecen, el control los muestra en "Impuestos y cargos" o en "Sin explicar".
 
 ## Idea central
 

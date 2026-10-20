@@ -1,6 +1,7 @@
 import { BaseParser } from './BaseParser.js';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
+import { extraerTotalesTarjeta } from '../utils/totalesResumen.js';
 
 const MESES_ABREVIADOS = {
   ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
@@ -55,7 +56,8 @@ export class GaliciaParser extends BaseParser {
         producto: 'visa',
         formato: 'eresumen',
         descripcion: 'Visa Galicia (eresumen)',
-        cierre: mes ? `20${cierre[3]}-${mes}-${cierre[1]}` : null
+        cierre: mes ? `20${cierre[3]}-${mes}-${cierre[1]}` : null,
+        totales: extraerTotalesTarjeta(texto)
       };
     }
 
@@ -72,7 +74,8 @@ export class GaliciaParser extends BaseParser {
         producto,
         formato: 'homebanking',
         descripcion: `${producto === 'visa' ? 'Visa' : 'Mastercard'} Galicia`,
-        cierre: mes ? `20${fechas[6]}-${mes}-${fechas[4]}` : null
+        cierre: mes ? `20${fechas[6]}-${mes}-${fechas[4]}` : null,
+        totales: extraerTotalesTarjeta(texto)
       };
     }
 
