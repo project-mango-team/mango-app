@@ -32,6 +32,13 @@ const leerMetadata = (raw) => {
 };
 
 /**
+ * GET /api/ingest/ping: para que la integración verifique URL y token (no devuelve datos)
+ */
+export const ingestPing = (req, res) => {
+  res.json({ success: true, message: 'Conexión con Mango OK' });
+};
+
+/**
  * POST /api/ingest/documents (multipart: file + metadata)
  * Idempotente: el mismo adjunto del mismo mail, o el mismo archivo, devuelve el documento existente (200)
  */
