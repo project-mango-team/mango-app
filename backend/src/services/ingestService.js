@@ -139,11 +139,12 @@ const vista = (doc) => {
 // ---------- Casos de uso ----------
 
 /**
- * Agrega un archivo a la bandeja. Si el mismo archivo ya estaba, devuelve ese documento
- * (y lo vuelve a procesar si estaba descartado o con error).
+ * Agrega un archivo a la bandeja. Si el mismo archivo ya estaba, devuelve ese documento.
+ * Con `reabrir` (subida desde la UI) un documento descartado o con error se vuelve a procesar;
+ * las integraciones no lo usan, para que un script no deshaga un descarte del usuario.
  * @returns {Promise<{ documento, existente: boolean }>}
  */
-export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload', email }) => {
+export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload', email, reabrir = true }) => {
   if (!buffer?.length) {
     throw new AppError('El archivo está vacío', 400);
   }
@@ -154,7 +155,7 @@ export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload
   const sha256 = hashArchivo(buffer);
   const existente = await IngestDocument.findOne(buildUserQuery(req, { sha256 })).select('+contenido');
   if (existente) {
-    if (['descartado', 'error'].includes(existente.estado)) {
+    if (reabrir && ['descartado', 'error'].includes(existente.estado)) {
       await procesar(req, existente);
     }
     return { documento: vista(existente), existente: true };

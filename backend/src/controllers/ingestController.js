@@ -3,6 +3,8 @@ import { nombreArchivo } from '../utils/uploadFilename.js';
 import { recibirDocumento, buscarPorMensaje, registrarAviso } from '../services/ingestService.js';
 
 // Webhook de integraciones (autenticado con token personal). Lo usa el script de Gmail.
+// El token solo sirve para subir: las respuestas no devuelven el contenido ni la vista previa del documento.
+const respuestaMinima = (documento) => ({ _id: documento._id, estado: documento.estado });
 
 /**
  * Metadata del mail: viene como JSON (string en multipart) con message_id, from, subject y received_at
@@ -43,16 +45,17 @@ export const ingestDocument = async (req, res, next) => {
 
     const delMismoMail = await buscarPorMensaje(req, email.message_id, filename);
     if (delMismoMail) {
-      return res.status(200).json({ success: true, existente: true, data: delMismoMail });
+      return res.status(200).json({ success: true, existente: true, data: respuestaMinima(delMismoMail) });
     }
 
     const { documento, existente } = await recibirDocumento(req, {
       buffer: req.file.buffer,
       filename,
       fuente: 'email',
-      email: email.message_id ? email : undefined
+      email: email.message_id ? email : undefined,
+      reabrir: false
     });
-    res.status(existente ? 200 : 201).json({ success: true, existente, data: documento });
+    res.status(existente ? 200 : 201).json({ success: true, existente, data: respuestaMinima(documento) });
   } catch (error) {
     next(error);
   }
@@ -65,7 +68,7 @@ export const ingestDocument = async (req, res, next) => {
 export const ingestAviso = async (req, res, next) => {
   try {
     const { documento, existente } = await registrarAviso(req, leerMetadata(req.body));
-    res.status(existente ? 200 : 201).json({ success: true, existente, data: documento });
+    res.status(existente ? 200 : 201).json({ success: true, existente, data: respuestaMinima(documento) });
   } catch (error) {
     next(error);
   }
