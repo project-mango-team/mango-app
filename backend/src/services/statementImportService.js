@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
 import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
@@ -7,7 +8,8 @@ import { GaliciaParser } from '../parsers/GaliciaParser.js';
 import { DolarService } from './dolarService.js';
 import Transaction from '../models/Transaction.js';
 import Operation from '../models/Operation.js';
-import { addUserToTransactionData, addUserToOperationData } from '../utils/userQuery.js';
+import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from '../utils/userQuery.js';
+import { marcarTransaccionesDuplicadas, normalizarFecha } from '../utils/transactionDedup.js';
 import { excelToCsvBuffer, isExcelFilename } from '../utils/excelToCsv.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -195,6 +197,40 @@ export const parsearDocumento = async ({ buffer, filename, tipo, tipoResumen, va
   return { transactions: await parser.parse(), valorDolar: null, cardFilter: null };
 };
 
+// ---------- Duplicados ----------
+
+/**
+ * Hash del contenido del archivo, para reconocer el mismo resumen subido dos veces
+ */
+export const hashArchivo = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex');
+
+/**
+ * Si este mismo archivo ya se importó (y no se deshizo), datos de esa importación
+ * @returns {Promise<{ operation_id, filename, fecha }|null>}
+ */
+export const buscarImportacionDelArchivo = async (req, sha256) => {
+  if (!sha256) return null;
+  const op = await Operation.findOne(buildUserQuery(req, { 'metadata.sha256': sha256, status: 'completed' }))
+    .sort({ created_at: -1 })
+    .lean();
+  return op ? { operation_id: op.operation_id, filename: op.filename, fecha: op.created_at } : null;
+};
+
+/**
+ * Agrega `duplicado: true|false` a cada transacción según si ya está cargada para el usuario.
+ * Solo trae de la DB las del mismo origen y las mismas fechas.
+ */
+export const marcarDuplicados = async (req, transactions) => {
+  if (!transactions.length) return transactions;
+  const fechas = [...new Set(transactions.map(t => normalizarFecha(t.fecha)))];
+  const origenes = [...new Set(transactions.map(t => t.origen).filter(Boolean))];
+  const existentes = await Transaction.find(buildUserQuery(req, { fecha: { $in: fechas }, origen: { $in: origenes } }))
+    .select('fecha tipo moneda importe monto_original detalle origen')
+    .lean();
+  const duplicados = marcarTransaccionesDuplicadas(transactions, existentes);
+  return transactions.map((t, i) => ({ ...t, duplicado: duplicados[i] }));
+};
+
 // Helper function to convert DD-MM-YYYY or DD/MM/YYYY to standardized format
 export const normalizeDate = (dateStr) => {
   if (!dateStr) return '';
@@ -238,8 +274,9 @@ export const getMonthName = (dateStr) => {
  * @param {Array} params.transactions
  * @param {string} params.tipo - Origen del import ('mercadopago', 'santander', 'galicia', 'manual')
  * @param {string} params.filename
+ * @param {string} [params.sha256] - Hash del archivo, para avisar si se vuelve a subir el mismo
  */
-export const guardarImportacion = async ({ req, transactions, tipo, filename }) => {
+export const guardarImportacion = async ({ req, transactions, tipo, filename, sha256 }) => {
   if (!transactions || transactions.length === 0) {
     throw new AppError('No se encontraron transacciones válidas en el archivo', 400);
   }
@@ -287,7 +324,8 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename }) 
     metadata: {
       batch_id: batchId,
       tipo,
-      transacciones_procesadas: transactions.length
+      transacciones_procesadas: transactions.length,
+      ...(sha256 && { sha256 })
     },
     created_at: timestamp
   }));

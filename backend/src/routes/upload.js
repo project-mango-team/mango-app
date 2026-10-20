@@ -8,7 +8,10 @@ import {
   parsearDocumento,
   guardarImportacion,
   detectarTarjetasSantander,
-  detectarDocumento
+  detectarDocumento,
+  hashArchivo,
+  marcarDuplicados,
+  buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 
 const router = express.Router();
@@ -114,6 +117,13 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       });
     }
 
+    // Ya cargadas: por transacción (resúmenes superpuestos) y por archivo (el mismo subido dos veces)
+    const sha256 = hashArchivo(req.file.buffer);
+    const [conDuplicados, archivoYaImportado] = await Promise.all([
+      marcarDuplicados(req, transactions),
+      buscarImportacionDelArchivo(req, sha256)
+    ]);
+
     // Return transactions for preview/editing (don't save yet)
     res.json({
       success: true,
@@ -121,7 +131,10 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       data: {
         filename: req.file.originalname,
         tipo,
-        transactions,
+        transactions: conDuplicados,
+        duplicados: conDuplicados.filter(t => t.duplicado).length,
+        sha256,
+        archivoYaImportado,
         valorDolar: tipo === 'santander' ? dolarUsado : null,
         cardType: cardType || null,
         selectedCards: cardFilter || null
@@ -140,6 +153,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
 router.post('/', upload.single('file'), async (req, res, next) => {
   try {
     const { tipo, valorDolar, transactions: editedTransactions, filename, selectedCards, tipoResumen } = req.body;
+    let { sha256 } = req.body;
 
     let transactions = [];
     let sourceFilename = filename;
@@ -165,6 +179,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     } else if (req.file) {
       // Legacy path: parse from uploaded file
       sourceFilename = req.file.originalname;
+      sha256 = hashArchivo(req.file.buffer);
 
       ({ transactions } = await parsearDocumento({
         ...archivoDe(req.file),
@@ -189,7 +204,9 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    const data = await guardarImportacion({ req, transactions, tipo, filename: sourceFilename });
+    // Las marcas de la vista previa no se guardan
+    transactions = transactions.map(({ duplicado, ...t }) => t);
+    const data = await guardarImportacion({ req, transactions, tipo, filename: sourceFilename, sha256 });
 
     res.json({
       success: true,

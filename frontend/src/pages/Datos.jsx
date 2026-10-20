@@ -239,7 +239,9 @@ const Datos = () => {
         tipo: response.data.tipo,
         cardType: response.data.cardType,
         selectedCards: response.data.selectedCards,
-        tipoResumen: tipo === 'galicia' ? tipoResumen : null
+        tipoResumen: tipo === 'galicia' ? tipoResumen : null,
+        sha256: response.data.sha256,
+        archivoYaImportado: response.data.archivoYaImportado
       })
       setShowEditor(true)
       
@@ -264,7 +266,8 @@ const Datos = () => {
         previewData.filename,
         previewData.cardType,
         previewData.selectedCards,
-        previewData.tipoResumen
+        previewData.tipoResumen,
+        previewData.sha256
       )
       
       setMessage({ 
@@ -398,6 +401,7 @@ const Datos = () => {
           ) : (
             <TransactionEditor
               initialTransactions={previewData.transactions}
+              archivoYaImportado={previewData.archivoYaImportado}
               onSave={handleSaveTransactions}
               onCancel={handleCancelEditor}
             />

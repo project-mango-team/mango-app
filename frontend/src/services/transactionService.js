@@ -134,7 +134,8 @@ export const uploadService = {
   },
 
   // Save edited transactions (after preview and editing)
-  saveTransactions: async (transactions, tipo, filename, cardType = null, selectedCards = null, tipoResumen = null) => {
+  // sha256: hash del archivo (viene en la vista previa) para avisar si se vuelve a subir el mismo
+  saveTransactions: async (transactions, tipo, filename, cardType = null, selectedCards = null, tipoResumen = null, sha256 = null) => {
     const formData = new FormData();
     formData.append('transactions', JSON.stringify(transactions));
     formData.append('tipo', tipo);
@@ -142,6 +143,7 @@ export const uploadService = {
     if (cardType) formData.append('cardType', cardType);
     if (selectedCards) formData.append('selectedCards', JSON.stringify(selectedCards));
     if (tipoResumen) formData.append('tipoResumen', tipoResumen);
+    if (sha256) formData.append('sha256', sha256);
 
     const response = await api.post('/upload', formData, {
       headers: {

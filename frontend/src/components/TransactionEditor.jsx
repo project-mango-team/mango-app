@@ -3,7 +3,8 @@ import { categoryService } from '../services/transactionService'
 
 const MONEDAS = ['ARS', 'USD']
 
-const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false }) => {
+// Transacciones con `duplicado: true` (ya cargadas) arrancan excluidas: se ven atenuadas y no se guardan salvo que se tilden
+const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null }) => {
   const [transactions, setTransactions] = useState([])
   const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
@@ -38,7 +39,8 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     // Initialize with a unique id for each transaction for tracking
     const transactionsWithId = initialTransactions.map((t, idx) => ({
       ...t,
-      _id: idx
+      _id: idx,
+      incluir: !t.duplicado
     }))
     setTransactions(transactionsWithId)
     setShowUndo(false)
@@ -47,8 +49,9 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
 
   useEffect(() => {
     // Calculate totals whenever transactions change
-    const gastos = transactions.filter(t => t.tipo === 'Gasto')
-    const ingresos = transactions.filter(t => t.tipo === 'Ingreso')
+    const incluidas = transactions.filter(t => t.incluir)
+    const gastos = incluidas.filter(t => t.tipo === 'Gasto')
+    const ingresos = incluidas.filter(t => t.tipo === 'Ingreso')
     
     const gastosARS = gastos.filter(t => t.moneda === 'ARS').reduce((sum, t) => sum + (parseFloat(t.monto_original) || 0), 0)
     const gastosUSD = gastos.filter(t => t.moneda === 'USD').reduce((sum, t) => sum + (parseFloat(t.monto_original) || 0), 0)
@@ -90,7 +93,8 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       moneda: 'ARS',
       monto_original: 0,
       tipo: 'Gasto',
-      origen: 'Manual'
+      origen: 'Manual',
+      incluir: true
     }
     setTransactions(prev => [...prev, newTransaction])
   }
@@ -136,13 +140,28 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   }
 
   const handleSave = () => {
-    // Remove the temporary _id before sending
-    const cleanTransactions = transactions.map(({ _id, ...rest }) => rest)
+    // Solo las incluidas, sin los campos de la vista previa
+    const cleanTransactions = transactions
+      .filter(t => t.incluir)
+      .map(({ _id, incluir, duplicado, ...rest }) => rest)
     onSave(cleanTransactions)
   }
 
+  const cantidadIncluidas = transactions.filter(t => t.incluir).length
+  const cantidadDuplicadas = transactions.filter(t => t.duplicado).length
+
   return (
     <div className="space-y-4">
+      {archivoYaImportado && (
+        <div className="p-3 rounded-lg border border-yellow-800 bg-yellow-900/20 text-sm text-yellow-300">
+          Este mismo archivo ya se importó el {new Date(archivoYaImportado.fecha).toLocaleDateString('es-AR')} ({archivoYaImportado.filename}).
+        </div>
+      )}
+      {cantidadDuplicadas > 0 && (
+        <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
+          {cantidadDuplicadas} transaccion(es) ya estaban cargadas: quedan sin incluir. Si alguna es realmente nueva, tildala.
+        </div>
+      )}
       {!isManualMode && (
         <>
           <div className="flex justify-between items-center">
@@ -196,7 +215,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
           </thead>
           <tbody>
             {transactions.map((t) => (
-              <tr key={t._id} className="border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors">
+              <tr key={t._id} className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors ${t.incluir ? '' : 'opacity-40'}`}>
                 <td className="py-2 px-3">
                   <input
                     type="text"
@@ -233,6 +252,16 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     onChange={(e) => handleCellChange(t._id, 'detalle', e.target.value)}
                     className="w-full min-w-[200px] bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
                   />
+                  {t.duplicado && (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-yellow-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={t.incluir}
+                        onChange={(e) => handleCellChange(t._id, 'incluir', e.target.checked)}
+                      />
+                      Ya cargada · incluir igual
+                    </label>
+                  )}
                 </td>
                 <td className="py-2 px-3">
                   <input
@@ -311,9 +340,9 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
         <button
           onClick={handleSave}
           className="px-6 py-2 bg-primary hover:bg-primary/80 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={transactions.length === 0}
+          disabled={cantidadIncluidas === 0}
         >
-          {isManualMode ? 'Guardar Transacciones' : `Guardar ${transactions.length} transacciones`}
+          {isManualMode ? 'Guardar Transacciones' : `Guardar ${cantidadIncluidas} transacciones`}
         </button>
       </div>
 
