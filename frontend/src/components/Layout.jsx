@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect } from 'react'
 import useBandejaPendientes from '../hooks/useBandejaPendientes'
+import useNotificacionesNoLeidas from '../hooks/useNotificacionesNoLeidas'
 
 const Layout = () => {
   const location = useLocation()
@@ -9,6 +10,7 @@ const Layout = () => {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pendientesBandeja = useBandejaPendientes()
+  const avisosNoLeidos = useNotificacionesNoLeidas()
 
   // Cerrar el drawer al navegar
   useEffect(() => {
@@ -18,6 +20,7 @@ const Layout = () => {
   const navItems = [
     { name: 'Inicio', path: '/inicio' },
     { name: 'Bandeja', path: '/bandeja', badge: pendientesBandeja },
+    { name: 'Avisos', path: '/avisos', badge: avisosNoLeidos },
     { name: 'Datos', path: '/datos' },
     { name: 'Inversiones', path: '/inversiones' },
     { name: 'Migración', path: '/migracion' }

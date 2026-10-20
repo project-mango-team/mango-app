@@ -1,4 +1,6 @@
 import TokensIntegracion from '../components/config/TokensIntegracion'
+import TareasProgramadas from '../components/config/TareasProgramadas'
+import CredencialesGuardadas from '../components/config/CredencialesGuardadas'
 
 const Configuracion = () => (
   <div className="space-y-6">
@@ -7,6 +9,8 @@ const Configuracion = () => (
       <p className="text-gray-400 mt-1">Integraciones y preferencias</p>
     </div>
     <TokensIntegracion />
+    <CredencialesGuardadas />
+    <TareasProgramadas />
   </div>
 )
 

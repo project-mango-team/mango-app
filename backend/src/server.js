@@ -21,6 +21,12 @@ import loanRoutes from './routes/loans.js';
 import bandejaRoutes from './routes/bandeja.js';
 import tokenRoutes from './routes/tokens.js';
 import ingestRoutes from './routes/ingest.js';
+import jobRoutes from './routes/jobs.js';
+import secretRoutes from './routes/secrets.js';
+import notificationRoutes from './routes/notifications.js';
+import { verificarClaveSecretos } from './services/secretService.js';
+import './jobs/index.js';
+import { iniciarScheduler } from './services/scheduler.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -80,6 +86,9 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/bandeja', bandejaRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/ingest', ingestRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/secrets', secretRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __filename = fileURLToPath(import.meta.url);
@@ -98,4 +107,6 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  iniciarScheduler();
+  verificarClaveSecretos();
 });

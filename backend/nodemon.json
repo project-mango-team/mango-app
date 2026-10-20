@@ -1,6 +1,7 @@
 {
   "env": {
     "DEV_GUEST_LOGIN": "true",
-    "MONGODB_DATABASE": "Mango_dev"
+    "MONGODB_DATABASE": "Mango_dev",
+    "SECRETS_KEY": "r21MeKzZqZdDxlvzl1IiimRIpL8x2hqkVm7TbyWDZto="
   }
 }

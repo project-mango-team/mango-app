@@ -1,6 +1,8 @@
 import { AppError } from '../middleware/errorHandler.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { recibirDocumento, buscarPorMensaje, registrarAviso } from '../services/ingestService.js';
+import { notificarSinFallar } from '../services/notificationService.js';
+import { avisoResumenNuevo, avisoResumenDisponible } from '../utils/notificaciones.js';
 
 // Webhook de integraciones (autenticado con token personal). Lo usa el script de Gmail.
 // El token solo sirve para subir: las respuestas no devuelven el contenido ni la vista previa del documento.
@@ -62,6 +64,7 @@ export const ingestDocument = async (req, res, next) => {
       email: email.message_id ? email : undefined,
       reabrir: false
     });
+    if (!existente) await notificarSinFallar(req.user._id, avisoResumenNuevo(documento));
     res.status(existente ? 200 : 201).json({ success: true, existente, data: respuestaMinima(documento) });
   } catch (error) {
     next(error);
@@ -75,6 +78,7 @@ export const ingestDocument = async (req, res, next) => {
 export const ingestAviso = async (req, res, next) => {
   try {
     const { documento, existente } = await registrarAviso(req, leerMetadata(req.body));
+    if (!existente) await notificarSinFallar(req.user._id, avisoResumenDisponible(documento));
     res.status(existente ? 200 : 201).json({ success: true, existente, data: respuestaMinima(documento) });
   } catch (error) {
     next(error);
