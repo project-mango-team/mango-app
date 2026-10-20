@@ -24,7 +24,7 @@ Lo que manda hoy cada fuente, según los mails que ya le llegaban al usuario (20
 
 Consecuencias para el diseño:
 - **Mastercard Galicia queda automática de punta a punta** con ING-06 + ING-07: el adjunto llega, se detecta y se parsea.
-- **Visa Galicia puede quedar automática siguiendo el link**: el script toma la URL de "Conocer resumen", la abre y baja el PDF de `eresumen.com.ar`. Falta confirmar (ING-07) que funcione sin sesión iniciada y que `UrlFetchApp` llegue al PDF sin ejecutar JavaScript; si la página arma el PDF con JS, queda como aviso. El link es una credencial: nunca se loguea ni se guarda completo.
+- **Visa Galicia puede quedar automática siguiendo el link**: el script toma la URL de "Conocer resumen", la abre y baja el PDF de `eresumen.com.ar`. ✅ Confirmado (20/10/2026): en una ventana de incógnito genera el PDF **sin pedir login**. Falta confirmar en ING-07 que `UrlFetchApp` llegue al PDF sin ejecutar JavaScript; si la página arma el PDF con JS, queda como aviso. El link es una credencial: nunca se loguea ni se guarda completo.
 - **La caja de ahorro de Galicia va por aviso (ING-08)**: el mail no trae ni adjunto ni link. Queda "pendiente" en la bandeja y el XLSX se sube a mano (detectado solo por ING-03).
 - **Los totales del cuerpo del mail sirven de control (ING-12).** En el Mastercard de ejemplo, el parser suma $131.077 en 2 consumos y el mail dice "Total en pesos: 132.649,92". La diferencia ($1.572,92) probablemente sean impuestos o cargos que el parser no toma como consumos; falta verificarlo. Mostrar esa comparación en la revisión ayuda a ver si se perdió algo.
 
