@@ -8,7 +8,15 @@ describe('resumirPreview', () => {
       { fecha: '02-09-26', tipo: 'Gasto', importe: 500, duplicado: true },
       { fecha: '20/09/2026', tipo: 'Ingreso', importe: 300 }
     ]);
-    expect(r).toEqual({ cantidad: 3, duplicados: 1, gastos: 1000, ingresos: 300, desde: '2026-09-02', hasta: '2026-09-20' });
+    expect(r).toEqual({ cantidad: 3, duplicados: 1, ignoradas: 0, gastos: 1000, ingresos: 300, desde: '2026-09-02', hasta: '2026-09-20' });
+  });
+
+  it('no suma lo que una regla manda ignorar', () => {
+    const r = resumirPreview([
+      { fecha: '15/09/2026', tipo: 'Gasto', importe: 1000 },
+      { fecha: '16/09/2026', tipo: 'Ingreso', importe: 5, ignorada: true }
+    ]);
+    expect(r).toMatchObject({ cantidad: 2, duplicados: 0, ignoradas: 1, ingresos: 0 });
   });
 
   it('sin transacciones', () => {

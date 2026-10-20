@@ -73,6 +73,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Las keywords ya se convirtieron en reglas (REV-02); categoryKeywords queda para la versión Python
+  reglasMigradas: {
+    type: Boolean,
+    default: false
+  },
   // Tipos de activo propios; los base están en config/investmentTypes.js
   investmentTypes: {
     type: [{

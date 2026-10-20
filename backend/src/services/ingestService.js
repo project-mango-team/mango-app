@@ -5,6 +5,7 @@ import { isExcelFilename } from '../utils/excelToCsv.js';
 import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
 import { compararTotales } from '../utils/totalesResumen.js';
+import { reglasDelUsuario } from './ruleService.js';
 import { FUENTES, fuenteDeAviso, homebankingDe, avisoCoincide, elegirAviso, fuenteDeDeteccion } from '../utils/fuentesResumen.js';
 import {
   detectarDocumento,
@@ -41,7 +42,8 @@ export const necesitaDolar = ({ tipo, tipoResumen }) =>
  * Resumen de la vista previa: cantidad, duplicados, totales de lo nuevo y rango de fechas (YYYY-MM-DD)
  */
 export const resumirPreview = (transacciones) => {
-  const nuevas = transacciones.filter(t => !t.duplicado);
+  // Lo que se importaría: sin lo ya cargado ni lo que una regla manda ignorar
+  const nuevas = transacciones.filter(t => !t.duplicado && !t.ignorada);
   const suma = (tipo) => nuevas.filter(t => t.tipo === tipo).reduce((s, t) => s + (Number(t.importe) || 0), 0);
   const fechas = transacciones
     .map(t => normalizarFecha(t.fecha).split('/'))
@@ -50,7 +52,8 @@ export const resumirPreview = (transacciones) => {
     .sort();
   return {
     cantidad: transacciones.length,
-    duplicados: transacciones.length - nuevas.length,
+    duplicados: transacciones.filter(t => t.duplicado).length,
+    ignoradas: transacciones.filter(t => t.ignorada && !t.duplicado).length,
     gastos: Math.round(suma('Gasto') * 100) / 100,
     ingresos: Math.round(suma('Ingreso') * 100) / 100,
     desde: fechas[0] || null,
@@ -89,7 +92,7 @@ const transaccionesDe = async (req, doc) => {
     valorDolar: doc.parametros.valorDolar,
     // Sin tarjetas elegidas = todas las del archivo
     selectedCards: doc.parametros.selectedCards?.length ? doc.parametros.selectedCards : null,
-    categoryKeywords: req.user?.categoryKeywords || null
+    reglas: await reglasDelUsuario(req)
   });
   return marcarDuplicados(req, transactions);
 };
@@ -297,8 +300,8 @@ export const importarDocumento = async (req, id, { transactions } = {}) => {
   }
 
   const aGuardar = transactions
-    ? transactions.map(({ duplicado, incluir, ...t }) => t)
-    : (await transaccionesDe(req, doc)).filter(t => !t.duplicado).map(({ duplicado, ...t }) => t);
+    ? transactions.map(({ duplicado, incluir, ignorada, regla, ...t }) => t)
+    : (await transaccionesDe(req, doc)).filter(t => !t.duplicado && !t.ignorada).map(({ duplicado, ignorada, regla, ...t }) => t);
 
   if (aGuardar.length === 0) {
     throw new AppError('No hay transacciones nuevas para importar', 400);

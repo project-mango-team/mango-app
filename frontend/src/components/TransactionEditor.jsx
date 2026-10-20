@@ -3,7 +3,8 @@ import { categoryService } from '../services/transactionService'
 
 const MONEDAS = ['ARS', 'USD']
 
-// Transacciones con `duplicado: true` (ya cargadas) arrancan excluidas: se ven atenuadas y no se guardan salvo que se tilden
+// Transacciones con `duplicado: true` (ya cargadas) o `ignorada: true` (una regla dice no importarlas) arrancan
+// excluidas: se ven atenuadas y no se guardan salvo que se tilden
 const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null }) => {
   const [transactions, setTransactions] = useState([])
   const [categories, setCategories] = useState([])
@@ -40,7 +41,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     const transactionsWithId = initialTransactions.map((t, idx) => ({
       ...t,
       _id: idx,
-      incluir: !t.duplicado
+      incluir: !t.duplicado && !t.ignorada
     }))
     setTransactions(transactionsWithId)
     setShowUndo(false)
@@ -143,12 +144,13 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     // Solo las incluidas, sin los campos de la vista previa
     const cleanTransactions = transactions
       .filter(t => t.incluir)
-      .map(({ _id, incluir, duplicado, ...rest }) => rest)
+      .map(({ _id, incluir, duplicado, ignorada, regla, ...rest }) => rest)
     onSave(cleanTransactions)
   }
 
   const cantidadIncluidas = transactions.filter(t => t.incluir).length
   const cantidadDuplicadas = transactions.filter(t => t.duplicado).length
+  const cantidadIgnoradas = transactions.filter(t => t.ignorada && !t.duplicado).length
 
   return (
     <div className="space-y-4">
@@ -160,6 +162,11 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       {cantidadDuplicadas > 0 && (
         <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
           {cantidadDuplicadas} transaccion(es) ya estaban cargadas: quedan sin incluir. Si alguna es realmente nueva, tildala.
+        </div>
+      )}
+      {cantidadIgnoradas > 0 && (
+        <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
+          {cantidadIgnoradas} transaccion(es) quedan sin incluir por una regla de “No importar”. Si querés alguna, tildala.
         </div>
       )}
       {!isManualMode && (
@@ -260,6 +267,16 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                         onChange={(e) => handleCellChange(t._id, 'incluir', e.target.checked)}
                       />
                       Ya cargada · incluir igual
+                    </label>
+                  )}
+                  {t.ignorada && !t.duplicado && (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={t.incluir}
+                        onChange={(e) => handleCellChange(t._id, 'incluir', e.target.checked)}
+                      />
+                      Ignorada por una regla · incluir igual
                     </label>
                   )}
                 </td>

@@ -65,6 +65,8 @@ const ingestDocumentSchema = new mongoose.Schema({
   preview: {
     cantidad: Number,
     duplicados: Number,
+    // REV-02: las que una regla manda ignorar
+    ignoradas: Number,
     gastos: Number,
     ingresos: Number,
     desde: String,

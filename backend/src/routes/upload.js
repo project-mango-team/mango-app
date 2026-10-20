@@ -15,6 +15,7 @@ import {
 } from '../services/statementImportService.js';
 import { reabrirPorRollback } from '../services/ingestService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
+import { reglasDelUsuario } from '../services/ruleService.js';
 
 const router = express.Router();
 
@@ -109,7 +110,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       tipoResumen,
       valorDolar,
       selectedCards,
-      categoryKeywords: req.user?.categoryKeywords || null
+      reglas: await reglasDelUsuario(req)
     });
 
     if (transactions.length === 0) {
@@ -135,6 +136,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         tipo,
         transactions: conDuplicados,
         duplicados: conDuplicados.filter(t => t.duplicado).length,
+        ignoradas: conDuplicados.filter(t => t.ignorada).length,
         sha256,
         archivoYaImportado,
         valorDolar: tipo === 'santander' ? dolarUsado : null,
@@ -189,8 +191,10 @@ router.post('/', upload.single('file'), async (req, res, next) => {
         tipoResumen,
         valorDolar,
         selectedCards,
-        categoryKeywords: req.user?.categoryKeywords || null
+        reglas: await reglasDelUsuario(req)
       }));
+      // Sin pasar por el editor, lo que una regla manda ignorar no se importa
+      transactions = transactions.filter(t => !t.ignorada);
     } else {
       // No transactions or file provided
       return res.status(400).json({
@@ -207,7 +211,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     }
 
     // Las marcas de la vista previa no se guardan
-    transactions = transactions.map(({ duplicado, ...t }) => t);
+    transactions = transactions.map(({ duplicado, ignorada, regla, ...t }) => t);
     const data = await guardarImportacion({ req, transactions, tipo, filename: sourceFilename, sha256 });
 
     res.json({

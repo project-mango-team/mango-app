@@ -12,6 +12,7 @@ import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from
 import { marcarTransaccionesDuplicadas, normalizarFecha } from '../utils/transactionDedup.js';
 import { excelToCsvBuffer, isExcelFilename } from '../utils/excelToCsv.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { aplicarReglas } from '../utils/categoryRules.js';
 
 // Importación de resúmenes bancarios: parseo por banco y guardado como Operation + Transactions.
 // Lo usan el upload manual (routes/upload.js) y, más adelante, la bandeja de ingesta.
@@ -171,10 +172,18 @@ export const detectarDocumento = async ({ buffer }) => {
  * @param {'cuenta'|'tarjeta'} [params.tipoResumen] - Solo Galicia (default 'cuenta')
  * @param {number|string} [params.valorDolar] - Santander y tarjetas Galicia; si falta, la cotización del día
  * @param {Array|string} [params.selectedCards] - Solo Santander
- * @param {Object} [params.categoryKeywords] - Keywords del usuario para inferir categorías
+ * @param {Object} [params.categoryKeywords] - Keywords para inferir categorías (solo si no vienen reglas)
+ * @param {Array} [params.reglas] - Reglas del usuario (REV-02): reemplazan a las keywords
  * @returns {Promise<{ transactions: Array, valorDolar: number|null, cardFilter: Array|null }>}
  */
-export const parsearDocumento = async ({ buffer, filename, tipo, tipoResumen, valorDolar, selectedCards, categoryKeywords = null }) => {
+export const parsearDocumento = async ({ reglas = null, ...params }) => {
+  if (!reglas) return parsearConParser(params);
+  // Con reglas, el parser no infiere nada (todo queda en "Otros" salvo lo que fija él) y deciden las reglas
+  const resultado = await parsearConParser({ ...params, categoryKeywords: {} });
+  return { ...resultado, transactions: aplicarReglas(resultado.transactions, reglas) };
+};
+
+const parsearConParser = async ({ buffer, filename, tipo, tipoResumen, valorDolar, selectedCards, categoryKeywords = null }) => {
   validarTipo(tipo);
   const fileBuffer = await normalizarArchivo({ buffer, filename }, tipo, tipoResumen);
 
