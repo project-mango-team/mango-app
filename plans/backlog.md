@@ -5,7 +5,7 @@ Objetivo general: eliminar lo que queda manual. Hoy los movimientos se cargan so
 **Cómo se usa este archivo**
 - Cada épica es un frente; cada ticket es una entrega chica que se valida en la app (`npm run dev`) y se commitea en la rama actual. Es un proyecto personal: sin PR por ticket.
 - Se toman los tickets en orden, respetando el "depende de". Al terminar uno se cambia su estado acá en el mismo commit.
-- Estados: `pendiente` · `en curso` · `hecho` · `bloqueado (motivo)`.
+- Estados: `pendiente` · `en curso` · `hecho` · `bloqueado (motivo)` · `descartado (motivo)`.
 - Tamaño estimado: **S** (un rato) · **M** (una sesión) · **L** (más de una sesión: conviene partirlo).
 
 **Orden de épicas**: ING → REV → PLAT (lo que haga falta) → MP → VAL. PLAT no es una épica en sí: sus tickets se toman cuando otro los necesita.
@@ -31,7 +31,7 @@ De "entrar a cada homebanking y subir de a uno" a "los resúmenes llegan solos a
 | ING-13 | **Parser Visa Galicia formato eresumen.** Soportar el PDF que genera eresumen.com.ar: fechas `DD.MM.YY`, comprobante antes del detalle, "Cuota NN/MM", montos negativos con `-` al final y consumos en moneda extranjera (BRL/USD) con su columna en dólares. Tiene que dar las mismas transacciones que el PDF del homebanking del mismo mes. Tests con un fixture sintético con ese layout (nunca el resumen real). | ING-02 | M | hecho |
 | ING-12 | **Control de totales.** Leer del cuerpo del mail, o del PDF, el total y el pago mínimo del resumen, y mostrar en la revisión "importado $X vs. resumen $Y" con la diferencia. Investigar qué incluye esa diferencia (impuestos, cargos, cuotas) y si conviene importarlos como gastos. Hecho: `utils/totalesResumen.js` lee del PDF (homebanking y eresumen) el total en pesos y dólares, el pago mínimo, el saldo anterior, los pagos y los impuestos; la Bandeja y la revisión muestran la diferencia desglosada. El cuerpo del mail no hace falta (los dos PDF traen todo). En los resúmenes reales la diferencia es 100% impuestos (ver `ingesta-resumenes.md`); importarlos queda para ING-14. | ING-07 | S | hecho |
 | ING-14 | **Impuestos de la tarjeta como transacciones.** Importar sellos, IIBB e IVA RG 4240 como gastos de categoría Impuestos, y la percepción RG 5617 junto con su devolución (`DEV.IMP.`, como ingreso), para que el control de ING-12 cierre en $0. Hoy el parser importa la percepción pero saltea la devolución. Tests sintéticos con los dos layouts. Hecho: categoría `Impuestos` (default y agregada una vez a los usuarios existentes); los impuestos sin fecha del consolidado de Mastercard van con la fecha de cierre. Con los resúmenes reales el control cierra en $0; los ya importados no cambian (al volver a subirlos, los impuestos salen como nuevos y la percepción como ya cargada). | ING-12 | S | hecho |
-| ING-11 | **Spike: avisos de consumo por mail.** Si algún banco manda un mail por cada compra, evaluar cargarlas como transacciones provisionales y conciliarlas cuando llega el resumen. | ING-07, ING-04 | S | pendiente |
+| ING-11 | **Spike: avisos de consumo por mail.** Si algún banco manda un mail por cada compra, evaluar cargarlas como transacciones provisionales y conciliarlas cuando llega el resumen. | ING-07, ING-04 | S | descartado (los bancos avisan los consumos por push en el celular, no por mail) |
 
 ---
 
