@@ -19,6 +19,8 @@ import dolarRoutes from './routes/dolar.js';
 import investmentRoutes from './routes/investments.js';
 import loanRoutes from './routes/loans.js';
 import bandejaRoutes from './routes/bandeja.js';
+import tokenRoutes from './routes/tokens.js';
+import ingestRoutes from './routes/ingest.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -76,6 +78,8 @@ app.use('/api/dolar', dolarRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/bandeja', bandejaRoutes);
+app.use('/api/tokens', tokenRoutes);
+app.use('/api/ingest', ingestRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __filename = fileURLToPath(import.meta.url);

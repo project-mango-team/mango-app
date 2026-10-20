@@ -173,6 +173,38 @@ export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload
 };
 
 /**
+ * Documento que ya llegó por este mail (mismo message_id y mismo adjunto), para no duplicar
+ * si el script de Gmail lo vuelve a mandar
+ */
+export const buscarPorMensaje = async (req, messageId, filename) => {
+  if (!messageId) return null;
+  const doc = await IngestDocument.findOne(buildUserQuery(req, { 'email.message_id': messageId, filename: filename || '' })).lean();
+  return doc;
+};
+
+/**
+ * Aviso de resumen sin archivo adjunto ("tu resumen está disponible"): queda en la bandeja
+ * como pendiente de descargar. Idempotente por message_id.
+ * @returns {Promise<{ documento, existente: boolean }>}
+ */
+export const registrarAviso = async (req, { message_id, from, subject, received_at }) => {
+  if (!message_id) {
+    throw new AppError('Falta el message_id del mail', 400);
+  }
+  const existente = await IngestDocument.findOne(buildUserQuery(req, { fuente: 'email_aviso', 'email.message_id': message_id })).lean();
+  if (existente) {
+    return { documento: existente, existente: true };
+  }
+  const doc = await IngestDocument.create(addUserToData(req, {
+    fuente: 'email_aviso',
+    filename: subject || 'Aviso de resumen',
+    estado: 'pendiente_descarga',
+    email: { message_id, from, subject, received_at }
+  }));
+  return { documento: vista(doc), existente: false };
+};
+
+/**
  * Documentos de la bandeja, más nuevos primero. Por defecto oculta los descartados.
  */
 export const listarDocumentos = async (req, { incluirDescartados = false } = {}) => {

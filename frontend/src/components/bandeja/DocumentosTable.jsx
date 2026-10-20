@@ -61,7 +61,10 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
             return (
               <tr key={doc._id} className="border-b border-gray-700/50 align-top">
                 <td className="px-4 py-3">
-                  <p className="text-white font-medium">{doc.deteccion?.descripcion || 'Sin reconocer'}</p>
+                  <p className="text-white font-medium">
+                    {doc.deteccion?.descripcion || (doc.estado === 'pendiente_descarga' ? doc.email?.subject || 'Aviso de resumen' : 'Sin reconocer')}
+                  </p>
+                  {doc.email?.from && <p className="text-xs text-gray-500">Por mail · {doc.email.from}</p>}
                   <p className="text-xs text-gray-500 truncate max-w-[18rem]" title={doc.filename}>{doc.filename}</p>
                   {doc.archivo_ya_importado && doc.estado !== 'importado' && (
                     <p className="text-xs text-yellow-400 mt-1">

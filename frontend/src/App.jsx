@@ -7,6 +7,7 @@ import Datos from './pages/Datos'
 import Migracion from './pages/Migracion'
 import Inversiones from './pages/Inversiones'
 import Bandeja from './pages/Bandeja'
+import Configuracion from './pages/Configuracion'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
             <Route index element={<Navigate to="/inicio" replace />} />
             <Route path="inicio" element={<Inicio />} />
             <Route path="bandeja" element={<Bandeja />} />
+            <Route path="configuracion" element={<Configuracion />} />
             <Route path="datos" element={<Datos />} />
             <Route path="inversiones" element={<Inversiones />} />
             <Route path="migracion" element={<Migracion />} />
