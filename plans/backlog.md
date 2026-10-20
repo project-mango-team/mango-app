@@ -55,7 +55,7 @@ Que Mango muestre solo lo dudoso y aprenda de cada corrección.
 |---|---|---|---|---|
 | PLAT-01 | **Scheduler de jobs.** Jobs diarios en el backend deployado (node-cron o el scheduler del hosting), con lock en Mongo para no correr dos veces y una colección de corridas (cuándo, resultado, error) visible en la UI. | ING-09, MP-03, VAL-03 | M | hecho |
 | PLAT-02 | **Notificaciones.** Un centro de avisos in-app (resúmenes nuevos, faltantes, errores de sync, valuaciones actualizadas) y opcionalmente un mail semanal con el resumen. | ING-09 | M | pendiente |
-| PLAT-03 | **Secretos cifrados.** Guardar tokens de terceros (MP) y contraseñas de PDF cifrados con una clave del entorno (AES-GCM), nunca en texto plano. | MP-02 | S | pendiente |
+| PLAT-03 | **Secretos cifrados.** Guardar tokens de terceros (MP) y contraseñas de PDF cifrados con una clave del entorno (AES-GCM), nunca en texto plano. | MP-02 | S | hecho |
 
 ---
 
