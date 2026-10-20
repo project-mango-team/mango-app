@@ -23,6 +23,7 @@ import tokenRoutes from './routes/tokens.js';
 import ingestRoutes from './routes/ingest.js';
 import jobRoutes from './routes/jobs.js';
 import secretRoutes from './routes/secrets.js';
+import notificationRoutes from './routes/notifications.js';
 import { verificarClaveSecretos } from './services/secretService.js';
 import './jobs/index.js';
 import { iniciarScheduler } from './services/scheduler.js';
@@ -87,6 +88,7 @@ app.use('/api/tokens', tokenRoutes);
 app.use('/api/ingest', ingestRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/secrets', secretRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __filename = fileURLToPath(import.meta.url);

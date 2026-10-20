@@ -1,6 +1,8 @@
 import os from 'os';
 import mongoose from 'mongoose';
 import JobRun from '../models/JobRun.js';
+import { notificarAdmins } from './notificationService.js';
+import { avisoJobFallido } from '../utils/notificaciones.js';
 import {
   slotDiario, slotManual, validarHora, filtroReclamable, resumirResultado, mensajeDeError, POLITICA_DEFAULT
 } from '../utils/jobSchedule.js';
@@ -61,11 +63,17 @@ const ejecutar = async (job, slot, manual) => {
       cambios = { estado: 'error', error: mensajeDeError(error) };
     }
     const fin = new Date();
-    return JobRun.findByIdAndUpdate(
+    const terminada = await JobRun.findByIdAndUpdate(
       corrida._id,
       { $set: { ...cambios, terminado_at: fin, duracion_ms: fin - inicio } },
       { new: true }
     ).lean();
+    // Sin más reintentos: avisar a los administradores (en una corrida manual el error ya se ve en pantalla)
+    if (terminada.estado === 'error' && !manual && terminada.intentos >= job.politica.maxIntentos) {
+      await notificarAdmins(avisoJobFallido(job.nombre, slot, terminada.error))
+        .catch(error => console.error(`[scheduler] no se pudo notificar ${job.nombre}:`, error.message));
+    }
+    return terminada;
   } finally {
     enCurso.delete(job.nombre);
   }
