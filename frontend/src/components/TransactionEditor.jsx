@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
+import { motivosDeRevision, etiquetaMotivo } from '../utils/revision'
 
 const MONEDAS = ['ARS', 'USD']
 const INTERNO = 'Movimiento interno'
 
 // Transacciones con `duplicado: true` (ya cargadas) o `ignorada: true` (una regla dice no importarlas) arrancan
-// excluidas: se ven atenuadas y no se guardan salvo que se tilden
-const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null }) => {
+// excluidas: se ven atenuadas y no se guardan salvo que se tilden.
+// REV-05: arranca mostrando solo las que vale la pena mirar (`limites` = monto alto por categoría)
+const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null, limites = {} }) => {
   const [transactions, setTransactions] = useState([])
+  const [paraRevisar, setParaRevisar] = useState(new Set())
+  const [soloRevisar, setSoloRevisar] = useState(false)
+  const [revisadas, setRevisadas] = useState(new Set())
   const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
   const [undoState, setUndoState] = useState(null)
@@ -45,6 +50,11 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       incluir: !t.duplicado && !t.ignorada
     }))
     setTransactions(transactionsWithId)
+    // Las que arrancan dudosas siguen en el filtro aunque se corrijan (no desaparecen mientras se editan)
+    const dudosas = new Set(transactionsWithId.filter(t => motivosDeRevision(t, limites).length > 0).map(t => t._id))
+    setParaRevisar(dudosas)
+    setRevisadas(new Set())
+    setSoloRevisar(!isManualMode && dudosas.size > 0)
     setShowUndo(false)
     setUndoState(null)
   }, [initialTransactions])
@@ -157,6 +167,12 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
   const cantidadDuplicadas = transactions.filter(t => t.duplicado).length
   const cantidadIgnoradas = transactions.filter(t => t.ignorada && !t.duplicado).length
   const internosPendientes = transactions.filter(t => t.interno_sugerido && t.incluir && t.categoria !== INTERNO)
+  const pendientesRevision = transactions.filter(t => paraRevisar.has(t._id) && !revisadas.has(t._id) && motivosDeRevision(t, limites).length > 0).length
+  const marcarRevisada = (id) => setRevisadas(prev => new Set(prev).add(id))
+  // Las filas agregadas a mano (_id fuera de las iniciales) se ven siempre
+  const visibles = soloRevisar
+    ? transactions.filter(t => paraRevisar.has(t._id) || t._id >= initialTransactions.length)
+    : transactions
   const marcarInternos = () => setTransactions(prev => prev.map(t => (internosPendientes.includes(t) ? { ...t, categoria: INTERNO } : t)))
 
   return (
@@ -218,6 +234,32 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       </>
       )}
 
+      {!isManualMode && paraRevisar.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="inline-flex rounded-lg border border-gray-700 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSoloRevisar(true)}
+              className={`px-3 py-1.5 ${soloRevisar ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              Para revisar ({paraRevisar.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSoloRevisar(false)}
+              className={`px-3 py-1.5 ${!soloRevisar ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              Todas ({transactions.length})
+            </button>
+          </div>
+          <span className="text-gray-400">
+            {pendientesRevision > 0
+              ? `${pendientesRevision} sin resolver: sin categoría, comercios nuevos, posibles duplicadas o internas y montos altos.`
+              : 'Todo revisado.'}
+          </span>
+        </div>
+      )}
+
       {/* Editable Table */}
       <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
         <table className="w-full text-sm border-collapse">
@@ -234,7 +276,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
+            {visibles.map((t) => (
               <tr key={t._id} className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors ${t.incluir ? '' : 'opacity-40'}`}>
                 <td className="py-2 px-3">
                   <input
@@ -271,6 +313,13 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     value={t.detalle}
                     onChange={(e) => handleCellChange(t._id, 'detalle', e.target.value)}
                     className="w-full min-w-[200px] bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                  />
+                  <MotivosRevision
+                    t={t}
+                    limites={limites}
+                    revisar={paraRevisar.has(t._id)}
+                    revisada={revisadas.has(t._id)}
+                    onRevisada={() => marcarRevisada(t._id)}
                   />
                   {t.duplicado && (
                     <label className="mt-1 flex items-center gap-2 text-xs text-yellow-400 cursor-pointer">
@@ -399,6 +448,24 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Chips con lo que hay que mirar de la fila (duplicada e interna sugerida tienen su propio aviso)
+const MotivosRevision = ({ t, limites, revisar, revisada, onRevisada }) => {
+  if (!revisar) return null
+  const motivos = motivosDeRevision(t, limites)
+  if (revisada || motivos.length === 0) return <p className="mt-1 text-xs text-green-400">✓ Revisada</p>
+  const etiquetas = motivos.map(m => etiquetaMotivo(m, t, limites)).filter(Boolean)
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {etiquetas.map(e => (
+        <span key={e} className="rounded bg-amber-900/40 px-1.5 py-0.5 text-xs text-amber-300">{e}</span>
+      ))}
+      <button type="button" onClick={onRevisada} className="text-xs text-gray-400 hover:text-white underline" title="Está bien así">
+        OK
+      </button>
     </div>
   )
 }

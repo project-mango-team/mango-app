@@ -241,7 +241,8 @@ const Datos = () => {
         selectedCards: response.data.selectedCards,
         tipoResumen: tipo === 'galicia' ? tipoResumen : null,
         sha256: response.data.sha256,
-        archivoYaImportado: response.data.archivoYaImportado
+        archivoYaImportado: response.data.archivoYaImportado,
+        limites: response.data.limites
       })
       setShowEditor(true)
       
@@ -402,6 +403,7 @@ const Datos = () => {
             <TransactionEditor
               initialTransactions={previewData.transactions}
               archivoYaImportado={previewData.archivoYaImportado}
+              limites={previewData.limites}
               onSave={handleSaveTransactions}
               onCancel={handleCancelEditor}
             />

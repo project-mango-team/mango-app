@@ -16,6 +16,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { aplicarReglas } from '../utils/categoryRules.js';
 import { sugerirInternos, fechasCandidatas, contrapartesAMarcar } from '../utils/internalTransfers.js';
 import { CATEGORIA_INTERNO } from '../models/User.js';
+import { armarContextoRevision, marcarComerciosNuevos } from '../utils/reviewFocus.js';
 
 // Importación de resúmenes bancarios: parseo por banco y guardado como Operation + Transactions.
 // Lo usan el upload manual (routes/upload.js) y, más adelante, la bandeja de ingesta.
@@ -253,6 +254,16 @@ export const marcarInternosSugeridos = async (req, transactions) => {
     .select('fecha tipo moneda importe monto_original detalle origen categoria')
     .lean();
   return sugerirInternos(transactions, existentes);
+};
+
+/**
+ * REV-05: contexto para la revisión enfocada. Marca `comercio_nuevo` y devuelve los límites de
+ * monto por categoría (para marcar gastos fuera de lo normal) según el historial del usuario.
+ */
+export const prepararRevision = async (req, transactions) => {
+  const historial = await Transaction.find(buildUserQuery(req)).select('detalle categoria importe tipo').lean();
+  const { comercios, limites } = armarContextoRevision(historial);
+  return { transactions: marcarComerciosNuevos(transactions, comercios), limites };
 };
 
 /**

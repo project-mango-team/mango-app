@@ -8,7 +8,7 @@ describe('resumirPreview', () => {
       { fecha: '02-09-26', tipo: 'Gasto', importe: 500, duplicado: true },
       { fecha: '20/09/2026', tipo: 'Ingreso', importe: 300 }
     ]);
-    expect(r).toEqual({ cantidad: 3, duplicados: 1, ignoradas: 0, gastos: 1000, ingresos: 300, desde: '2026-09-02', hasta: '2026-09-20' });
+    expect(r).toEqual({ cantidad: 3, duplicados: 1, ignoradas: 0, dudosas: 1, gastos: 1000, ingresos: 300, desde: '2026-09-02', hasta: '2026-09-20' });
   });
 
   it('no suma lo que una regla manda ignorar', () => {

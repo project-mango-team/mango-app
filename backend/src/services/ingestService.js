@@ -6,12 +6,14 @@ import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
 import { compararTotales } from '../utils/totalesResumen.js';
 import { reglasDelUsuario } from './ruleService.js';
+import { contarDudosas } from '../utils/reviewFocus.js';
 import { FUENTES, fuenteDeAviso, homebankingDe, avisoCoincide, elegirAviso, fuenteDeDeteccion } from '../utils/fuentesResumen.js';
 import {
   detectarDocumento,
   parsearDocumento,
   marcarDuplicados,
   marcarInternosSugeridos,
+  prepararRevision,
   guardarImportacion,
   hashArchivo,
   buscarImportacionDelArchivo
@@ -42,7 +44,7 @@ export const necesitaDolar = ({ tipo, tipoResumen }) =>
 /**
  * Resumen de la vista previa: cantidad, duplicados, totales de lo nuevo y rango de fechas (YYYY-MM-DD)
  */
-export const resumirPreview = (transacciones) => {
+export const resumirPreview = (transacciones, limites = {}) => {
   // Lo que se importaría: sin lo ya cargado ni lo que una regla manda ignorar
   const nuevas = transacciones.filter(t => !t.duplicado && !t.ignorada);
   const suma = (tipo) => nuevas.filter(t => t.tipo === tipo).reduce((s, t) => s + (Number(t.importe) || 0), 0);
@@ -55,6 +57,7 @@ export const resumirPreview = (transacciones) => {
     cantidad: transacciones.length,
     duplicados: transacciones.filter(t => t.duplicado).length,
     ignoradas: transacciones.filter(t => t.ignorada && !t.duplicado).length,
+    dudosas: contarDudosas(transacciones, limites),
     gastos: Math.round(suma('Gasto') * 100) / 100,
     ingresos: Math.round(suma('Ingreso') * 100) / 100,
     desde: fechas[0] || null,
@@ -95,7 +98,8 @@ const transaccionesDe = async (req, doc) => {
     selectedCards: doc.parametros.selectedCards?.length ? doc.parametros.selectedCards : null,
     reglas: await reglasDelUsuario(req)
   });
-  return marcarInternosSugeridos(req, await marcarDuplicados(req, transactions));
+  // { transactions, limites } (REV-05)
+  return prepararRevision(req, await marcarInternosSugeridos(req, await marcarDuplicados(req, transactions)));
 };
 
 /**
@@ -121,11 +125,11 @@ const procesar = async (req, doc, { redetectar = true } = {}) => {
     if (necesitaDolar(doc.parametros) && !doc.parametros.valorDolar) {
       doc.parametros.valorDolar = await DolarService.getCotizacion();
     }
-    const transacciones = await transaccionesDe(req, doc);
+    const { transactions: transacciones, limites } = await transaccionesDe(req, doc);
     if (transacciones.length === 0) {
       throw new Error('No se encontraron transacciones en el archivo');
     }
-    doc.preview = { ...resumirPreview(transacciones), control: compararTotales(doc.deteccion?.totales, transacciones) };
+    doc.preview = { ...resumirPreview(transacciones, limites), control: compararTotales(doc.deteccion?.totales, transacciones) };
     doc.archivo_ya_importado = await buscarImportacionDelArchivo(req, doc.sha256);
     doc.estado = 'listo';
   } catch (error) {
@@ -268,7 +272,7 @@ export const transaccionesParaRevisar = async (req, id) => {
   if (!['listo', 'importado'].includes(doc.estado)) {
     throw new AppError('El documento no está listo para revisar', 400);
   }
-  return { documento: vista(doc), transactions: await transaccionesDe(req, doc) };
+  return { documento: vista(doc), ...(await transaccionesDe(req, doc)) };
 };
 
 /**
@@ -302,7 +306,7 @@ export const importarDocumento = async (req, id, { transactions } = {}) => {
 
   const aGuardar = transactions
     ? transactions.map(({ duplicado, incluir, ignorada, regla, ...t }) => t)
-    : (await transaccionesDe(req, doc)).filter(t => !t.duplicado && !t.ignorada).map(({ duplicado, ignorada, regla, ...t }) => t);
+    : (await transaccionesDe(req, doc)).transactions.filter(t => !t.duplicado && !t.ignorada).map(({ duplicado, ignorada, regla, ...t }) => t);
 
   if (aGuardar.length === 0) {
     throw new AppError('No hay transacciones nuevas para importar', 400);

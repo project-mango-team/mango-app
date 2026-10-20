@@ -12,12 +12,14 @@ import {
   hashArchivo,
   marcarDuplicados,
   marcarInternosSugeridos,
+  prepararRevision,
   restaurarContrapartes,
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 import { reabrirPorRollback } from '../services/ingestService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
+import { contarDudosas } from '../utils/reviewFocus.js';
 
 const router = express.Router();
 
@@ -124,8 +126,10 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
 
     // Ya cargadas: por transacción (resúmenes superpuestos) y por archivo (el mismo subido dos veces)
     const sha256 = hashArchivo(req.file.buffer);
-    const [conDuplicados, archivoYaImportado] = await Promise.all([
-      marcarDuplicados(req, transactions).then(ts => marcarInternosSugeridos(req, ts)),
+    const [{ transactions: conDuplicados, limites }, archivoYaImportado] = await Promise.all([
+      marcarDuplicados(req, transactions)
+        .then(ts => marcarInternosSugeridos(req, ts))
+        .then(ts => prepararRevision(req, ts)),
       buscarImportacionDelArchivo(req, sha256)
     ]);
 
@@ -140,6 +144,9 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         duplicados: conDuplicados.filter(t => t.duplicado).length,
         ignoradas: conDuplicados.filter(t => t.ignorada).length,
         internos_sugeridos: conDuplicados.filter(t => t.interno_sugerido).length,
+        // REV-05: límites de monto por categoría y cuántas hay para revisar
+        limites,
+        dudosas: contarDudosas(conDuplicados, limites),
         sha256,
         archivoYaImportado,
         valorDolar: tipo === 'santander' ? dolarUsado : null,
