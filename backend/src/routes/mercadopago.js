@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { getCuenta, putToken, postProbar, deleteCuenta } from '../controllers/mercadoPagoController.js';
+import { getCuenta, putToken, postProbar, deleteCuenta, postSincronizar } from '../controllers/mercadoPagoController.js';
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router.route('/cuenta')
   .delete(deleteCuenta);
 
 router.post('/cuenta/probar', postProbar);
+router.post('/sincronizar', postSincronizar);
 
 export default router;

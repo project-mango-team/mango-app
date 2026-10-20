@@ -25,7 +25,7 @@ export const validarFormatoToken = (token) => {
 };
 
 // Errores del cliente a errores de la API de Mango
-const errorDeMercadoPago = (error) => {
+export const errorDeMercadoPago = (error) => {
   if (!(error instanceof MercadoPagoError)) return error;
   if (error.status === 401 || error.status === 403) return new AppError(error.message, 400);
   return new AppError('No se pudo contactar a Mercado Pago, probá de nuevo en un rato', 502);

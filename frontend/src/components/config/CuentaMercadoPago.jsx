@@ -5,6 +5,13 @@ import { formatFecha, mensajeError } from '../../utils/format'
 
 const TUS_INTEGRACIONES = 'https://www.mercadopago.com.ar/developers/panel/app'
 
+// DD/MM/YYYY hasta donde hay movimientos de MP: lo importado o lo que la sync dejó en la Bandeja
+const hastaDondeEsta = (sync) => {
+  const importada = sync?.ultimaFechaImportada?.split('/').reverse().join('-')
+  const ultima = [importada, sync?.ultimaSync].filter(Boolean).sort().at(-1)
+  return ultima ? ultima.split('-').reverse().join('/') : null
+}
+
 // Conexión con Mercado Pago por API (MP-02): el access token se guarda cifrado y nunca se vuelve a mostrar
 const CuentaMercadoPago = () => {
   const [estado, setEstado] = useState(null)
@@ -60,8 +67,23 @@ const CuentaMercadoPago = () => {
     }
   }
 
+  const sincronizar = async () => {
+    setOcupado(true)
+    setError(null)
+    setMensaje(null)
+    try {
+      setMensaje((await mercadoPagoService.sincronizar()).data.mensaje)
+      await cargar()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudieron traer los movimientos'))
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   const conectado = estado?.conectado
   const credencial = estado?.credencial
+  const traidoHasta = hastaDondeEsta(estado?.sync)
 
   return (
     <div className="card space-y-4">
@@ -84,7 +106,11 @@ const CuentaMercadoPago = () => {
             <p className="text-xs text-gray-500">
               Token guardado el {formatFecha(credencial?.updated_at)} · {credencial?.last_used_at ? `último uso ${formatFecha(credencial.last_used_at)}` : 'sin usar'}
             </p>
+            <p className="text-xs text-gray-500">
+              {traidoHasta ? `Movimientos hasta el ${traidoHasta}` : 'Todavía no hay movimientos de Mercado Pago'} · se sincroniza todos los días a las 6:30
+            </p>
           </div>
+          <button onClick={sincronizar} disabled={ocupado} className="btn-primary !py-1.5 text-sm disabled:opacity-50">Traer movimientos ahora</button>
           <button onClick={probar} disabled={ocupado} className="btn-secondary !py-1.5 text-sm disabled:opacity-50">Probar conexión</button>
           <button onClick={() => { setEditando(true); setMensaje(null) }} className="btn-secondary !py-1.5 text-sm">Cambiar token</button>
           <button onClick={() => setDesconectando(true)} className="text-sm text-red-400 hover:text-red-300">Desconectar</button>

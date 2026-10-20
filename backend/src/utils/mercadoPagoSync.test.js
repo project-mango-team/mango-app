@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  fechaMangoAIso, ventanaSync, limitesReporte, reporteParaVentana, reporteEnPreparacion, movimientosEnVentana
+  fechaMangoAIso, ventanaSync, limitesReporte, reporteParaVentana, reporteEnPreparacion, movimientosEnVentana,
+  periodoDeArchivoSync, avisoDeSync, mensajeDeSync
 } from './mercadoPagoSync.js';
 
 // 20/10/2026 a las 10 de la mañana en Argentina
@@ -55,27 +56,80 @@ describe('reportes', () => {
     expect(limitesReporte(ventana)).toEqual({ desde: '2026-10-01T00:00:00-03:00', hasta: '2026-10-19T23:59:59-03:00' });
   });
 
-  it('elige un reporte procesado que cubra toda la ventana, el más nuevo', () => {
+  it('elige el reporte procesado que arranca a tiempo y llega más lejos', () => {
     const reportes = [
-      reporte('2026-10-01T03:00:00Z', '2026-10-15T02:59:59Z'),                                  // no llega al final
-      reporte('2026-10-01T03:00:00Z', '2026-10-20T02:59:59Z', { date_created: '2026-10-20T09:00:00Z' }),
-      reporte('2026-09-25T03:00:00Z', '2026-10-20T02:59:59Z', { date_created: '2026-10-20T10:00:00Z', file_name: 'nuevo.csv' }),
-      reporte('2026-10-01T03:00:00Z', '2026-10-20T02:59:59Z', { status: 'pending', date_created: '2026-10-20T11:00:00Z' })
+      reporte('2026-10-02T03:00:00Z', '2026-10-20T02:59:59Z'),                                  // empieza tarde
+      reporte('2026-10-01T03:00:00Z', '2026-10-15T02:59:59Z'),
+      reporte('2026-09-25T03:00:00Z', '2026-10-20T02:59:59Z', { file_name: 'completo.csv' }),
+      reporte('2026-10-01T03:00:00Z', '2026-10-21T02:59:59Z', { status: 'pending' })
     ];
-    expect(reporteParaVentana(reportes, ventana).file_name).toBe('nuevo.csv');
+    expect(reporteParaVentana(reportes, ventana)).toMatchObject({ reporte: { file_name: 'completo.csv' }, hasta: '2026-10-19' });
     expect(reporteParaVentana([reportes[0]], ventana)).toBeNull();
     expect(reporteParaVentana(undefined, ventana)).toBeNull();
   });
 
+  it('un reporte que cubre la ventana en parte se usa hasta donde llega', () => {
+    // pedido ayer: termina a la medianoche del 15 en Argentina
+    const ayer = reporte('2026-10-01T03:00:00Z', '2026-10-15T03:00:00Z');
+    expect(reporteParaVentana([ayer], ventana)).toMatchObject({ hasta: '2026-10-14' });
+  });
+
   it('detecta un reporte pedido que todavía se está generando', () => {
-    const pendiente = reporte('2026-10-01T03:00:00Z', '2026-10-20T02:59:59Z', { status: 'pending' });
+    const pendiente = reporte('2026-10-01T03:00:00Z', '2026-10-10T02:59:59Z', { status: 'pending' });
     expect(reporteEnPreparacion([pendiente], ventana)).toBe(true);
     expect(reporteEnPreparacion([{ ...pendiente, status: 'error' }], ventana)).toBe(false);
     expect(reporteEnPreparacion([{ ...pendiente, status: 'processed' }], ventana)).toBe(false);
+    expect(reporteEnPreparacion([{ ...pendiente, begin_date: '2026-10-02T03:00:00Z' }], ventana)).toBe(false);
+  });
+
+  it('periodoDeArchivoSync lee el período del nombre del archivo', () => {
+    expect(periodoDeArchivoSync('mercadopago-api-2026-10-01-a-2026-10-19.csv')).toEqual({ desde: '2026-10-01', hasta: '2026-10-19' });
+    expect(periodoDeArchivoSync('resumen.csv')).toBeNull();
   });
 
   it('movimientosEnVentana deja solo los días de la ventana', () => {
     const movs = ['30-09-2026', '01-10-2026', '19-10-2026', '20-10-2026'].map(fecha => ({ fecha }));
     expect(movimientosEnVentana(movs, ventana).map(m => m.fecha)).toEqual(['01-10-2026', '19-10-2026']);
+  });
+});
+
+describe('avisos y mensajes', () => {
+  const traidos = { estado: 'en_bandeja', movimientos: 3, desde: '2026-10-16', hasta: '2026-10-19' };
+
+  it('avisa los movimientos nuevos con una clave por período', () => {
+    expect(avisoDeSync(traidos, '2026-10-20')).toEqual({
+      tipo: 'mercadopago_sync',
+      nivel: 'info',
+      titulo: 'Movimientos de Mercado Pago en la Bandeja',
+      mensaje: '3 movimientos del 16/10 al 19/10, listos para revisar.',
+      link: '/bandeja',
+      clave: 'mp-sync:2026-10-16:2026-10-19'
+    });
+    expect(avisoDeSync({ ...traidos, movimientos: 1 }, '2026-10-20').mensaje).toMatch(/^1 movimiento del/);
+  });
+
+  it('un token rechazado pide cargarlo de nuevo, una vez por día', () => {
+    const aviso = avisoDeSync({ estado: 'error', status: 401, mensaje: 'x' }, '2026-10-20');
+    expect(aviso).toMatchObject({ nivel: 'error', link: '/configuracion', clave: 'mp-token:2026-10-20' });
+  });
+
+  it('otro error es una alerta con el mensaje', () => {
+    const aviso = avisoDeSync({ estado: 'error', status: 500, mensaje: 'Mercado Pago GET /x: 500' }, '2026-10-20');
+    expect(aviso).toMatchObject({ nivel: 'alerta', clave: 'mp-error:2026-10-20' });
+    expect(aviso.mensaje).toContain('Mercado Pago GET /x: 500');
+  });
+
+  it('el resto no avisa', () => {
+    for (const estado of ['sin_token', 'al_dia', 'reporte_pedido', 'en_preparacion', 'sin_movimientos', 'ya_estaba']) {
+      expect(avisoDeSync({ estado }, '2026-10-20')).toBeNull();
+    }
+  });
+
+  it('mensajeDeSync explica cada resultado', () => {
+    expect(mensajeDeSync(traidos)).toBe('3 movimientos del 16/10 al 19/10 en la Bandeja.');
+    expect(mensajeDeSync({ estado: 'al_dia' })).toMatch(/hasta ayer/);
+    expect(mensajeDeSync({ estado: 'reporte_pedido' })).toMatch(/unos minutos/);
+    expect(mensajeDeSync({ estado: 'sin_movimientos', desde: '2026-10-19', hasta: '2026-10-19' })).toBe('No hubo movimientos del 19/10 al 19/10.');
+    expect(mensajeDeSync({ estado: 'raro' })).toBe('Sincronización terminada.');
   });
 });

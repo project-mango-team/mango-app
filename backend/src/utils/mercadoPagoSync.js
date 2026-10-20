@@ -50,30 +50,47 @@ export const limitesReporte = ({ desde, hasta }) => ({
   hasta: `${hasta}T23:59:59-03:00`
 });
 
+// Un reporte sirve si arranca a más tardar en `desde` y cubre al menos ese día
+const cubreElInicio = (r, { desde }) => {
+  const inicio = Date.parse(limitesReporte({ desde, hasta: desde }).desde);
+  return Date.parse(r.begin_date) <= inicio && Date.parse(r.end_date) > inicio;
+};
+
+// Último día (en Argentina) que cubre un reporte: su end_date menos un segundo
+const ultimoDiaDelReporte = (r) => isoArgentina(new Date(Date.parse(r.end_date) - 1000));
+
 /**
- * Reporte ya generado que cubre toda la ventana (el más nuevo si hay varios)
+ * Reporte ya generado para traer la ventana. Puede cubrirla solo en parte: un reporte pedido ayer
+ * termina antes que la ventana de hoy, así que se trae hasta donde llega y la sync siguiente sigue
+ * desde ahí. Entre los que sirven, el que llega más lejos.
  * @param {Object[]} reportes - salida de listarReportes ({ file_name, begin_date, end_date, status })
- * @returns {Object|null}
+ * @returns {{ reporte: Object, hasta: string }|null} hasta: YYYY-MM-DD, el último día a importar
  */
 export const reporteParaVentana = (reportes, ventana) => {
-  const { desde, hasta } = limitesReporte(ventana);
-  const inicio = Date.parse(desde);
-  const fin = Date.parse(hasta);
-  return (reportes || [])
+  const reporte = (reportes || [])
     .filter(r => r.file_name && (!r.status || r.status === 'processed'))
-    .filter(r => Date.parse(r.begin_date) <= inicio && Date.parse(r.end_date) >= fin)
-    .sort((a, b) => Date.parse(b.date_created ?? b.end_date) - Date.parse(a.date_created ?? a.end_date))[0] ?? null;
+    .filter(r => cubreElInicio(r, ventana))
+    .sort((a, b) => Date.parse(b.end_date) - Date.parse(a.end_date))[0];
+  if (!reporte) return null;
+  const ultimo = ultimoDiaDelReporte(reporte);
+  return { reporte, hasta: ultimo < ventana.hasta ? ultimo : ventana.hasta };
 };
 
 /**
- * ¿Hay un reporte de la ventana pedido y todavía en preparación? Para no pedirlo de nuevo.
+ * ¿Hay un reporte para la ventana pedido y todavía en preparación? Para no pedirlo de nuevo.
  */
-export const reporteEnPreparacion = (reportes, ventana) => {
-  const { desde, hasta } = limitesReporte(ventana);
-  return (reportes || []).some(r =>
-    r.status && r.status !== 'processed' && !/error|fail/i.test(r.status) &&
-    Date.parse(r.begin_date) <= Date.parse(desde) && Date.parse(r.end_date) >= Date.parse(hasta)
+export const reporteEnPreparacion = (reportes, ventana) =>
+  (reportes || []).some(r =>
+    r.status && r.status !== 'processed' && !/error|fail/i.test(r.status) && cubreElInicio(r, ventana)
   );
+
+/**
+ * Período de un archivo armado por la sync (nombreArchivoSync), o null si no es uno
+ * @returns {{ desde: string, hasta: string }|null}
+ */
+export const periodoDeArchivoSync = (filename) => {
+  const m = String(filename ?? '').match(/^mercadopago-api-(\d{4}-\d{2}-\d{2})-a-(\d{4}-\d{2}-\d{2})\.csv$/);
+  return m ? { desde: m[1], hasta: m[2] } : null;
 };
 
 /**
@@ -84,3 +101,57 @@ export const movimientosEnVentana = (movimientos, { desde, hasta }) =>
     const iso = fechaMangoAIso(m.fecha);
     return iso && iso >= desde && iso <= hasta;
   });
+
+const diaMes = (iso) => iso.split('-').reverse().slice(0, 2).join('/');
+
+/**
+ * Aviso para el usuario según el resultado de su sync (notificationService.notificar), o null si no
+ * hay nada que contar. La clave evita avisar dos veces lo mismo (reintentos, "Correr ahora").
+ * @param {{ estado, movimientos?, desde?, hasta?, status?, mensaje? }} resultado
+ * @param {string} dia - YYYY-MM-DD de la corrida
+ */
+export const avisoDeSync = (resultado, dia) => {
+  const { estado, movimientos, desde, hasta } = resultado;
+  if (estado === 'en_bandeja') {
+    return {
+      tipo: 'mercadopago_sync',
+      nivel: 'info',
+      titulo: 'Movimientos de Mercado Pago en la Bandeja',
+      mensaje: `${movimientos} ${movimientos === 1 ? 'movimiento' : 'movimientos'} del ${diaMes(desde)} al ${diaMes(hasta)}, listos para revisar.`,
+      link: '/bandeja',
+      clave: `mp-sync:${desde}:${hasta}`
+    };
+  }
+  if (estado !== 'error') return null;
+  if (resultado.status === 401 || resultado.status === 403) {
+    return {
+      tipo: 'mercadopago_sync',
+      nivel: 'error',
+      titulo: 'Mercado Pago rechazó el token',
+      mensaje: 'Mango no puede traer tus movimientos: cargá un access token nuevo en Configuración.',
+      link: '/configuracion',
+      clave: `mp-token:${dia}`
+    };
+  }
+  return {
+    tipo: 'mercadopago_sync',
+    nivel: 'alerta',
+    titulo: 'No se pudieron traer los movimientos de Mercado Pago',
+    mensaje: `${resultado.mensaje || 'Error desconocido'}. Se reintenta en la próxima corrida.`,
+    link: '/configuracion',
+    clave: `mp-error:${dia}`
+  };
+};
+
+/**
+ * Texto para la UI con el resultado de una sync manual
+ */
+export const mensajeDeSync = ({ estado, movimientos, desde, hasta }) => ({
+  sin_token: 'No hay una cuenta de Mercado Pago conectada.',
+  al_dia: 'Ya está todo traído hasta ayer.',
+  reporte_pedido: 'Le pedimos el reporte a Mercado Pago. Tarda unos minutos: volvé a intentar en un rato o esperá la sincronización diaria.',
+  en_preparacion: 'Mercado Pago todavía está preparando el reporte. Volvé a intentar en unos minutos.',
+  sin_movimientos: desde ? `No hubo movimientos del ${diaMes(desde)} al ${diaMes(hasta)}.` : 'No hubo movimientos nuevos.',
+  en_bandeja: desde ? `${movimientos} ${movimientos === 1 ? 'movimiento' : 'movimientos'} del ${diaMes(desde)} al ${diaMes(hasta)} en la Bandeja.` : 'Movimientos en la Bandeja.',
+  ya_estaba: 'Ese período ya estaba en la Bandeja.'
+}[estado] || 'Sincronización terminada.');

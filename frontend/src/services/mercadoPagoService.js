@@ -17,6 +17,11 @@ export const mercadoPagoService = {
     return response.data;
   },
 
+  sincronizar: async () => {
+    const response = await api.post('/mercadopago/sincronizar');
+    return response.data;
+  },
+
   desconectar: async () => {
     const response = await api.delete('/mercadopago/cuenta');
     return response.data;

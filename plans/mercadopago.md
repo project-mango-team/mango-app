@@ -138,6 +138,18 @@ Si no hay ningún reporte generado, `node src/scripts/mpProbe.js --pedir-reporte
 - **Ingreso**: CSV sintético en el formato de `MercadoPagoParser` → `recibirDocumento` con `fuente: 'api'` → Bandeja, con fecha de corte para no superponerse con lo subido a mano (MP-03).
 - **Orden de trabajo**: cliente (`services/mercadoPagoClient.js`) y mapeo (`utils/mercadoPagoMapping.js`) con tests de Vitest y datos sintéticos ya, porque no dependen de PLAT. MP-02 espera a PLAT-03 y MP-03 a PLAT-01.
 
+## Cómo quedó implementado (MP-02 y MP-03)
+
+- **Conectar** (Configuración → Mercado Pago): el token se prueba con `GET /users/me` antes de guardarlo como secreto `mercadopago`. Rechaza tokens `TEST-` y cuentas que no son de Argentina (`site_id` distinto de `MLA`). Desde la tarjeta se puede probar la conexión, cambiar el token o desconectar la cuenta. API: `GET|PUT|DELETE /api/mercadopago/cuenta`, `POST /api/mercadopago/cuenta/probar`.
+- **Sync** (`services/mercadoPagoSyncService.js`, job `mercadopago-sync` a las 6:30):
+  1. La ventana arranca el día siguiente a lo más nuevo entre el último movimiento de MP ya cargado y el último período que la sync dejó en la Bandeja (sale del nombre del archivo, `mercadopago-api-<desde>-a-<hasta>.csv`). Termina ayer y cubre como máximo 60 días.
+  2. Si no hay un reporte procesado que arranque en `desde`, configura el reporte (suma las columnas que faltan y pone encabezados en inglés, sin borrar lo del usuario), lo pide y espera hasta unos 3 minutos. Si no sale, lo levanta la corrida siguiente.
+  3. Un reporte que cubre la ventana solo en parte se usa hasta donde llega. Así un reporte pedido ayer sirve hoy.
+  4. El CSV entra con `recibirDocumento(..., { fuente: 'api', reabrir: false })`. Un período descartado no vuelve.
+  5. Avisos (PLAT-02): "Movimientos de Mercado Pago en la Bandeja", "Mercado Pago rechazó el token" (401/403) o un error genérico, sin duplicarse por período o por día.
+- **Botón "Traer movimientos ahora"** (`POST /api/mercadopago/sincronizar`): igual que el job pero sin esperar el reporte. Si lo pide, avisa que vuelvas en unos minutos.
+- **Sin confirmar**: todo está probado con reportes sintéticos. Falta correr el probe con la cuenta real para confirmar que el reporte de liberaciones de una cuenta personal trae pagos y transferencias, y qué textos de `DESCRIPTION` aparecen.
+
 ## Fuentes
 
 - [Reporte de liberaciones por API](https://www.mercadopago.com.ar/developers/es/docs/checkout-api-payments/additional-content/reports/released-money/api) y [glosario de campos](https://www.mercadopago.com.br/developers/en/docs/reports/released-money/report-fields)
