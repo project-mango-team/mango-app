@@ -41,7 +41,9 @@ const AutoValuation = ({ asset, onValuated }) => {
       {preview ? (
         <>
           <span className="text-gray-300 tabular-nums">
-            {formatUnidades(preview.unidades)} × {formatPrecio(preview.precio, asset.moneda)}
+            {preview.unidades == null
+              ? `Devengado al ${formatUnidades(preview.tasa_anual)}% anual`
+              : `${formatUnidades(preview.unidades)} × ${formatPrecio(preview.precio, asset.moneda)}`}
             {' = '}<span className="text-white font-medium">{formatMoney(preview.monto, asset.moneda)}</span>
             <span className="text-gray-500"> · {preview.fuente} al {formatFecha(preview.fecha)}</span>
           </span>
@@ -84,7 +86,7 @@ const ValuationSourceInfo = ({ asset, onValuated }) => {
       {usaUnidades(fuente) && tenencia?.unidades == null && (
         <span className="text-yellow-400">Faltan las unidades para valuar automáticamente.</span>
       )}
-      {tienePrecioAutomatico(fuente) && tenencia?.unidades != null && (
+      {tienePrecioAutomatico(fuente) && (tenencia?.unidades != null || !usaUnidades(fuente)) && (
         <AutoValuation asset={asset} onValuated={onValuated} />
       )}
     </div>

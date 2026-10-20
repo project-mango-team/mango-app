@@ -4,7 +4,7 @@ import job from './valuacionDiaria.js';
 
 vi.mock('../services/valuationService.js', () => ({ valuarTodos: vi.fn() }));
 
-const RESUMEN = { activos: 2, guardadas: 1, omitidas: 0, sin_unidades: 0, errores: 1 };
+const RESUMEN = { activos: 2, guardadas: 1, omitidas: 0, sin_tenencia: 0, errores: 1 };
 
 describe('job valuacion-diaria', () => {
   beforeEach(() => {

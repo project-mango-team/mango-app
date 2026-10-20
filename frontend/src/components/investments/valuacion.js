@@ -24,8 +24,8 @@ export const formatUnidades = (n) =>
  */
 export const unidadesAInput = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 
-// Fuentes que ya traen precio (las demás llegan con VAL-04 a VAL-06)
-export const tienePrecioAutomatico = (fuente) => ['cafci'].includes(fuente)
+// Fuentes que ya valúan solas (tickers y cripto llegan con VAL-04 y VAL-05)
+export const tienePrecioAutomatico = (fuente) => ['cafci', 'tasa_fija'].includes(fuente)
 
 const SIMBOLOS = { ARS: '$', USD: 'US$', EUR: '€' }
 

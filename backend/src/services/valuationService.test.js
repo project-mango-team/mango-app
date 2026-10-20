@@ -43,7 +43,7 @@ describe('valuarActivos', () => {
   it('valúa cada activo con unidades y guarda con la cotización de la fecha del precio', async () => {
     const d = deps();
     const { resumen, errores } = await valuarActivos([activo('a', 10), activo('b', 5, 'EUR')], d);
-    expect(resumen).toEqual({ activos: 2, guardadas: 2, omitidas: 0, sin_unidades: 0, errores: 0 });
+    expect(resumen).toEqual({ activos: 2, guardadas: 2, omitidas: 0, sin_tenencia: 0, errores: 0 });
     expect(errores).toEqual([]);
     expect(d.cotizaciones).toHaveBeenCalledWith('2026-10-16', 'EUR');
     expect(d.guardar).toHaveBeenCalledWith(expect.objectContaining({ _id: 'a' }), { fecha: '2026-10-16', monto: 20 }, { usd: 1500 });
@@ -57,15 +57,34 @@ describe('valuarActivos', () => {
       guardar: vi.fn(async () => ({ estado: 'omitida' }))
     });
     const { resumen } = await valuarActivos([activo('sin', undefined), activo('vendido', undefined), activo('ok', 3)], d);
-    expect(resumen).toEqual({ activos: 3, guardadas: 0, omitidas: 1, sin_unidades: 2, errores: 0 });
+    expect(resumen).toEqual({ activos: 3, guardadas: 0, omitidas: 1, sin_tenencia: 2, errores: 0 });
     expect(d.calcular).toHaveBeenCalledTimes(1);
   });
 
   it('un error en un activo no corta los demás', async () => {
     const error = Object.assign(new Error('CAFCI caída'), { statusCode: 503 });
-    const d = deps({ calcular: vi.fn(async (a) => { if (a._id === 'a') throw error; return { fecha: '2026-10-16' }; }) });
+    const d = deps({ calcular: vi.fn(async (a) => { if (a._id === 'a') throw error; return { fecha: '2026-10-16', monto: 1 }; }) });
     const { resumen, errores } = await valuarActivos([activo('a', 1), activo('b', 1)], d);
     expect(resumen).toMatchObject({ guardadas: 1, errores: 1 });
     expect(errores).toEqual([{ asset_id: 'a', status: 503, mensaje: 'CAFCI caída' }]);
+  });
+});
+
+describe('tasa fija', () => {
+  it('devenga hasta hoy sin unidades ni precio', async () => {
+    const asset = { fuente_precio: 'tasa_fija', precio_config: { tasa_anual: 0 } };
+    const v = await calcularValuacionAutomatica(asset, [{ tipo: 'Aporte', fecha: new Date('2026-01-01T00:00:00Z'), monto: 100 }]);
+    expect(v).toMatchObject({ precio: null, unidades: null, monto: 100, fuente: 'Tasa fija', tasa_anual: 0 });
+    expect(v.fecha).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('el job valúa activos a tasa fija aunque no tengan unidades y saltea los cerrados', async () => {
+    const calcular = vi.fn(async (a) => ({ fecha: '2026-10-20', monto: a._id === 'cerrado' ? 0 : 105 }));
+    const guardar = vi.fn(async () => ({ estado: 'guardada' }));
+    const { resumen } = await valuarActivos(
+      [{ _id: 'nexo', fuente_precio: 'tasa_fija' }, { _id: 'cerrado', fuente_precio: 'tasa_fija' }],
+      { movimientosDe: async () => [], calcular, cotizaciones: async () => ({ usd: 1500 }), guardar }
+    );
+    expect(resumen).toEqual({ activos: 2, guardadas: 1, omitidas: 0, sin_tenencia: 1, errores: 0 });
   });
 });

@@ -81,7 +81,7 @@ No hace falta integrarse con cada broker: alcanza con saber la cantidad que ten�
 | VAL-03 | **Job diario de valuación.** Para cada activo con fuente automática, crea una `Valuacion` (marcada como automática) = unidades × precio. No pisa las valuaciones manuales del mismo día. | VAL-01, PLAT-01 | M | hecho |
 | VAL-04 | **ETFs, CEDEARs y acciones por ticker.** Elegir la fuente de precios (pública, con delay está bien) y valuar cantidad × precio. | VAL-03 | M | pendiente |
 | VAL-05 | **Cripto.** Precio de BTC y otras desde CoinGecko o Binance. | VAL-03 | S | pendiente |
-| VAL-06 | **Rendimiento a tasa fija.** Para USDT en Nexo y similares: devengar el interés con la tasa anual cargada, sin API. | VAL-03 | S | pendiente |
+| VAL-06 | **Rendimiento a tasa fija.** Para USDT en Nexo y similares: devengar el interés con la tasa anual cargada, sin API. | VAL-03 | S | hecho |
 
 ---
 

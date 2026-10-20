@@ -128,3 +128,33 @@ export const calcularValuacionPorPrecio = (activo, movimientos, { precio, fecha 
   }
   return { fecha, precio, unidades, monto: Math.round(unidades * precio * 100) / 100 };
 };
+
+/**
+ * Valor de un activo a tasa fija: recorre los movimientos en orden devengando interés compuesto diario
+ * ((1 + tasa/365)^días) entre cada uno. Una valuación fija el valor; aportes y retiros lo mueven.
+ * @param {Array<{ tipo: string, fecha: Date|string, monto: number }>} movimientos
+ * @param {number} tasaAnual - en % (8.5 = 8,5% anual)
+ * @param {string} hasta - YYYY-MM-DD
+ * @returns {number} redondeado a centavos
+ */
+export const devengarTasaFija = (movimientos, tasaAnual, hasta) => {
+  const tasaDiaria = tasaAnual / 100 / 365;
+  const devengar = (valor, desde, hastaFecha) => {
+    const dias = Math.max(0, Math.round((new Date(`${hastaFecha}T00:00:00Z`) - new Date(`${desde}T00:00:00Z`)) / (24 * 60 * 60 * 1000)));
+    return valor * Math.pow(1 + tasaDiaria, dias);
+  };
+
+  let valor = 0;
+  let fecha = null;
+  for (const mov of ordenarMovimientos(movimientos)) {
+    const dia = aISO(mov.fecha);
+    if (dia > hasta) break;
+    if (fecha) valor = devengar(valor, fecha, dia);
+    if (mov.tipo === 'Valuacion') valor = mov.monto;
+    else if (mov.tipo === 'Aporte') valor += mov.monto;
+    else if (mov.tipo === 'Retiro') valor -= mov.monto;
+    fecha = dia;
+  }
+  if (fecha) valor = devengar(valor, fecha, hasta);
+  return Math.round(Math.max(0, valor) * 100) / 100;
+};

@@ -2,15 +2,15 @@ import InvestmentAsset from '../models/InvestmentAsset.js';
 import InvestmentMovement from '../models/InvestmentMovement.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { FciService } from './fciService.js';
-import { DolarService } from './dolarService.js';
-import { calcularValuacionPorPrecio, calcularUnidades } from '../utils/investmentValuation.js';
+import { DolarService, hoyArgentina } from './dolarService.js';
+import { calcularValuacionPorPrecio, calcularUnidades, devengarTasaFija } from '../utils/investmentValuation.js';
 import { convertirMonto } from '../utils/investmentCalc.js';
 
 // Valuación automática de activos según su fuente de precio (VAL).
 // Todo se filtra por el user_id del activo, así sirve tanto desde un request como desde un job.
 
-// Fuentes que ya traen precio (las demás llegan con VAL-04 a VAL-06)
-export const FUENTES_AUTOMATICAS = ['cafci'];
+// Fuentes que ya valúan solas (las demás llegan con VAL-04 y VAL-05)
+export const FUENTES_AUTOMATICAS = ['cafci', 'tasa_fija'];
 
 /**
  * Precio de UNA unidad del activo en su moneda, según su fuente
@@ -33,6 +33,12 @@ export const obtenerPrecio = async (asset) => {
  * @returns {Promise<{ fecha: string, precio: number, unidades: number, monto: number, fuente: string }>}
  */
 export const calcularValuacionAutomatica = async (asset, movimientos) => {
+  // Tasa fija: sin precio ni unidades, se devenga el interés hasta hoy
+  if (asset.fuente_precio === 'tasa_fija') {
+    const fecha = hoyArgentina();
+    const tasa = asset.precio_config?.tasa_anual;
+    return { fecha, precio: null, unidades: null, monto: devengarTasaFija(movimientos, tasa, fecha), fuente: 'Tasa fija', tasa_anual: tasa };
+  }
   const cotizacion = await obtenerPrecio(asset);
   return { ...calcularValuacionPorPrecio(asset, movimientos, cotizacion), fuente: cotizacion.fuente };
 };
@@ -66,10 +72,14 @@ export const guardarValuacionAutomatica = async (asset, valuacion, cot) => {
     {
       $set: {
         monto: valuacion.monto,
+        // Ahora: así queda después de los movimientos de ese día que ya incluye y antes de los que se carguen después
+        created_at: new Date(),
         cotizacion_usd: cot.usd,
         ...(asset.moneda === 'EUR' && { cotizacion_eur: cot.eur }),
         ...convertirMonto(valuacion.monto, asset.moneda, cot),
-        notas: `Automática · ${valuacion.fuente}: ${numeroAR(valuacion.unidades)} × ${numeroAR(valuacion.precio)}`
+        notas: valuacion.unidades == null
+          ? `Automática · ${valuacion.fuente} ${numeroAR(valuacion.tasa_anual)}% anual`
+          : `Automática · ${valuacion.fuente}: ${numeroAR(valuacion.unidades)} × ${numeroAR(valuacion.precio)}`
       }
     },
     { upsert: true, new: true, runValidators: true }
@@ -87,22 +97,26 @@ export const guardarValuacionAutomatica = async (asset, valuacion, cot) => {
  *   cotizaciones: (fecha: string, moneda: string) => Promise<{ usd: number, eur?: number }>,
  *   guardar: (asset, valuacion, cot) => Promise<{ estado: string }>
  * }} deps
- * @returns {Promise<{ resumen: { activos, guardadas, omitidas, sin_unidades, errores }, errores: Array<{ asset_id, status, mensaje }> }>}
+ * @returns {Promise<{ resumen: { activos, guardadas, omitidas, sin_tenencia, errores }, errores: Array<{ asset_id, status, mensaje }> }>}
  */
 export const valuarActivos = async (activos, { movimientosDe, calcular, cotizaciones, guardar }) => {
-  const resumen = { activos: activos.length, guardadas: 0, omitidas: 0, sin_unidades: 0, errores: 0 };
+  const resumen = { activos: activos.length, guardadas: 0, omitidas: 0, sin_tenencia: 0, errores: 0 };
   const errores = [];
 
   for (const asset of activos) {
     try {
       const movimientos = await movimientosDe(asset);
-      // Sin unidades o vendido del todo (0 unidades): no hay nada que valuar
-      const { unidades } = calcularUnidades(asset, movimientos);
-      if (!(unidades > 0)) {
-        resumen.sin_unidades++;
+      // Sin unidades o vendido del todo (0 unidades): no hay nada que valuar. Tasa fija no usa unidades.
+      if (asset.fuente_precio !== 'tasa_fija' && !(calcularUnidades(asset, movimientos).unidades > 0)) {
+        resumen.sin_tenencia++;
         continue;
       }
       const valuacion = await calcular(asset, movimientos);
+      // Activo cerrado (valor 0): no se le agregan valuaciones
+      if (!(valuacion.monto > 0)) {
+        resumen.sin_tenencia++;
+        continue;
+      }
       const cot = await cotizaciones(valuacion.fecha, asset.moneda);
       const { estado } = await guardar(asset, valuacion, cot);
       resumen[estado === 'guardada' ? 'guardadas' : 'omitidas']++;

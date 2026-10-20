@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcularUnidades, parseUnidades, normalizarFuentePrecio, calcularValuacionPorPrecio } from './investmentValuation.js';
+import { calcularUnidades, parseUnidades, normalizarFuentePrecio, calcularValuacionPorPrecio, devengarTasaFija } from './investmentValuation.js';
 
 const mov = (tipo, fecha, unidades, created = fecha) => ({
   tipo,
@@ -111,5 +111,32 @@ describe('calcularValuacionPorPrecio', () => {
   it('sin unidades o sin precio válido, falla con un mensaje claro', () => {
     expect(() => calcularValuacionPorPrecio({}, [], { precio: 10, fecha: '2026-10-16' })).toThrow(/Faltan las unidades/);
     expect(() => calcularValuacionPorPrecio({ unidades: 1 }, [], { precio: 0, fecha: '2026-10-16' })).toThrow(/precio válido/);
+  });
+});
+
+describe('devengarTasaFija', () => {
+  const m = (tipo, fecha, monto, created = fecha) => ({ ...mov(tipo, fecha, undefined, created), monto });
+
+  it('devenga interés compuesto diario desde el aporte', () => {
+    // 1000 al 10% anual durante 365 días: (1 + 0,1/365)^365 = 1,10516
+    expect(devengarTasaFija([m('Aporte', '2025-01-01', 1000)], 10, '2026-01-01')).toBe(1105.16);
+  });
+
+  it('aportes y retiros posteriores mueven la base', () => {
+    const movs = [m('Aporte', '2026-01-01', 1000), m('Aporte', '2026-01-11', 500), m('Retiro', '2026-01-21', 200)];
+    const tasaDiaria = 0.0365 / 365;
+    const esperado = ((1000 * (1 + tasaDiaria) ** 10 + 500) * (1 + tasaDiaria) ** 10 - 200) * (1 + tasaDiaria) ** 10;
+    expect(devengarTasaFija(movs, 3.65, '2026-01-31')).toBe(Math.round(esperado * 100) / 100);
+  });
+
+  it('una valuación fija el valor desde ahí', () => {
+    const movs = [m('Aporte', '2026-01-01', 1000), m('Valuacion', '2026-06-01', 2000)];
+    expect(devengarTasaFija(movs, 0, '2026-10-01')).toBe(2000);
+  });
+
+  it('ignora movimientos posteriores a la fecha y no devuelve negativos', () => {
+    expect(devengarTasaFija([m('Aporte', '2026-01-01', 1000), m('Aporte', '2026-12-01', 5)], 0, '2026-06-01')).toBe(1000);
+    expect(devengarTasaFija([m('Retiro', '2026-01-01', 10)], 5, '2026-06-01')).toBe(0);
+    expect(devengarTasaFija([], 5, '2026-06-01')).toBe(0);
   });
 });
