@@ -5,6 +5,7 @@ import MonthlyComparisonChart from '../components/charts/MonthlyComparisonChart'
 import BalanceLineChart from '../components/charts/BalanceLineChart'
 import InversionesNota from '../components/InversionesNota'
 import ReglasModal from '../components/reglas/ReglasModal'
+import AprenderCorreccionModal from '../components/reglas/AprenderCorreccionModal'
 import MonedaToggle from '../components/MonedaToggle'
 import useMonedaPreferida from '../hooks/useMonedaPreferida'
 import { formatImporte } from '../utils/format'
@@ -48,6 +49,9 @@ const Inicio = () => {
   
   // Transaction editing states
   const [editingTransaction, setEditingTransaction] = useState(null)
+  // REV-03: categoría antes de editar y transacción corregida para ofrecer una regla
+  const [categoriaOriginal, setCategoriaOriginal] = useState(null)
+  const [correccion, setCorreccion] = useState(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
 
   useEffect(() => {
@@ -248,6 +252,7 @@ const Inicio = () => {
 
   const handleEditTransaction = (transaction) => {
     setEditingTransaction({...transaction})
+    setCategoriaOriginal(transaction.categoria)
     setEditModalOpen(true)
   }
 
@@ -258,6 +263,7 @@ const Inicio = () => {
       const scrollPosition = mainElement?.scrollTop || 0
       
       await transactionService.update(editingTransaction._id, editingTransaction)
+      if (editingTransaction.categoria !== categoriaOriginal) setCorreccion(editingTransaction)
       setEditModalOpen(false)
       setEditingTransaction(null)
       
@@ -889,6 +895,12 @@ const Inicio = () => {
           </>
         )}
       </div>
+
+      <AprenderCorreccionModal
+        transaccion={correccion}
+        onClose={() => setCorreccion(null)}
+        onCambios={() => Promise.all([searchTransactions(currentPage), loadStats(selectedYear, moneda)])}
+      />
 
       <ReglasModal
         isOpen={reglasModalOpen}
