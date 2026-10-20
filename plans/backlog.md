@@ -78,7 +78,7 @@ No hace falta integrarse con cada broker: alcanza con saber la cantidad que ten�
 |---|---|---|---|---|
 | VAL-01 | **Cantidad y fuente de precio por activo.** Campos opcionales en el activo: unidades (derivadas de los movimientos que las traen, como las cuotapartes de Fima, o cargadas a mano) y fuente de precio (`cafci`, `ticker`, `coingecko`, `tasa_fija`, `manual`). | — | M | hecho |
 | VAL-02 | **FCIs con la CAFCI.** Mapear cada FCI a su fondo y clase en la API pública de la CAFCI y traer el valor de la cuotaparte del día. El importador de Fima ya guarda las cuotapartes de cada operación. | VAL-01 | M | hecho |
-| VAL-03 | **Job diario de valuación.** Para cada activo con fuente automática, crea una `Valuacion` (marcada como automática) = unidades × precio. No pisa las valuaciones manuales del mismo día. | VAL-01, PLAT-01 | M | pendiente |
+| VAL-03 | **Job diario de valuación.** Para cada activo con fuente automática, crea una `Valuacion` (marcada como automática) = unidades × precio. No pisa las valuaciones manuales del mismo día. | VAL-01, PLAT-01 | M | hecho |
 | VAL-04 | **ETFs, CEDEARs y acciones por ticker.** Elegir la fuente de precios (pública, con delay está bien) y valuar cantidad × precio. | VAL-03 | M | pendiente |
 | VAL-05 | **Cripto.** Precio de BTC y otras desde CoinGecko o Binance. | VAL-03 | S | pendiente |
 | VAL-06 | **Rendimiento a tasa fija.** Para USDT en Nexo y similares: devengar el interés con la tasa anual cargada, sin API. | VAL-03 | S | pendiente |
