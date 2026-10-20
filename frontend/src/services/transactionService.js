@@ -75,6 +75,16 @@ export const statsService = {
 
 export const uploadService = {
   // Detect available cards in a Santander file
+  // Reconoce banco, tipo de resumen y tarjetas por el contenido del archivo
+  detect: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload/detect', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
   detectCards: async (file, cardType) => {
     const formData = new FormData();
     formData.append('file', file);

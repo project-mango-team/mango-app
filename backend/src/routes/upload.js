@@ -7,7 +7,8 @@ import { requireAuth } from '../middleware/auth.js';
 import {
   parsearDocumento,
   guardarImportacion,
-  detectarTarjetasSantander
+  detectarTarjetasSantander,
+  detectarDocumento
 } from '../services/statementImportService.js';
 
 const router = express.Router();
@@ -22,6 +23,26 @@ const upload = multer({
 });
 
 const archivoDe = (file) => ({ buffer: file.buffer, filename: file.originalname || '' });
+
+/**
+ * POST /api/upload/detect
+ * Reconoce banco, tipo de resumen y tarjetas a partir del contenido del archivo
+ */
+router.post('/detect', upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se subió ningún archivo'
+      });
+    }
+
+    const data = await detectarDocumento(archivoDe(req.file));
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * POST /api/upload/detect-cards

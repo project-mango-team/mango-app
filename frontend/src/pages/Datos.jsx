@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import useDeteccionResumen from '../hooks/useDeteccionResumen'
+import DeteccionResumenBadge from '../components/DeteccionResumenBadge'
 import { uploadService, operationsService } from '../services/transactionService'
 import ConfirmModal from '../components/ConfirmModal'
 import TransactionEditor from '../components/TransactionEditor'
@@ -29,6 +31,15 @@ const Datos = () => {
   
   // Galicia-specific states
   const [tipoResumen, setTipoResumen] = useState('')
+
+  // Al elegir un archivo se reconoce el banco, el tipo y las tarjetas; se pueden corregir a mano
+  const deteccion = useDeteccionResumen((d) => {
+    setTipo(d.tipo)
+    setTipoResumen(d.tipoResumen || '')
+    setCardType(d.cardType || '')
+    setAvailableCards(d.tarjetas || [])
+    setSelectedCards(d.tarjetas || [])
+  })
   
   // Manual entry key for resetting
   const [manualKey, setManualKey] = useState(0)
@@ -69,6 +80,10 @@ const Datos = () => {
     const newFile = e.target.files[0]
     setFile(newFile)
     setMessage(null)
+    if (newFile) {
+      await deteccion.detectar(newFile)
+      return
+    }
     
     // If Santander and cardType already selected, detect cards
     if (newFile && tipo === 'santander' && cardType) {
@@ -161,6 +176,8 @@ const Datos = () => {
       if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.pdf') || fileName.endsWith('.txt')) {
         setFile(droppedFile)
         setMessage(null)
+        deteccion.detectar(droppedFile)
+        return
 
         if (tipo === 'santander' && cardType) {
           detectCards(cardType, droppedFile)
@@ -262,6 +279,7 @@ const Datos = () => {
       setAvailableCards([])
       setSelectedCards([])
       setTipoResumen('')
+      deteccion.limpiar()
       setShowEditor(false)
       setPreviewData(null)
       
@@ -414,6 +432,40 @@ const Datos = () => {
             {/* Resumen de cuenta form */}
             {origenDatos === 'resumen' && (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* File upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Archivo
+                  </label>
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      isDragging 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-gray-600 hover:border-primary'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      accept=".csv,.xlsx,.pdf,.txt"
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <p className="text-gray-400 mb-2">
+                        {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Formatos: PDF, XLSX, CSV o TXT · el banco y el tipo se reconocen solos
+                      </p>
+                    </label>
+                  </div>
+                  <DeteccionResumenBadge deteccion={deteccion.deteccion} detectando={deteccion.detectando} />
+                </div>
+
                 {/* Banco/Fuente */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -537,39 +589,6 @@ const Datos = () => {
                   </div>
                 )}
 
-                {/* File upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Archivo
-                  </label>
-                  <div 
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                      isDragging 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-gray-600 hover:border-primary'
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                  >
-                    <input
-                      type="file"
-                      onChange={handleFileChange}
-                      accept={tipo === 'galicia' && tipoResumen === 'tarjeta' ? '.txt,.pdf' : '.csv,.xlsx,.pdf'}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <p className="text-gray-400 mb-2">
-                        {file ? file.name : 'Click para seleccionar o arrastra tu archivo aquí'}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {tipo === 'galicia' && tipoResumen === 'tarjeta' ? 'Formatos: PDF o TXT' : 'Formatos: XLSX o CSV'}
-                      </p>
-                    </label>
-                  </div>
-                </div>
-
                 {/* Botones */}
                 <div className="flex gap-4">
                   <button 
@@ -588,6 +607,7 @@ const Datos = () => {
                       setAvailableCards([])
                       setSelectedCards([])
                       setTipoResumen('')
+                      deteccion.limpiar()
                       setMessage(null)
                       const fileInput = document.getElementById('file-upload')
                       if (fileInput) fileInput.value = ''

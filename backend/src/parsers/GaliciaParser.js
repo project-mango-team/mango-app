@@ -15,6 +15,83 @@ const MONEDA_EXTRANJERA_FINAL = /\b(?:USD|BRL|EUR|UYU|CLP|GBP|PYG|MXN|COP|PEN|BO
  * Handles both cuenta (savings account) and tarjeta (credit card) formats
  */
 export class GaliciaParser extends BaseParser {
+  /**
+   * Reconoce un archivo de Banco Galicia (caja de ahorro o tarjeta) por su contenido
+   * @param {string} texto - Texto del archivo (CSV/XLSX convertido/TXT) o del PDF
+   * @returns {Object|null} - Detección parcial (ver statementImportService.detectarDocumento)
+   */
+  static detectar(texto) {
+    // Caja de ahorro: extracto CSV/XLSX del Online Banking
+    if (/Banco Galicia - Caja Ahorro/.test(texto) && /Fecha,Movimiento,D.bito,Cr.dito/.test(texto)) {
+      const intervalo = texto.match(/Intervalo de Consulta: del (\d{2})\/(\d{2})\/(\d{4}) al (\d{2})\/(\d{2})\/(\d{4})/);
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'cuenta',
+        producto: 'caja_ahorro',
+        descripcion: 'Galicia · caja de ahorro',
+        periodo: intervalo
+          ? { desde: `${intervalo[3]}-${intervalo[2]}-${intervalo[1]}`, hasta: `${intervalo[6]}-${intervalo[5]}-${intervalo[4]}` }
+          : null
+      };
+    }
+    if (/Resumen de Caja de Ahorro en Pesos/.test(texto)) {
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'cuenta',
+        producto: 'caja_ahorro',
+        descripcion: 'Galicia · caja de ahorro (PDF consolidado)',
+        soportado: false,
+        motivo: 'El resumen PDF consolidado de la caja de ahorro no está soportado: descargá el extracto en Excel'
+      };
+    }
+
+    // Visa del link del mail (eresumen.com.ar)
+    if (/DETALLE DE TRANSACCION/.test(texto) && /CIERRE ACTUAL/.test(texto) && /VISA/.test(texto)) {
+      const cierre = texto.match(/CIERRE ACTUAL:\s*(\d{2}) ([A-Za-z]{3}) (\d{2})/);
+      const mes = cierre && MESES_ABREVIADOS[cierre[2].toLowerCase()];
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'tarjeta',
+        producto: 'visa',
+        formato: 'eresumen',
+        descripcion: 'Visa Galicia (eresumen)',
+        cierre: mes ? `20${cierre[3]}-${mes}-${cierre[1]}` : null
+      };
+    }
+
+    // PDF de tarjeta del Online Banking: Visa o Mastercard
+    const pdfTarjeta = texto.match(/Tarjeta Cr.dito (VISA|MASTERCARD)/);
+    if (pdfTarjeta) {
+      const producto = pdfTarjeta[1] === 'VISA' ? 'visa' : 'mastercard';
+      // Fechas del encabezado: cierre anterior, vto. anterior, cierre actual, vto. actual, ...
+      const fechas = texto.match(/(\d{2})-([A-Za-z]{3})-(\d{2})\s+\d{2}-[A-Za-z]{3}-\d{2}\s+(\d{2})-([A-Za-z]{3})-(\d{2})/);
+      const mes = fechas && MESES_ABREVIADOS[fechas[5].toLowerCase()];
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'tarjeta',
+        producto,
+        formato: 'homebanking',
+        descripcion: `${producto === 'visa' ? 'Visa' : 'Mastercard'} Galicia`,
+        cierre: mes ? `20${fechas[6]}-${mes}-${fechas[4]}` : null
+      };
+    }
+
+    // Texto del resumen de tarjeta copiado del Online Banking
+    if (/DETALLE DEL CONSUMO/.test(texto) && /FECHA REFERENCIA CUOTA COMPROBANTE/.test(texto)) {
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'tarjeta',
+        producto: /MASTERCARD/i.test(texto) ? 'mastercard' : 'visa',
+        formato: 'texto',
+        descripcion: 'Tarjeta Galicia (texto copiado)',
+        confianza: 'media',
+        cierre: null
+      };
+    }
+
+    return null;
+  }
+
   constructor(buffer, tipoResumen = 'cuenta', dolarValue = 1, categoryKeywords = null) {
     super(buffer, categoryKeywords);
     this.tipoResumen = tipoResumen; // 'cuenta' or 'tarjeta'

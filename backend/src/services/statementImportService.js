@@ -1,4 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
+import iconv from 'iconv-lite';
+import { PDFParse } from 'pdf-parse';
 import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
 import { SantanderParser } from '../parsers/SantanderParser.js';
 import { GaliciaParser } from '../parsers/GaliciaParser.js';
@@ -76,6 +78,86 @@ export const detectarTarjetasSantander = async (archivo) => {
   const fileBuffer = await normalizarArchivo(archivo, 'santander');
   const parser = new SantanderParser(fileBuffer, 1); // Dollar value not needed for detection
   return parser.getCards();
+};
+
+// ---------- Detección automática ----------
+
+const BANCOS = { mercadopago: 'Mercado Pago', santander: 'Santander', galicia: 'Galicia' };
+
+/**
+ * Tipo de archivo por sus primeros bytes (no por la extensión)
+ * @returns {'pdf'|'excel'|'texto'}
+ */
+export const tipoDeArchivo = (buffer) => {
+  if (buffer.slice(0, 4).toString('latin1') === '%PDF') return 'pdf';
+  // XLSX es un ZIP; XLS viejo es un documento OLE2
+  if (buffer.slice(0, 4).toString('latin1') === 'PK\u0003\u0004') return 'excel';
+  if (buffer.slice(0, 4).toString('hex') === 'd0cf11e0') return 'excel';
+  return 'texto';
+};
+
+/**
+ * Texto del archivo para buscar firmas: PDF → texto, Excel → CSV, texto → UTF-8 (o Latin-1 si no es UTF-8 válido)
+ */
+const extraerTexto = async (buffer, archivo) => {
+  if (archivo === 'pdf') {
+    const pdfParser = new PDFParse({ data: new Uint8Array(buffer), verbosity: 0 });
+    await pdfParser.load();
+    return (await pdfParser.getText()).text;
+  }
+  if (archivo === 'excel') {
+    return (await excelToCsvBuffer(buffer, 'utf8')).toString('utf8');
+  }
+  const utf8 = iconv.decode(buffer, 'utf8');
+  return utf8.includes('�') ? iconv.decode(buffer, 'latin1') : utf8;
+};
+
+/**
+ * Reconoce de qué banco y tipo de resumen es un archivo, para importarlo sin elegir nada a mano.
+ * Cada parser expone `detectar(texto)`; el primero que lo reconoce gana.
+ * @param {{ buffer: Buffer, filename?: string }} archivo
+ * @returns {Promise<{
+ *   soportado: boolean, confianza: 'alta'|'media'|'baja', banco?: string, tipo?: string,
+ *   tipoResumen?: string, producto?: string, formato?: string, archivo: string, descripcion?: string,
+ *   cardType?: string, tarjetas?: string[], cierre?: string|null, periodo?: { desde, hasta }|null, motivo?: string
+ * }>}
+ */
+export const detectarDocumento = async ({ buffer }) => {
+  const archivo = tipoDeArchivo(buffer);
+  let texto;
+  try {
+    texto = await extraerTexto(buffer, archivo);
+  } catch (error) {
+    return { soportado: false, confianza: 'baja', archivo, motivo: `No se pudo leer el archivo: ${error.message}` };
+  }
+
+  const deteccion = MercadoPagoParser.detectar(texto)
+    || SantanderParser.detectar(texto)
+    || GaliciaParser.detectar(texto);
+
+  if (!deteccion) {
+    return {
+      soportado: false,
+      confianza: 'baja',
+      archivo,
+      motivo: 'No se reconoció el resumen. Elegí el banco y el tipo a mano.'
+    };
+  }
+
+  const resultado = {
+    soportado: true,
+    confianza: 'alta',
+    archivo,
+    banco: BANCOS[deteccion.tipo],
+    ...deteccion
+  };
+
+  // Santander trae varias tarjetas en el mismo archivo: por defecto se importan todas
+  if (resultado.soportado && resultado.tipo === 'santander') {
+    resultado.tarjetas = await detectarTarjetasSantander({ buffer, filename: archivo === 'excel' ? 'resumen.xlsx' : 'resumen.csv' });
+  }
+
+  return resultado;
 };
 
 /**

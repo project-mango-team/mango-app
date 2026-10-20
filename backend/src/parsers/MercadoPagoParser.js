@@ -7,6 +7,35 @@ import csvParser from 'csv-parser';
  */
 export class MercadoPagoParser extends BaseParser {
   /**
+   * Reconoce un archivo de Mercado Pago por su contenido
+   * @param {string} texto - Texto del archivo (CSV) o del PDF
+   * @returns {Object|null} - Detección parcial (ver statementImportService.detectarDocumento)
+   */
+  static detectar(texto) {
+    // El separador cambió de "," a ";" desde mediados de 2026
+    if (/INITIAL_BALANCE/.test(texto) && /RELEASE_DATE[,;]TRANSACTION_TYPE/.test(texto)) {
+      // Período: primera y última fecha de los movimientos (DD-MM-YYYY)
+      const fechas = [...texto.matchAll(/^(\d{2})-(\d{2})-(\d{4})[,;]/gm)].map(m => `${m[3]}-${m[2]}-${m[1]}`).sort();
+      return {
+        tipo: 'mercadopago',
+        producto: 'cuenta',
+        descripcion: 'Mercado Pago · cuenta',
+        periodo: fechas.length ? { desde: fechas[0], hasta: fechas.at(-1) } : null
+      };
+    }
+    if (/RESUMEN DE CUENTA EN PESOS/.test(texto) && /CVU/.test(texto)) {
+      return {
+        tipo: 'mercadopago',
+        producto: 'cuenta',
+        descripcion: 'Mercado Pago · resumen PDF',
+        soportado: false,
+        motivo: 'El resumen PDF de Mercado Pago no está soportado: descargá el reporte en CSV'
+      };
+    }
+    return null;
+  }
+
+  /**
    * Parse Mercado Pago CSV file
    * @returns {Promise<Array>} - Array of parsed transactions
    */

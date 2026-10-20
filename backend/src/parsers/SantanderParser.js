@@ -6,6 +6,28 @@ import iconv from 'iconv-lite';
  * Handles multiple cards in the same file
  */
 export class SantanderParser extends BaseParser {
+  /**
+   * Reconoce un resumen de tarjeta Santander por su contenido
+   * @param {string} texto - Texto del archivo (CSV, o XLSX convertido)
+   * @returns {Object|null} - Detección parcial (ver statementImportService.detectarDocumento)
+   */
+  static detectar(texto) {
+    if (!/Movimientos del resumen/.test(texto) || !/Tarjeta .{0,30}terminada en/.test(texto)) {
+      return null;
+    }
+    const red = /Tarjeta Amex/i.test(texto) ? 'amex' : 'visa';
+    // "Fecha de cierre,Fecha de vencimiento" y en la línea siguiente las fechas (DD/MM/YYYY o DD/MM/YY)
+    const cierre = texto.match(/Fecha de cierre[^\n]*\n\s*"?(\d{2})\/(\d{2})\/(\d{4}|\d{2})\b/);
+    const anio = cierre && (cierre[3].length === 2 ? `20${cierre[3]}` : cierre[3]);
+    return {
+      tipo: 'santander',
+      producto: red,
+      cardType: red,
+      descripcion: `${red === 'amex' ? 'Amex' : 'Visa'} Santander`,
+      cierre: cierre ? `${anio}-${cierre[2]}-${cierre[1]}` : null
+    };
+  }
+
   constructor(buffer, dolarValue, cardFilter = null, categoryKeywords = null) {
     super(buffer, categoryKeywords);
     this.dolarValue = dolarValue || 1;
