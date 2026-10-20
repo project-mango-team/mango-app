@@ -68,29 +68,29 @@ export const parseOperacionesFima = (texto) => {
 };
 
 /**
- * Marca cuáles operaciones ya existen como movimiento del activo (misma fecha, tipo y monto).
- * Compara por cantidad: si hay dos retiros iguales el mismo día y solo uno cargado, marca uno solo.
+ * Empareja cada operación con un movimiento existente del activo (misma fecha, tipo y monto).
+ * Compara por cantidad: si hay dos retiros iguales el mismo día y solo uno cargado, empareja uno solo.
  * @param {Array<{ fecha: string, tipo: string, monto: number }>} operaciones
  * @param {Array<{ fecha: Date|string, tipo: string, monto: number }>} existentes
- * @returns {boolean[]} duplicado por cada operación, en el mismo orden
+ * @returns {Array<Object|null>} el movimiento existente de cada operación (o null), en el mismo orden
  */
-export const marcarDuplicados = (operaciones, existentes) => {
+export const emparejarExistentes = (operaciones, existentes) => {
   const clave = (fecha, tipo, monto) =>
     `${new Date(fecha).toISOString().slice(0, 10)}|${tipo}|${Math.round(monto * 100)}`;
 
   const disponibles = new Map();
   for (const m of existentes) {
     const k = clave(m.fecha, m.tipo, m.monto);
-    disponibles.set(k, (disponibles.get(k) || 0) + 1);
+    if (!disponibles.has(k)) disponibles.set(k, []);
+    disponibles.get(k).push(m);
   }
 
-  return operaciones.map(op => {
-    const k = clave(`${op.fecha}T00:00:00Z`, op.tipo, op.monto);
-    const quedan = disponibles.get(k) || 0;
-    if (quedan > 0) {
-      disponibles.set(k, quedan - 1);
-      return true;
-    }
-    return false;
-  });
+  return operaciones.map(op => disponibles.get(clave(`${op.fecha}T00:00:00Z`, op.tipo, op.monto))?.shift() ?? null);
 };
+
+/**
+ * Marca cuáles operaciones ya existen como movimiento del activo (ver emparejarExistentes)
+ * @returns {boolean[]} duplicado por cada operación, en el mismo orden
+ */
+export const marcarDuplicados = (operaciones, existentes) =>
+  emparejarExistentes(operaciones, existentes).map(Boolean);

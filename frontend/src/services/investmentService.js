@@ -61,9 +61,10 @@ export const investmentService = {
     return response.data;
   },
 
-  // movimientos: [{ fecha, tipo: 'Aporte'|'Retiro', monto, notas? }]
-  importMovements: async (assetId, movimientos) => {
-    const response = await api.post(`/investments/assets/${assetId}/import`, { movimientos });
+  // movimientos: [{ fecha, tipo: 'Aporte'|'Retiro', monto, unidades?, notas? }]
+  // completar: [{ fecha, tipo, monto, unidades }] agrega unidades a movimientos ya cargados
+  importMovements: async (assetId, movimientos, completar = []) => {
+    const response = await api.post(`/investments/assets/${assetId}/import`, { movimientos, completar });
     return response.data;
   },
 

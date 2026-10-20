@@ -8,7 +8,8 @@ import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { DolarService, hoyArgentina } from '../services/dolarService.js';
 import { getInvestmentTypes } from '../config/investmentTypes.js';
 import { resumirPrestamos } from '../utils/loanCalc.js';
-import { parseOperacionesFima, marcarDuplicados } from '../utils/investmentImport.js';
+import { parseOperacionesFima, emparejarExistentes } from '../utils/investmentImport.js';
+import { calcularUnidades, parseUnidades, normalizarFuentePrecio } from '../utils/investmentValuation.js';
 import { parseFecha, parseMonto, parseCotizacion } from '../utils/inputParsers.js';
 import {
   convertirMonto,
@@ -103,12 +104,21 @@ const validarDatosActivo = (req, body, { parcial = false } = {}) => {
   if (body.plataforma !== undefined) data.plataforma = String(body.plataforma).trim();
   if (body.notas !== undefined) data.notas = String(body.notas);
 
+  if (body.fuente_precio !== undefined) {
+    Object.assign(data, normalizarFuentePrecio(body.fuente_precio, body.precio_config));
+  }
+  const unidades = parseUnidades(body.unidades);
+  if (unidades !== undefined) data.unidades = unidades ?? undefined;
+
   return data;
 };
 
 const conResumen = (asset, movimientos, cotizacionesHoy) => ({
   ...asset.toObject(),
-  resumen: calcularResumenActivo(asset, movimientos, cotizacionesHoy)
+  resumen: {
+    ...calcularResumenActivo(asset, movimientos, cotizacionesHoy),
+    tenencia: calcularUnidades(asset, movimientos)
+  }
 });
 
 // ---------- Tipos de activo ----------
@@ -319,6 +329,7 @@ export const createMovement = async (req, res, next) => {
   try {
     const asset = await findAssetOrFail(req, req.params.id);
     const { tipo, fecha, monto, notas = '' } = req.body;
+    const unidades = parseUnidades(req.body.unidades) ?? undefined;
 
     if (!TIPOS_MOVIMIENTO.includes(tipo)) {
       throw new AppError(`Tipo de movimiento inválido. Opciones: ${TIPOS_MOVIMIENTO.join(', ')}`, 400);
@@ -332,6 +343,7 @@ export const createMovement = async (req, res, next) => {
       tipo,
       fecha: fechaDate,
       monto: montoNum,
+      unidades,
       cotizacion_usd: cot.usd,
       cotizacion_eur: cot.eur,
       notas: String(notas),
@@ -366,6 +378,8 @@ export const updateMovement = async (req, res, next) => {
       movimiento.tipo = tipo;
     }
     if (notas !== undefined) movimiento.notas = String(notas);
+    const unidades = parseUnidades(req.body.unidades);
+    if (unidades !== undefined) movimiento.unidades = unidades ?? undefined;
 
     const fechaAnterior = movimiento.fecha.toISOString().slice(0, 10);
     const cambioFecha = fecha !== undefined && fecha !== fechaAnterior;
@@ -564,12 +578,17 @@ export const previewImport = async (req, res, next) => {
     }
 
     const existentes = await InvestmentMovement.find(buildUserQuery(req, { asset_id: asset._id })).lean();
-    const duplicados = marcarDuplicados(operaciones, existentes);
+    const pares = emparejarExistentes(operaciones, existentes);
 
     res.json({
       success: true,
       data: {
-        operaciones: operaciones.map((op, i) => ({ ...op, duplicado: duplicados[i] })),
+        operaciones: operaciones.map((op, i) => ({
+          ...op,
+          duplicado: Boolean(pares[i]),
+          // Ya cargada sin cuotapartes: al importar se le completan
+          completa_unidades: Boolean(pares[i]) && pares[i].unidades == null && op.cuotapartes > 0
+        })),
         errores
       }
     });
@@ -579,36 +598,78 @@ export const previewImport = async (req, res, next) => {
 };
 
 /**
- * Carga muchos aportes/retiros de una vez. Body: { movimientos: [{ fecha, tipo, monto, notas? }] }
+ * Completa las unidades de movimientos ya cargados que no las tienen (misma fecha, tipo y monto).
+ * @returns {Promise<number>} cuántos movimientos se completaron
+ */
+const completarUnidades = async (req, asset, completar) => {
+  if (!Array.isArray(completar) || completar.length === 0) return 0;
+  const ops = completar.map(({ fecha, tipo, monto, unidades }) => {
+    parseFecha(fecha);
+    const u = parseUnidades(unidades);
+    if (!(u > 0)) throw new AppError('Las unidades a completar deben ser mayores a 0', 400);
+    return { fecha, tipo, monto: parseMonto(monto), unidades: u };
+  });
+
+  const sinUnidades = await InvestmentMovement.find(
+    buildUserQuery(req, { asset_id: asset._id, unidades: { $exists: false } })
+  ).lean();
+  const pares = emparejarExistentes(ops, sinUnidades);
+
+  const updates = pares
+    .map((mov, i) => mov && {
+      updateOne: { filter: buildUserQuery(req, { _id: mov._id }), update: { $set: { unidades: ops[i].unidades } } }
+    })
+    .filter(Boolean);
+  if (updates.length) await InvestmentMovement.bulkWrite(updates);
+  return updates.length;
+};
+
+/**
+ * Carga muchos aportes/retiros de una vez.
+ * Body: { movimientos: [{ fecha, tipo, monto, unidades?, notas? }], completar?: [{ fecha, tipo, monto, unidades }] }
+ * `completar` agrega las unidades a movimientos ya cargados que no las tienen.
  * La cotización de cada fecha sale del historial (una sola llamada para todo el lote).
  */
 export const importMovements = async (req, res, next) => {
   try {
     const asset = await findAssetOrFail(req, req.params.id);
-    const { movimientos } = req.body;
-    if (!Array.isArray(movimientos) || movimientos.length === 0) {
+    const { movimientos = [], completar = [] } = req.body;
+    if (!Array.isArray(movimientos) || !Array.isArray(completar) || movimientos.length + completar.length === 0) {
       throw new AppError('No hay movimientos para importar', 400);
     }
-    if (movimientos.length > MAX_IMPORTACION) {
+    if (movimientos.length + completar.length > MAX_IMPORTACION) {
       throw new AppError(`Se pueden importar hasta ${MAX_IMPORTACION} movimientos por vez`, 400);
     }
 
-    const filas = movimientos.map(({ fecha, tipo, monto, notas = '' }) => {
+    const filas = movimientos.map(({ fecha, tipo, monto, unidades, notas = '' }) => {
       if (!['Aporte', 'Retiro'].includes(tipo)) {
         throw new AppError('Solo se pueden importar aportes y retiros', 400);
       }
-      return { fecha, fechaDate: parseFecha(fecha), tipo, monto: parseMonto(monto), notas: String(notas) };
+      return {
+        fecha,
+        fechaDate: parseFecha(fecha),
+        tipo,
+        monto: parseMonto(monto),
+        unidades: parseUnidades(unidades) ?? undefined,
+        notas: String(notas)
+      };
     });
+
+    const completados = await completarUnidades(req, asset, completar);
+    if (filas.length === 0) {
+      return res.json({ success: true, count: 0, completados, message: `Se completaron las unidades de ${completados} movimiento(s)` });
+    }
 
     const { cotizacionesEn } = await crearCotizacionesEn(asset.moneda === 'EUR');
 
-    const docs = filas.map(({ fecha, fechaDate, tipo, monto, notas }) => {
+    const docs = filas.map(({ fecha, fechaDate, tipo, monto, unidades, notas }) => {
       const cot = cotizacionesEn(fecha);
       return {
         asset_id: asset._id,
         tipo,
         fecha: fechaDate,
         monto,
+        unidades,
         cotizacion_usd: cot.usd,
         cotizacion_eur: asset.moneda === 'EUR' ? cot.eur : undefined,
         notas,
@@ -617,7 +678,7 @@ export const importMovements = async (req, res, next) => {
     });
 
     const creados = await InvestmentMovement.insertMany(addUserToData(req, docs));
-    res.status(201).json({ success: true, count: creados.length, message: `Se importaron ${creados.length} movimiento(s)` });
+    res.status(201).json({ success: true, count: creados.length, completados, message: `Se importaron ${creados.length} movimiento(s)` });
   } catch (error) {
     next(error);
   }

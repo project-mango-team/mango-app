@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseOperacionesFima, marcarDuplicados } from './investmentImport.js';
+import { parseOperacionesFima, marcarDuplicados, emparejarExistentes } from './investmentImport.js';
 
 // Datos inventados con el mismo formato que la app de Fima
 const TEXTO = [
@@ -47,5 +47,19 @@ describe('marcarDuplicados', () => {
     ];
     const existentes = [{ fecha: new Date('2026-02-14T00:00:00Z'), tipo: 'Retiro', monto: 27500 }];
     expect(marcarDuplicados(ops, existentes)).toEqual([true, false, false, false]);
+  });
+});
+
+describe('emparejarExistentes', () => {
+  it('devuelve el movimiento existente de cada operación, sin repetirlo', () => {
+    const a = { _id: 'a', fecha: new Date('2026-02-14T00:00:00Z'), tipo: 'Retiro', monto: 27500 };
+    const b = { _id: 'b', fecha: new Date('2026-02-14T00:00:00Z'), tipo: 'Retiro', monto: 27500, unidades: 10 };
+    const ops = [
+      { fecha: '2026-02-14', tipo: 'Retiro', monto: 27500 },
+      { fecha: '2026-02-14', tipo: 'Retiro', monto: 27500 },
+      { fecha: '2026-02-14', tipo: 'Retiro', monto: 27500 },
+      { fecha: '2026-02-14', tipo: 'Aporte', monto: 27500 }
+    ];
+    expect(emparejarExistentes(ops, [a, b])).toEqual([a, b, null, null]);
   });
 });

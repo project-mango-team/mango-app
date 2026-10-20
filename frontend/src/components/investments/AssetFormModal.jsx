@@ -1,14 +1,42 @@
 import { useEffect, useState } from 'react'
 import Modal from '../Modal'
 import { investmentService } from '../../services/investmentService'
-import { mensajeError } from '../../utils/format'
+import { mensajeError, parseNumeroAR } from '../../utils/format'
+import PriceSourceFields from './PriceSourceFields'
+import { usaUnidades, unidadesAInput } from './valuacion'
 
 const NUEVO_TIPO = '__nuevo__'
 const VACIO = { nombre: '', tipo: 'FCI', moneda: 'ARS', renta: 'N/A', plataforma: '', notas: '' }
+const VALUACION_VACIA = { fuente_precio: 'manual', precio_config: {}, unidades: '' }
+
+const valuacionDe = (asset) => asset
+  ? {
+      fuente_precio: asset.fuente_precio || 'manual',
+      precio_config: {
+        ...asset.precio_config,
+        tasa_anual: unidadesAInput(asset.precio_config?.tasa_anual)
+      },
+      unidades: unidadesAInput(asset.unidades)
+    }
+  : VALUACION_VACIA
+
+// Arma fuente_precio, precio_config y unidades para la API (los números vienen en formato argentino)
+const datosValuacion = ({ fuente_precio, precio_config, unidades }) => {
+  const config = { ...precio_config }
+  if (fuente_precio === 'cafci') config.fci_categoria = config.fci_categoria || 'mercadoDinero'
+  if (fuente_precio === 'tasa_fija') config.tasa_anual = parseNumeroAR(config.tasa_anual)
+  const unidadesNum = parseNumeroAR(unidades)
+  return {
+    fuente_precio,
+    precio_config: config,
+    unidades: usaUnidades(fuente_precio) && !isNaN(unidadesNum) ? unidadesNum : null
+  }
+}
 
 // Alta y edición de un activo. Los movimientos se cargan después, desde el detalle.
 const AssetFormModal = ({ isOpen, onClose, asset, tipos, onTiposChange, plataformas, onSaved }) => {
   const [form, setForm] = useState(VACIO)
+  const [valuacion, setValuacion] = useState(VALUACION_VACIA)
   const [nuevoTipo, setNuevoTipo] = useState({ nombre: '', liquido: true })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
@@ -16,6 +44,7 @@ const AssetFormModal = ({ isOpen, onClose, asset, tipos, onTiposChange, platafor
   useEffect(() => {
     if (!isOpen) return
     setForm(asset ? { ...VACIO, ...asset } : VACIO)
+    setValuacion(valuacionDe(asset))
     setNuevoTipo({ nombre: '', liquido: true })
     setError(null)
   }, [isOpen, asset])
@@ -42,6 +71,10 @@ const AssetFormModal = ({ isOpen, onClose, asset, tipos, onTiposChange, platafor
       setError('Agregá el tipo nuevo o elegí uno de la lista')
       return
     }
+    if (valuacion.unidades.trim() && isNaN(parseNumeroAR(valuacion.unidades))) {
+      setError('Ingresá unidades válidas (ej: 1.250,5)')
+      return
+    }
     setGuardando(true)
     setError(null)
     try {
@@ -51,7 +84,8 @@ const AssetFormModal = ({ isOpen, onClose, asset, tipos, onTiposChange, platafor
         moneda: form.moneda,
         renta: form.renta,
         plataforma: form.plataforma,
-        notas: form.notas
+        notas: form.notas,
+        ...datosValuacion(valuacion)
       }
       const { data } = asset
         ? await investmentService.updateAsset(asset._id, datos)
@@ -176,6 +210,8 @@ const AssetFormModal = ({ isOpen, onClose, asset, tipos, onTiposChange, platafor
           <span className="text-sm text-gray-400">Notas (opcional)</span>
           <textarea value={form.notas} onChange={set('notas')} rows={2} className="input-field w-full mt-1" />
         </label>
+
+        <PriceSourceFields value={valuacion} onChange={setValuacion} tenencia={asset?.resumen?.tenencia} />
 
         {error && <p className="text-sm text-red-400">{error}</p>}
       </form>

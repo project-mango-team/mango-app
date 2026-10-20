@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useCotizacionInversion from '../../hooks/useCotizacionInversion'
 import { hoyISO, parseNumeroAR, toInputAR, formatMoney } from '../../utils/format'
+import { usaUnidades, unidadesAInput } from './valuacion'
 
 const TIPOS = [
   { value: 'Aporte', label: 'Aporte', ayuda: 'Plata que pusiste: compra, depósito, suscripción.' },
@@ -20,6 +21,8 @@ const MovementForm = ({ asset, inicial = null, onSubmit, onCancel, submitLabel =
   const [fecha, setFecha] = useState(fechaInicial)
   const [monto, setMonto] = useState(toInputAR(inicial?.monto))
   const [notas, setNotas] = useState(inicial?.notas || '')
+  const [unidades, setUnidades] = useState(unidadesAInput(inicial?.unidades))
+  const conUnidades = usaUnidades(asset.fuente_precio) || inicial?.unidades != null
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
@@ -48,6 +51,11 @@ const MovementForm = ({ asset, inicial = null, onSubmit, onCancel, submitLabel =
       setError('Ingresá una cotización válida')
       return
     }
+    const unidadesNum = unidades.trim() ? parseNumeroAR(unidades) : null
+    if (unidadesNum !== null && (isNaN(unidadesNum) || unidadesNum < 0)) {
+      setError('Ingresá unidades válidas (ej: 208,4)')
+      return
+    }
 
     setGuardando(true)
     setError(null)
@@ -58,6 +66,7 @@ const MovementForm = ({ asset, inicial = null, onSubmit, onCancel, submitLabel =
         monto: montoNum,
         cotizacion_usd: usdNum,
         ...(necesitaEuro && { cotizacion_eur: eurNum }),
+        ...(conUnidades && { unidades: unidadesNum }),
         notas
       })
     } catch (err) {
@@ -142,15 +151,30 @@ const MovementForm = ({ asset, inicial = null, onSubmit, onCancel, submitLabel =
       </div>
       {cot.error && <p className="text-xs text-yellow-400">{cot.error}</p>}
 
-      <label className="block">
-        <span className="text-sm text-gray-400">Notas (opcional)</span>
-        <input
-          type="text"
-          value={notas}
-          onChange={e => setNotas(e.target.value)}
-          className="input-field w-full mt-1"
-        />
-      </label>
+      <div className={`grid gap-3 ${conUnidades ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1'}`}>
+        {conUnidades && (
+          <label className="block">
+            <span className="text-sm text-gray-400">Unidades (opcional)</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={unidades}
+              onChange={e => setUnidades(e.target.value)}
+              placeholder={tipo === 'Valuacion' ? 'tenencia total' : 'ej: 208,4'}
+              className="input-field w-full mt-1"
+            />
+          </label>
+        )}
+        <label className={`block ${conUnidades ? 'sm:col-span-2' : ''}`}>
+          <span className="text-sm text-gray-400">Notas (opcional)</span>
+          <input
+            type="text"
+            value={notas}
+            onChange={e => setNotas(e.target.value)}
+            className="input-field w-full mt-1"
+          />
+        </label>
+      </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 

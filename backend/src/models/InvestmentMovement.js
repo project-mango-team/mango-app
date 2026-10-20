@@ -50,6 +50,11 @@ const investmentMovementSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Opcional: unidades compradas (Aporte), vendidas (Retiro) o en tenencia (Valuacion), ej. cuotapartes
+  unidades: {
+    type: Number,
+    min: 0
+  },
   notas: {
     type: String,
     default: ''
