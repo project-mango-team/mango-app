@@ -43,7 +43,7 @@ El total del resumen es: **saldo anterior + pagos (negativos) + consumos + impue
 | DEV.IMP. RG 5617 | Devolución de esa percepción el mes siguiente (en los resúmenes reales coincide con meses en que el saldo en dólares se pagó con dólares) | No (queda en el consolidado) | Sí, como **ingreso**, para que la percepción neta dé 0 |
 | Saldo anterior − SU PAGO | Arrastre del mes anterior | No | No: el usuario paga el total y da 0 |
 
-Conclusión: hoy se infla el gasto con la percepción RG 5617 que después se devuelve, y faltan los impuestos chicos. **ING-14** propone importar todo esto (impuestos como categoría Impuestos, la devolución como ingreso) para que el control cierre en $0. No aparecieron intereses ni comisiones; si aparecen, el control los muestra en "Impuestos y cargos" o en "Sin explicar".
+Conclusión: antes se inflaba el gasto con la percepción RG 5617 que después se devuelve, y faltaban los impuestos chicos. **ING-14 (hecho)** importa todo esto (categoría Impuestos, la devolución como ingreso) y el control cierra en $0 con todos los resúmenes reales. No aparecieron intereses ni comisiones; si aparecen, el control los muestra en "Impuestos y cargos" o en "Sin explicar".
 
 ## Idea central
 

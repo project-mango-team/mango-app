@@ -89,7 +89,7 @@ const ControlTotales = ({ control }) => {
       </div>
       {cargos.some(c => c.importado) && (
         <p className="mt-2 text-xs text-gray-500">
-          Ya entran como gasto: {cargos.filter(c => c.importado).map(c => c.detalle).join(', ')}
+          Ya importados como transacciones: {cargos.filter(c => c.importado).map(c => c.detalle).join(', ')}
         </p>
       )}
     </div>

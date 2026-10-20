@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 // Movimientos hacia o desde inversiones: no cuentan como gasto ni ingreso en los dashboards
 export const CATEGORIA_INVERSION = 'Inversión';
 
+// Impuestos y percepciones del resumen de tarjeta (sellos, IIBB, IVA, RG 5617)
+export const CATEGORIA_IMPUESTOS = 'Impuestos';
+
 export const DEFAULT_CATEGORIES = [
   'Transferencia',
   'Transporte',
@@ -15,6 +18,7 @@ export const DEFAULT_CATEGORIES = [
   'Mantenimiento',
   'Ingreso',
   CATEGORIA_INVERSION,
+  CATEGORIA_IMPUESTOS,
   'Otros'
 ];
 
@@ -51,6 +55,11 @@ const userSchema = new mongoose.Schema({
   },
   // Marca que ya se le agregó la categoría Inversión (para no volver a agregarla si la borra)
   categoriaInversionAgregada: {
+    type: Boolean,
+    default: false
+  },
+  // Igual para la categoría Impuestos (ING-14)
+  categoriaImpuestosAgregada: {
     type: Boolean,
     default: false
   },

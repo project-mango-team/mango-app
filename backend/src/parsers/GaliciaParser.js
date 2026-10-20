@@ -2,6 +2,7 @@ import { BaseParser } from './BaseParser.js';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
 import { extraerTotalesTarjeta } from '../utils/totalesResumen.js';
+import { CATEGORIA_IMPUESTOS } from '../models/User.js';
 
 const MESES_ABREVIADOS = {
   ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
@@ -10,6 +11,10 @@ const MESES_ABREVIADOS = {
 
 // Foreign currency consumption: the description ends with "<MONEDA> <monto original>"
 const MONEDA_EXTRANJERA_FINAL = /\b(?:USD|BRL|EUR|UYU|CLP|GBP|PYG|MXN|COP|PEN|BOB|CAD|AUD|JPY|CHF)\s+\d{1,3}(?:\.\d{3})*,\d{2}$/;
+
+// Taxes and tax refunds of the card statement (ING-14): imported as transactions so the
+// statement total matches (stamp tax, IIBB and IVA perceptions, RG 5617 perception and its refund)
+const LINEA_IMPUESTO = /^(IMPUESTO DE SELLOS|IIBB PERCEP|IVA RG|DB\.?\s?RG|DEV\.?\s?IMP)/;
 
 /**
  * Parser for Banco Galicia files
@@ -463,6 +468,10 @@ export class GaliciaParser extends BaseParser {
       const transactions = [];
       let inDetalleConsumo = false;
       const hasDetalleHeader = content.includes('DETALLE DEL CONSUMO');
+      // Header dates: previous closing, previous due date, current closing (DD-MM-YY)
+      const fechas = content.match(/\d{2}-[A-Za-z]{3}-\d{2}\s+\d{2}-[A-Za-z]{3}-\d{2}\s+(\d{2})-([A-Za-z]{3})-(\d{2})/);
+      const mesCierre = fechas && MESES_ABREVIADOS[fechas[2].toLowerCase()];
+      const cierre = mesCierre ? `${fechas[1]}-${mesCierre}-${fechas[3]}` : null;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -472,8 +481,14 @@ export class GaliciaParser extends BaseParser {
           continue;
         }
 
-        // If file contains "DETALLE DEL CONSUMO" section, skip anything before it
+        // Before "DETALLE DEL CONSUMO" (header and CONSOLIDADO) only taxes count: Visa's tax
+        // refunds (dated) and Mastercard's taxes (undated: they go on the closing date)
         if (hasDetalleHeader && !inDetalleConsumo) {
+          const sinFecha = line.replace(/^\d{2}-\d{2}-\d{2}\s+/, '');
+          if (!LINEA_IMPUESTO.test(sinFecha)) continue;
+          const conFecha = sinFecha === line ? cierre && `${cierre} ${line}` : line;
+          const parsed = conFecha && this.parseLineaTarjeta(conFecha);
+          if (parsed) transactions.push(parsed);
           continue;
         }
 
@@ -491,13 +506,6 @@ export class GaliciaParser extends BaseParser {
             line.includes('TOTAL A PAGAR') ||
             line.includes('CONSOLIDADO') ||
             line.includes('SALDO ANTERIOR')) {
-          continue;
-        }
-
-        // Skip tax/summary lines
-        if (line.includes('IMPUESTO DE SELLOS') ||
-            line.includes('IIBB PERCEP') ||
-            line.includes('IVA RG')) {
           continue;
         }
 
@@ -597,15 +605,11 @@ export class GaliciaParser extends BaseParser {
       if (!enMovimientos) continue;
       if (line.startsWith('SALDO ACTUAL')) break;
 
-      // Same exclusions as the home banking layout: previous balance, payments,
-      // tax refunds (they live in its CONSOLIDADO section) and taxes skipped there too
+      // Same exclusions as the home banking layout: previous balance and payments.
+      // Taxes and tax refunds are transactions (ING-14)
       if (line.includes('SALDO ANTERIOR') ||
           line.includes('SU PAGO EN') ||
-          line.includes('DEV.IMP.') ||
-          line.includes('Total Consumos') ||
-          line.includes('IMPUESTO DE SELLOS') ||
-          line.includes('IIBB PERCEP') ||
-          line.includes('IVA RG')) {
+          line.includes('Total Consumos')) {
         continue;
       }
 
@@ -672,9 +676,15 @@ export class GaliciaParser extends BaseParser {
     const importePesos = esMonedaExtranjera ? valor * this.dolarValue : valor;
     const moneda = esMonedaExtranjera ? 'USD' : 'ARS';
 
+    // Statement taxes: own category, without the "$" column marker ("IMPUESTO DE SELLOS P $")
+    const esImpuesto = LINEA_IMPUESTO.test(detalleLimpio);
+    if (esImpuesto) {
+      detalleLimpio = detalleLimpio.replace(/(\s+\$)+$/, '');
+    }
+
     return this.createTransaction({
       fecha,
-      categoria: this.inferCategoria(detalleLimpio),
+      categoria: esImpuesto ? CATEGORIA_IMPUESTOS : this.inferCategoria(detalleLimpio),
       detalle: detalleLimpio,
       importe: Math.abs(importePesos),
       moneda,

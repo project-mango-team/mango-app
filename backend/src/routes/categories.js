@@ -1,5 +1,5 @@
 import express from 'express';
-import User, { CATEGORIA_INVERSION } from '../models/User.js';
+import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 
@@ -35,6 +35,11 @@ router.get('/', async (req, res, next) => {
     await User.updateOne(
       { _id: req.user._id, categoriaInversionAgregada: { $ne: true } },
       { $addToSet: { categories: CATEGORIA_INVERSION }, $set: { categoriaInversionAgregada: true } }
+    );
+    // Y anteriores a ING-14: la categoría de los impuestos de la tarjeta
+    await User.updateOne(
+      { _id: req.user._id, categoriaImpuestosAgregada: { $ne: true } },
+      { $addToSet: { categories: CATEGORIA_IMPUESTOS }, $set: { categoriaImpuestosAgregada: true } }
     );
 
     const user = await User.findById(req.user._id).select('categories');
