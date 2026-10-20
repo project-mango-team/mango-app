@@ -41,6 +41,12 @@ describe('claveDesdeEntorno', () => {
     expect(claveDesdeEntorno({ SECRETS_KEY: clave.toString('base64') }).equals(clave)).toBe(true);
   });
 
+  it('en producción rechaza la clave de dev de nodemon.json', () => {
+    const dev = 'r21MeKzZqZdDxlvzl1IiimRIpL8x2hqkVm7TbyWDZto=';
+    expect(() => claveDesdeEntorno({ SECRETS_KEY: dev, NODE_ENV: 'production' })).toThrow('desarrollo');
+    expect(claveDesdeEntorno({ SECRETS_KEY: dev, NODE_ENV: 'development' })).toHaveLength(32);
+  });
+
   it('sin variable devuelve null y con largo incorrecto falla', () => {
     expect(claveDesdeEntorno({})).toBeNull();
     expect(() => claveDesdeEntorno({ SECRETS_KEY: crypto.randomBytes(16).toString('base64') })).toThrow('32 bytes');
