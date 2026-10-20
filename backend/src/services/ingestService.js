@@ -11,6 +11,7 @@ import {
   detectarDocumento,
   parsearDocumento,
   marcarDuplicados,
+  marcarInternosSugeridos,
   guardarImportacion,
   hashArchivo,
   buscarImportacionDelArchivo
@@ -94,7 +95,7 @@ const transaccionesDe = async (req, doc) => {
     selectedCards: doc.parametros.selectedCards?.length ? doc.parametros.selectedCards : null,
     reglas: await reglasDelUsuario(req)
   });
-  return marcarDuplicados(req, transactions);
+  return marcarInternosSugeridos(req, await marcarDuplicados(req, transactions));
 };
 
 /**

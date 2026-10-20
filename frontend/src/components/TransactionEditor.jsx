@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
 
 const MONEDAS = ['ARS', 'USD']
+const INTERNO = 'Movimiento interno'
 
 // Transacciones con `duplicado: true` (ya cargadas) o `ignorada: true` (una regla dice no importarlas) arrancan
 // excluidas: se ven atenuadas y no se guardan salvo que se tilden
@@ -144,13 +145,19 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     // Solo las incluidas, sin los campos de la vista previa
     const cleanTransactions = transactions
       .filter(t => t.incluir)
-      .map(({ _id, incluir, duplicado, ignorada, regla, ...rest }) => rest)
+      .map(({ _id, incluir, duplicado, ignorada, regla, interno_sugerido, ...rest }) => ({
+        ...rest,
+        // REV-04: al guardarla como interna, la contraparte ya cargada también pasa a interna
+        ...(rest.categoria === INTERNO && interno_sugerido?.con?._id && { interno_con: interno_sugerido.con._id })
+      }))
     onSave(cleanTransactions)
   }
 
   const cantidadIncluidas = transactions.filter(t => t.incluir).length
   const cantidadDuplicadas = transactions.filter(t => t.duplicado).length
   const cantidadIgnoradas = transactions.filter(t => t.ignorada && !t.duplicado).length
+  const internosPendientes = transactions.filter(t => t.interno_sugerido && t.incluir && t.categoria !== INTERNO)
+  const marcarInternos = () => setTransactions(prev => prev.map(t => (internosPendientes.includes(t) ? { ...t, categoria: INTERNO } : t)))
 
   return (
     <div className="space-y-4">
@@ -162,6 +169,12 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       {cantidadDuplicadas > 0 && (
         <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
           {cantidadDuplicadas} transaccion(es) ya estaban cargadas: quedan sin incluir. Si alguna es realmente nueva, tildala.
+        </div>
+      )}
+      {internosPendientes.length > 0 && (
+        <div className="p-3 rounded-lg border border-sky-800 bg-sky-900/20 text-sm text-sky-200 flex flex-wrap items-center gap-2">
+          <span>{internosPendientes.length} transaccion(es) parecen transferencias entre tus cuentas (mismo monto en otra cuenta, ±2 días).</span>
+          <button type="button" onClick={marcarInternos} className="underline hover:text-white">Marcarlas como movimiento interno</button>
         </div>
       )}
       {cantidadIgnoradas > 0 && (
@@ -278,6 +291,16 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                       />
                       Ignorada por una regla · incluir igual
                     </label>
+                  )}
+                  {t.interno_sugerido && !t.duplicado && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-sky-300">
+                      <span>
+                        ¿Entre tus cuentas? {t.tipo === 'Gasto' ? 'Entró' : 'Salió'} el mismo monto en {t.interno_sugerido.con.origen} el {t.interno_sugerido.con.fecha}
+                      </span>
+                      {t.categoria === INTERNO
+                        ? <span className="text-gray-400">· interno{t.interno_sugerido.con._id && t.interno_sugerido.con.categoria !== INTERNO ? ' (la otra también pasa a interno)' : ''}</span>
+                        : <button type="button" onClick={() => handleCellChange(t._id, 'categoria', INTERNO)} className="underline hover:text-white">Marcar interno</button>}
+                    </div>
                   )}
                 </td>
                 <td className="py-2 px-3">

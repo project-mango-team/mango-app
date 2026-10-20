@@ -11,6 +11,8 @@ import {
   detectarDocumento,
   hashArchivo,
   marcarDuplicados,
+  marcarInternosSugeridos,
+  restaurarContrapartes,
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 import { reabrirPorRollback } from '../services/ingestService.js';
@@ -123,7 +125,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
     // Ya cargadas: por transacción (resúmenes superpuestos) y por archivo (el mismo subido dos veces)
     const sha256 = hashArchivo(req.file.buffer);
     const [conDuplicados, archivoYaImportado] = await Promise.all([
-      marcarDuplicados(req, transactions),
+      marcarDuplicados(req, transactions).then(ts => marcarInternosSugeridos(req, ts)),
       buscarImportacionDelArchivo(req, sha256)
     ]);
 
@@ -137,6 +139,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         transactions: conDuplicados,
         duplicados: conDuplicados.filter(t => t.duplicado).length,
         ignoradas: conDuplicados.filter(t => t.ignorada).length,
+        internos_sugeridos: conDuplicados.filter(t => t.interno_sugerido).length,
         sha256,
         archivoYaImportado,
         valorDolar: tipo === 'santander' ? dolarUsado : null,
@@ -312,6 +315,7 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
     // Delete all transactions with this operation_id - user scoped
     const deleteQuery = buildUserQuery(req, { operation_id: operation.operation_id });
     const result = await Transaction.deleteMany(deleteQuery);
+    await restaurarContrapartes(req, operation);
 
     // Update operation status
     operation.status = 'rolled_back';
