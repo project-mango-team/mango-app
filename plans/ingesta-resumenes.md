@@ -10,6 +10,23 @@ Objetivo: dejar de entrar todos los meses a cada homebanking a generar y cargar 
 - Mango está deployada 24/7, así que puede recibir webhooks y correr jobs.
 - La lógica de parseo vive inline en `backend/src/routes/upload.js` (`/preview` y `/` repiten el dispatch por banco). No hay deduplicación de transacciones entre imports.
 
+## Relevamiento por banco (ING-01, en curso)
+
+Lo que manda hoy cada fuente, según los mails que ya le llegaban al usuario (20/10/2026):
+
+| Fuente | Remitente | Asunto | ¿Adjunto? | Datos en el cuerpo | Estado |
+|---|---|---|---|---|---|
+| Galicia Mastercard | `e-resumen@bancogalicia.com.ar` | "Resumen de Tarjeta MasterCard" | **Sí, PDF** sin contraseña | Vencimiento, total en pesos, total en dólares, pago mínimo | ✅ El `GaliciaParser` actual (`tarjeta`) lo lee tal cual |
+| Galicia Visa | `e-resumen@mensajesgalicia.com.ar` | "Resumen de Cuenta VISA" | **No**: botón "Conocer resumen" (link) | Vencimiento, saldo en pesos, saldo en dólares, pago mínimo | Solo aviso. El usuario está viendo si se puede configurar el adjunto |
+| Galicia caja de ahorro | (a confirmar) | "Ya está listo el resumen de tu cuenta" | **No**: indica descargarlo desde la App u Online Banking | — | Solo aviso |
+| Santander (tarjetas y cuenta) | — | — | — | — | Falta relevar |
+| Mercado Pago | — | — | — | — | Va por API (épica MP) |
+
+Consecuencias para el diseño:
+- **Mastercard Galicia queda automática de punta a punta** con ING-06 + ING-07: el adjunto llega, se detecta y se parsea.
+- **Visa y la caja de ahorro de Galicia van por avisos (ING-08)** mientras no manden adjunto. Pendiente en ING-08: ver si el link "Conocer resumen" de Visa descarga el PDF directo (con un token en la URL) o pide login. Si descarga directo, el Apps Script lo puede bajar y entonces Visa también queda automática.
+- **Los totales del cuerpo del mail sirven de control (ING-12).** En el Mastercard de ejemplo, el parser suma $131.077 en 2 consumos y el mail dice "Total en pesos: 132.649,92". La diferencia ($1.572,92) probablemente sean impuestos o cargos que el parser no toma como consumos; falta verificarlo. Mostrar esa comparación en la revisión ayuda a ver si se perdió algo.
+
 ## Idea central
 
 Separar **cómo llega un archivo** de **cómo se procesa**:
