@@ -17,14 +17,15 @@ Lo que manda hoy cada fuente, según los mails que ya le llegaban al usuario (20
 | Fuente | Remitente | Asunto | ¿Adjunto? | Datos en el cuerpo | Estado |
 |---|---|---|---|---|---|
 | Galicia Mastercard | `e-resumen@bancogalicia.com.ar` | "Resumen de Tarjeta MasterCard" | **Sí, PDF** sin contraseña | Vencimiento, total en pesos, total en dólares, pago mínimo | ✅ El `GaliciaParser` actual (`tarjeta`) lo lee tal cual |
-| Galicia Visa | `e-resumen@mensajesgalicia.com.ar` | "Resumen de Cuenta VISA" | **No**: botón "Conocer resumen" (link) | Vencimiento, saldo en pesos, saldo en dólares, pago mínimo | Solo aviso. El usuario está viendo si se puede configurar el adjunto |
-| Galicia caja de ahorro | (a confirmar) | "Ya está listo el resumen de tu cuenta" | **No**: indica descargarlo desde la App u Online Banking | — | Solo aviso |
+| Galicia Visa | `e-resumen@mensajesgalicia.com.ar` | "Resumen de Cuenta VISA" | **No, pero el link sirve**: "Conocer resumen" lleva a `eresumen.com.ar`, que genera el PDF | Vencimiento, saldo en pesos, saldo en dólares, pago mínimo | ⚠️ El PDF de eresumen tiene **otro formato** que el del homebanking (mismos movimientos): el parser actual no lo lee (ING-13). Configurar "Recibir por mail" en Galicia no agrega el adjunto |
+| Galicia caja de ahorro | (a confirmar) | "Ya está listo el resumen de tu cuenta" | **No**, ni link: indica descargarlo desde la App u Online Banking | — | Solo aviso → flujo ING-08 (pendiente en la bandeja + subir el XLSX) |
 | Santander (tarjetas y cuenta) | — | — | — | — | Falta relevar |
 | Mercado Pago | — | — | — | — | Va por API (épica MP) |
 
 Consecuencias para el diseño:
 - **Mastercard Galicia queda automática de punta a punta** con ING-06 + ING-07: el adjunto llega, se detecta y se parsea.
-- **Visa y la caja de ahorro de Galicia van por avisos (ING-08)** mientras no manden adjunto. Pendiente en ING-08: ver si el link "Conocer resumen" de Visa descarga el PDF directo (con un token en la URL) o pide login. Si descarga directo, el Apps Script lo puede bajar y entonces Visa también queda automática.
+- **Visa Galicia puede quedar automática siguiendo el link**: el script toma la URL de "Conocer resumen", la abre y baja el PDF de `eresumen.com.ar`. Falta confirmar (ING-07) que funcione sin sesión iniciada y que `UrlFetchApp` llegue al PDF sin ejecutar JavaScript; si la página arma el PDF con JS, queda como aviso. El link es una credencial: nunca se loguea ni se guarda completo.
+- **La caja de ahorro de Galicia va por aviso (ING-08)**: el mail no trae ni adjunto ni link. Queda "pendiente" en la bandeja y el XLSX se sube a mano (detectado solo por ING-03).
 - **Los totales del cuerpo del mail sirven de control (ING-12).** En el Mastercard de ejemplo, el parser suma $131.077 en 2 consumos y el mail dice "Total en pesos: 132.649,92". La diferencia ($1.572,92) probablemente sean impuestos o cargos que el parser no toma como consumos; falta verificarlo. Mostrar esa comparación en la revisión ayuda a ver si se perdió algo.
 
 ## Idea central
