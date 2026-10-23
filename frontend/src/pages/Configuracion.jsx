@@ -2,6 +2,8 @@ import TokensIntegracion from '../components/config/TokensIntegracion'
 import TareasProgramadas from '../components/config/TareasProgramadas'
 import CredencialesGuardadas from '../components/config/CredencialesGuardadas'
 
+import SugerenciasIA from '../components/config/SugerenciasIA'
+
 const Configuracion = () => (
   <div className="space-y-6">
     <div>
@@ -11,6 +13,8 @@ const Configuracion = () => (
     <TokensIntegracion />
     <CredencialesGuardadas />
     <TareasProgramadas />
+
+    <SugerenciasIA />
   </div>
 )
 

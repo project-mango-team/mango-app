@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
+import { motivosDeRevision, etiquetaMotivo } from '../utils/revision'
+import useSugerenciasIA from '../hooks/useSugerenciasIA'
+import SugerenciaIAFila from './SugerenciaIAFila'
 
 const MONEDAS = ['ARS', 'USD']
+const INTERNO = 'Movimiento interno'
 
-// Transacciones con `duplicado: true` (ya cargadas) arrancan excluidas: se ven atenuadas y no se guardan salvo que se tilden
-const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null }) => {
+// Transacciones con `duplicado: true` (ya cargadas) o `ignorada: true` (una regla dice no importarlas) arrancan
+// excluidas: se ven atenuadas y no se guardan salvo que se tilden.
+// REV-05: arranca mostrando solo las que vale la pena mirar (`limites` = monto alto por categoría)
+const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null, limites = {} }) => {
   const [transactions, setTransactions] = useState([])
+  const [paraRevisar, setParaRevisar] = useState(new Set())
+  const [soloRevisar, setSoloRevisar] = useState(false)
+  const [revisadas, setRevisadas] = useState(new Set())
+  const ia = useSugerenciasIA(!isManualMode)
   const [categories, setCategories] = useState([])
   const [totals, setTotals] = useState({ gastosARS: 0, gastosUSD: 0, ingresosARS: 0, ingresosUSD: 0 })
   const [undoState, setUndoState] = useState(null)
@@ -40,9 +50,14 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     const transactionsWithId = initialTransactions.map((t, idx) => ({
       ...t,
       _id: idx,
-      incluir: !t.duplicado
+      incluir: !t.duplicado && !t.ignorada
     }))
     setTransactions(transactionsWithId)
+    // Las que arrancan dudosas siguen en el filtro aunque se corrijan (no desaparecen mientras se editan)
+    const dudosas = new Set(transactionsWithId.filter(t => motivosDeRevision(t, limites).length > 0).map(t => t._id))
+    setParaRevisar(dudosas)
+    setRevisadas(new Set())
+    setSoloRevisar(!isManualMode && dudosas.size > 0)
     setShowUndo(false)
     setUndoState(null)
   }, [initialTransactions])
@@ -143,12 +158,26 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     // Solo las incluidas, sin los campos de la vista previa
     const cleanTransactions = transactions
       .filter(t => t.incluir)
-      .map(({ _id, incluir, duplicado, ...rest }) => rest)
+      .map(({ _id, incluir, duplicado, ignorada, regla, interno_sugerido, ...rest }) => ({
+        ...rest,
+        // REV-04: al guardarla como interna, la contraparte ya cargada también pasa a interna
+        ...(rest.categoria === INTERNO && interno_sugerido?.con?._id && { interno_con: interno_sugerido.con._id })
+      }))
     onSave(cleanTransactions)
   }
 
   const cantidadIncluidas = transactions.filter(t => t.incluir).length
   const cantidadDuplicadas = transactions.filter(t => t.duplicado).length
+  const cantidadIgnoradas = transactions.filter(t => t.ignorada && !t.duplicado).length
+  const internosPendientes = transactions.filter(t => t.interno_sugerido && t.incluir && t.categoria !== INTERNO)
+  const pendientesRevision = transactions.filter(t => paraRevisar.has(t._id) && !revisadas.has(t._id) && motivosDeRevision(t, limites).length > 0).length
+  const sinCategoria = transactions.filter(t => t.incluir && t.categoria === 'Otros' && t.detalle)
+  const marcarRevisada = (id) => setRevisadas(prev => new Set(prev).add(id))
+  // Las filas agregadas a mano (_id fuera de las iniciales) se ven siempre
+  const visibles = soloRevisar
+    ? transactions.filter(t => paraRevisar.has(t._id) || t._id >= initialTransactions.length)
+    : transactions
+  const marcarInternos = () => setTransactions(prev => prev.map(t => (internosPendientes.includes(t) ? { ...t, categoria: INTERNO } : t)))
 
   return (
     <div className="space-y-4">
@@ -160,6 +189,26 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       {cantidadDuplicadas > 0 && (
         <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
           {cantidadDuplicadas} transaccion(es) ya estaban cargadas: quedan sin incluir. Si alguna es realmente nueva, tildala.
+        </div>
+      )}
+      {internosPendientes.length > 0 && (
+        <div className="p-3 rounded-lg border border-sky-800 bg-sky-900/20 text-sm text-sky-200 flex flex-wrap items-center gap-2">
+          <span>{internosPendientes.length} transaccion(es) parecen transferencias entre tus cuentas (mismo monto en otra cuenta, ±2 días).</span>
+          <button type="button" onClick={marcarInternos} className="underline hover:text-white">Marcarlas como movimiento interno</button>
+        </div>
+      )}
+      {ia.disponible && sinCategoria.length > 0 && (
+        <div className="p-3 rounded-lg border border-violet-800 bg-violet-900/20 text-sm text-violet-200 flex flex-wrap items-center gap-2">
+          <span>{sinCategoria.length} transaccion(es) sin categoría.</span>
+          <button type="button" onClick={() => ia.pedir(sinCategoria)} disabled={ia.cargando} className="underline hover:text-white disabled:opacity-50">
+            {ia.cargando ? 'Consultando a la IA…' : 'Sugerir categorías con IA'}
+          </button>
+          {ia.error && <span className="text-red-300">{ia.error}</span>}
+        </div>
+      )}
+      {cantidadIgnoradas > 0 && (
+        <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-300">
+          {cantidadIgnoradas} transaccion(es) quedan sin incluir por una regla de “No importar”. Si querés alguna, tildala.
         </div>
       )}
       {!isManualMode && (
@@ -198,6 +247,32 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       </>
       )}
 
+      {!isManualMode && paraRevisar.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="inline-flex rounded-lg border border-gray-700 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSoloRevisar(true)}
+              className={`px-3 py-1.5 ${soloRevisar ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              Para revisar ({paraRevisar.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSoloRevisar(false)}
+              className={`px-3 py-1.5 ${!soloRevisar ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              Todas ({transactions.length})
+            </button>
+          </div>
+          <span className="text-gray-400">
+            {pendientesRevision > 0
+              ? `${pendientesRevision} sin resolver: sin categoría, comercios nuevos, posibles duplicadas o internas y montos altos.`
+              : 'Todo revisado.'}
+          </span>
+        </div>
+      )}
+
       {/* Editable Table */}
       <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
         <table className="w-full text-sm border-collapse">
@@ -214,7 +289,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
+            {visibles.map((t) => (
               <tr key={t._id} className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-colors ${t.incluir ? '' : 'opacity-40'}`}>
                 <td className="py-2 px-3">
                   <input
@@ -252,6 +327,19 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     onChange={(e) => handleCellChange(t._id, 'detalle', e.target.value)}
                     className="w-full min-w-[200px] bg-gray-800/50 border-0 border-b border-gray-700 text-gray-100 px-2 py-1.5 text-sm focus:outline-none focus:border-primary transition-colors"
                   />
+                  <SugerenciaIAFila
+                    sugerencia={ia.sugerencias.get(t._id)}
+                    fila={t}
+                    onUsar={(categoria) => handleCellChange(t._id, 'categoria', categoria)}
+                    crearRegla={ia.crearRegla}
+                  />
+                  <MotivosRevision
+                    t={t}
+                    limites={limites}
+                    revisar={paraRevisar.has(t._id)}
+                    revisada={revisadas.has(t._id)}
+                    onRevisada={() => marcarRevisada(t._id)}
+                  />
                   {t.duplicado && (
                     <label className="mt-1 flex items-center gap-2 text-xs text-yellow-400 cursor-pointer">
                       <input
@@ -261,6 +349,26 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                       />
                       Ya cargada · incluir igual
                     </label>
+                  )}
+                  {t.ignorada && !t.duplicado && (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={t.incluir}
+                        onChange={(e) => handleCellChange(t._id, 'incluir', e.target.checked)}
+                      />
+                      Ignorada por una regla · incluir igual
+                    </label>
+                  )}
+                  {t.interno_sugerido && !t.duplicado && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-sky-300">
+                      <span>
+                        ¿Entre tus cuentas? {t.tipo === 'Gasto' ? 'Entró' : 'Salió'} el mismo monto en {t.interno_sugerido.con.origen} el {t.interno_sugerido.con.fecha}
+                      </span>
+                      {t.categoria === INTERNO
+                        ? <span className="text-gray-400">· interno{t.interno_sugerido.con._id && t.interno_sugerido.con.categoria !== INTERNO ? ' (la otra también pasa a interno)' : ''}</span>
+                        : <button type="button" onClick={() => handleCellChange(t._id, 'categoria', INTERNO)} className="underline hover:text-white">Marcar interno</button>}
+                    </div>
                   )}
                 </td>
                 <td className="py-2 px-3">
@@ -359,6 +467,24 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Chips con lo que hay que mirar de la fila (duplicada e interna sugerida tienen su propio aviso)
+const MotivosRevision = ({ t, limites, revisar, revisada, onRevisada }) => {
+  if (!revisar) return null
+  const motivos = motivosDeRevision(t, limites)
+  if (revisada || motivos.length === 0) return <p className="mt-1 text-xs text-green-400">✓ Revisada</p>
+  const etiquetas = motivos.map(m => etiquetaMotivo(m, t, limites)).filter(Boolean)
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {etiquetas.map(e => (
+        <span key={e} className="rounded bg-amber-900/40 px-1.5 py-0.5 text-xs text-amber-300">{e}</span>
+      ))}
+      <button type="button" onClick={onRevisada} className="text-xs text-gray-400 hover:text-white underline" title="Está bien así">
+        OK
+      </button>
     </div>
   )
 }

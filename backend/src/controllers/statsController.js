@@ -1,6 +1,6 @@
 import Transaction from '../models/Transaction.js';
 import { buildUserQuery } from '../utils/userQuery.js';
-import { CATEGORIA_INVERSION } from '../models/User.js';
+import { esNeutro, resumirMovimientos } from '../utils/movimientosNeutros.js';
 import { DolarService } from '../services/dolarService.js';
 import { montoTransaccionUsd } from '../utils/transactionCurrency.js';
 
@@ -41,20 +41,12 @@ const cargarTransacciones = async (req) => {
   return { moneda, transactions, monto: (t) => montoTransaccionUsd(t, historial) };
 };
 
-// La plata que va o vuelve de inversiones no es gasto ni ingreso: se muestra aparte
-const esInversion = (t) => t.categoria === CATEGORIA_INVERSION;
-
 // Get general stats
 export const getStats = async (req, res, next) => {
   try {
     const { moneda, transactions, monto } = await cargarTransacciones(req);
-
-    const sumar = (tipo, inversion) => transactions
-      .filter(t => t.tipo === tipo && esInversion(t) === inversion)
-      .reduce((sum, t) => sum + monto(t), 0);
-
-    const gastos = sumar('Gasto', false);
-    const ingresos = sumar('Ingreso', false);
+    // Inversiones y movimientos internos no son gasto ni ingreso: se muestran aparte
+    const { gastos, ingresos, inversiones, internos } = resumirMovimientos(transactions, monto);
 
     res.json({
       success: true,
@@ -64,10 +56,8 @@ export const getStats = async (req, res, next) => {
         total_ingresos: ingresos,
         balance: ingresos - gastos,
         num_transacciones: transactions.length,
-        inversiones: {
-          enviado: sumar('Gasto', true),
-          recibido: sumar('Ingreso', true)
-        }
+        inversiones,
+        internos
       }
     });
   } catch (error) {
@@ -82,7 +72,7 @@ export const getGastosByCategoria = async (req, res, next) => {
 
     const totales = new Map();
     for (const t of transactions) {
-      if (t.tipo !== 'Gasto' || esInversion(t)) continue;
+      if (t.tipo !== 'Gasto' || esNeutro(t)) continue;
       totales.set(t.categoria, (totales.get(t.categoria) || 0) + monto(t));
     }
 
@@ -105,7 +95,7 @@ export const getMonthlySummary = async (req, res, next) => {
 
     const porMes = new Map(MESES_ORDEN.map(mes => [mes, { gastos: 0, ingresos: 0 }]));
     for (const t of transactions) {
-      if (esInversion(t) || !porMes.has(t.mes)) continue;
+      if (esNeutro(t) || !porMes.has(t.mes)) continue;
       const clave = t.tipo === 'Gasto' ? 'gastos' : t.tipo === 'Ingreso' ? 'ingresos' : null;
       if (clave) porMes.get(t.mes)[clave] += monto(t);
     }

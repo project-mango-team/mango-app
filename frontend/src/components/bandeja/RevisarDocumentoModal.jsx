@@ -86,6 +86,7 @@ const RevisarDocumentoModal = ({ documento, onClose, onImportar }) => {
           <TransactionEditor
             initialTransactions={datos.transactions}
             archivoYaImportado={datos.documento.archivo_ya_importado}
+            limites={datos.limites}
             onSave={(transactions) => onImportar(documento, transactions)}
             onCancel={onClose}
           />

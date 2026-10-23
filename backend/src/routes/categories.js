@@ -1,12 +1,20 @@
 import express from 'express';
-import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS } from '../models/User.js';
+import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS, CATEGORIA_INTERNO } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
+import { renombrarCategoriaEnReglas, eliminarReglasDeCategoria } from '../services/ruleService.js';
+import rulesRouter from './rules.js';
+import aiSuggestionsRouter from './aiSuggestions.js';
 
 const router = express.Router();
 
 // All category routes require authentication
 router.use(requireAuth);
+
+// Reglas de categorización (REV-02); va antes de /:oldName y /:name
+router.use('/reglas', rulesRouter);
+// Sugerencias con IA (REV-06)
+router.use('/sugerencias', aiSuggestionsRouter);
 
 const normalizeKeywordList = (keywords) => {
   if (!Array.isArray(keywords)) return [];
@@ -40,6 +48,11 @@ router.get('/', async (req, res, next) => {
     await User.updateOne(
       { _id: req.user._id, categoriaImpuestosAgregada: { $ne: true } },
       { $addToSet: { categories: CATEGORIA_IMPUESTOS }, $set: { categoriaImpuestosAgregada: true } }
+    );
+    // Y anteriores a REV-01: Movimiento interno
+    await User.updateOne(
+      { _id: req.user._id, categoriaInternoAgregada: { $ne: true } },
+      { $addToSet: { categories: CATEGORIA_INTERNO }, $set: { categoriaInternoAgregada: true } }
     );
 
     const user = await User.findById(req.user._id).select('categories');
@@ -259,6 +272,7 @@ router.put('/:oldName', async (req, res, next) => {
       }
     }
     await user.save();
+    await renombrarCategoriaEnReglas(req, decodeURIComponent(oldName), newNameTrimmed);
 
     res.json({
       success: true,
@@ -307,6 +321,8 @@ router.delete('/:name', async (req, res, next) => {
     }
 
     await user.save();
+    // Una regla hacia una categoría que ya no existe la volvería a crear al importar
+    await eliminarReglasDeCategoria(req, categoryName);
 
     res.json({
       success: true,
