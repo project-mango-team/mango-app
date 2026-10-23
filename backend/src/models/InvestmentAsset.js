@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 export const MONEDAS_INVERSION = ['ARS', 'USD', 'EUR'];
 export const RENTAS = ['Fija', 'Variable', 'N/A'];
+// De dónde sale el precio para valuar el activo automáticamente (manual = sin valuación automática)
+export const FUENTES_PRECIO = ['manual', 'cafci', 'ticker', 'coingecko', 'tasa_fija'];
 
 const investmentAssetSchema = new mongoose.Schema({
   user_id: {
@@ -39,6 +41,24 @@ const investmentAssetSchema = new mongoose.Schema({
   notas: {
     type: String,
     default: ''
+  },
+  fuente_precio: {
+    type: String,
+    enum: FUENTES_PRECIO,
+    default: 'manual'
+  },
+  // Parámetros de la fuente: solo se usa el de la fuente elegida
+  precio_config: {
+    fci_nombre: String,      // cafci: fondo y clase como lo publica la CAFCI ("Fima Premium - Clase A")
+    fci_categoria: String,   // cafci: mercadoDinero | rentaFija | rentaVariable | rentaMixta | otros
+    ticker: String,          // ticker: símbolo ("SPY", "GGAL")
+    coingecko_id: String,    // coingecko: id de la moneda ("bitcoin")
+    tasa_anual: Number       // tasa_fija: % anual (ej: 8.5)
+  },
+  // Unidades cargadas a mano. Si algún movimiento trae unidades, mandan las de los movimientos.
+  unidades: {
+    type: Number,
+    min: 0
   },
   created_at: {
     type: Date,

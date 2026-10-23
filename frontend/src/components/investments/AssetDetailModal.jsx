@@ -6,6 +6,8 @@ import MovementForm from './MovementForm'
 import ImportMovementsModal from './ImportMovementsModal'
 import { investmentService } from '../../services/investmentService'
 import { formatMoney, formatPercent, formatFecha, mensajeError } from '../../utils/format'
+import ValuationSourceInfo from './ValuationSourceInfo'
+import { formatUnidades } from './valuacion'
 
 const ETIQUETA_TIPO = { Aporte: 'Aporte', Retiro: 'Retiro', Valuacion: 'Valuación' }
 const COLOR_TIPO = {
@@ -89,6 +91,7 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
 
   const s = moneda.toLowerCase()
   const r = asset?.resumen
+  const conUnidades = asset?.movimientos.some(m => m.unidades != null)
 
   return (
     <>
@@ -122,6 +125,14 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                 className={r[`ganancia_${s}`] > 0 ? 'text-green-400' : r[`ganancia_${s}`] < 0 ? 'text-red-400' : 'text-white'}
               />
             </div>
+
+            <ValuationSourceInfo
+              asset={asset}
+              onValuated={async () => {
+                await cargar()
+                onChanged()
+              }}
+            />
 
             {serie.length >= 2 && (
               <div className="h-40">
@@ -203,6 +214,7 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                         <th className="py-2 pr-3 font-medium">Fecha</th>
                         <th className="py-2 pr-3 font-medium">Tipo</th>
                         <th className="py-2 pr-3 font-medium text-right">Monto</th>
+                        {conUnidades && <th className="py-2 pr-3 font-medium text-right">Unidades</th>}
                         <th className="py-2 pr-3 font-medium text-right">Dólar</th>
                         <th className="py-2 pr-3 font-medium text-right">En {moneda}</th>
                         <th className="py-2 pr-3 font-medium">Notas</th>
@@ -217,6 +229,9 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                             <span className={`px-2 py-0.5 rounded text-xs ${COLOR_TIPO[m.tipo]}`}>{ETIQUETA_TIPO[m.tipo]}</span>
                           </td>
                           <td className="py-2 pr-3 text-right text-white tabular-nums">{formatMoney(m.monto, asset.moneda)}</td>
+                          {conUnidades && (
+                            <td className="py-2 pr-3 text-right text-gray-400 tabular-nums">{m.unidades != null ? formatUnidades(m.unidades) : ''}</td>
+                          )}
                           <td className="py-2 pr-3 text-right text-gray-400 tabular-nums">{formatMoney(m.cotizacion_usd, 'ARS')}</td>
                           <td className="py-2 pr-3 text-right text-gray-300 tabular-nums">{formatMoney(m[`monto_${s}`], moneda)}</td>
                           <td className="py-2 pr-3 text-gray-400 truncate max-w-[12rem]">{m.notas}</td>

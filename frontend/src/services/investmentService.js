@@ -61,15 +61,33 @@ export const investmentService = {
     return response.data;
   },
 
-  // movimientos: [{ fecha, tipo: 'Aporte'|'Retiro', monto, notas? }]
-  importMovements: async (assetId, movimientos) => {
-    const response = await api.post(`/investments/assets/${assetId}/import`, { movimientos });
+  // movimientos: [{ fecha, tipo: 'Aporte'|'Retiro', monto, unidades?, notas? }]
+  // completar: [{ fecha, tipo, monto, unidades }] agrega unidades a movimientos ya cargados
+  importMovements: async (assetId, movimientos, completar = []) => {
+    const response = await api.post(`/investments/assets/${assetId}/import`, { movimientos, completar });
     return response.data;
   },
 
   // { fecha, cotizacion_usd?, cotizacion_eur?, valuaciones: [{ asset_id, monto }] }
   createValuations: async (data) => {
     const response = await api.post('/investments/valuations', data);
+    return response.data;
+  },
+
+  // Fondos de la CAFCI cuyo nombre contiene q: [{ nombre, categoria, fecha, precio }]
+  searchFci: async (q) => {
+    const response = await api.get('/investments/fci', { params: { q } });
+    return response.data;
+  },
+
+  // Valor del activo con el último precio de su fuente: { fecha, precio, unidades, monto, fuente }
+  getAutoValuation: async (assetId) => {
+    const response = await api.get(`/investments/assets/${assetId}/auto-valuation`);
+    return response.data;
+  },
+
+  createAutoValuation: async (assetId) => {
+    const response = await api.post(`/investments/assets/${assetId}/auto-valuation`);
     return response.data;
   },
 

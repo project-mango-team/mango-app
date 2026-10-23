@@ -16,7 +16,10 @@ import {
   updateMovement,
   deleteMovement,
   previewImport,
-  importMovements
+  importMovements,
+  searchFci,
+  previewAutoValuation,
+  createAutoValuation
 } from '../controllers/investmentController.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -33,6 +36,7 @@ router.delete('/types/:nombre', deleteType);
 router.get('/portfolio', getPortfolio);
 router.get('/performance', getPerformance);
 router.post('/valuations', createValuations);
+router.get('/fci', searchFci);
 
 router.route('/assets')
   .get(getAssets)
@@ -49,6 +53,10 @@ router.route('/assets/:id/movements')
 
 router.post('/assets/:id/import/preview', previewImport);
 router.post('/assets/:id/import', importMovements);
+
+router.route('/assets/:id/auto-valuation')
+  .get(previewAutoValuation)
+  .post(createAutoValuation);
 
 router.route('/assets/:id/movements/:movId')
   .put(updateMovement)

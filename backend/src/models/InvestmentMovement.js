@@ -50,9 +50,19 @@ const investmentMovementSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Opcional: unidades compradas (Aporte), vendidas (Retiro) o en tenencia (Valuacion), ej. cuotapartes
+  unidades: {
+    type: Number,
+    min: 0
+  },
   notas: {
     type: String,
     default: ''
+  },
+  // Valuación calculada por Mango con la fuente de precio del activo (no la cargó el usuario)
+  automatica: {
+    type: Boolean,
+    default: false
   },
   created_at: {
     type: Date,

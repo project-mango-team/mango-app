@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Modal from '../Modal'
 import { investmentService } from '../../services/investmentService'
 import { formatMoney, formatFecha, mensajeError } from '../../utils/format'
+import { formatUnidades } from './valuacion'
 
 const COLOR_ESTADO = {
   Realizada: 'bg-green-900/40 text-green-300',
@@ -62,14 +63,23 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
     { Aporte: 0, Retiro: 0 }
   ), [elegidas])
   const primeraFecha = elegidas.length ? elegidas.map(op => op.fecha).sort()[0] : null
+  // Ya cargadas sin cuotapartes: se completan siempre, no hace falta tildarlas
+  const aCompletar = useMemo(() => (operaciones || []).filter(op => op.completa_unidades), [operaciones])
 
   const importar = async () => {
     setCargando(true)
     setError(null)
     try {
-      const movimientos = elegidas.map(op => ({ fecha: op.fecha, tipo: op.tipo, monto: op.monto, notas: 'Importado de Fima' }))
-      const res = await investmentService.importMovements(asset._id, movimientos)
-      setResultado({ cantidad: res.count, primeraFecha })
+      const movimientos = elegidas.map(op => ({
+        fecha: op.fecha,
+        tipo: op.tipo,
+        monto: op.monto,
+        unidades: op.cuotapartes,
+        notas: 'Importado de Fima'
+      }))
+      const completar = aCompletar.map(op => ({ fecha: op.fecha, tipo: op.tipo, monto: op.monto, unidades: op.cuotapartes }))
+      const res = await investmentService.importMovements(asset._id, movimientos, completar)
+      setResultado({ cantidad: res.count, completados: res.completados || 0, primeraFecha })
       onImported()
     } catch (err) {
       setError(mensajeError(err, 'No se pudieron importar los movimientos'))
@@ -88,8 +98,16 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
     footer = (
       <>
         <button onClick={() => setOperaciones(null)} className="btn-secondary">Volver</button>
-        <button onClick={importar} disabled={cargando || elegidas.length === 0} className="btn-primary disabled:opacity-50">
-          {cargando ? 'Importando...' : `Importar ${elegidas.length} movimiento(s)`}
+        <button
+          onClick={importar}
+          disabled={cargando || (elegidas.length === 0 && aCompletar.length === 0)}
+          className="btn-primary disabled:opacity-50"
+        >
+          {cargando
+            ? 'Importando...'
+            : elegidas.length === 0 && aCompletar.length > 0
+              ? `Completar cuotapartes de ${aCompletar.length}`
+              : `Importar ${elegidas.length} movimiento(s)`}
         </button>
       </>
     )
@@ -118,6 +136,9 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
       {resultado ? (
         <div className="space-y-3 text-sm text-gray-300">
           <p className="text-green-400 font-medium">Se importaron {resultado.cantidad} movimiento(s).</p>
+          {resultado.completados > 0 && (
+            <p>Se completaron las cuotapartes de {resultado.completados} movimiento(s) que ya estaban cargados.</p>
+          )}
           <p>Para que el rendimiento salga bien te falta:</p>
           <ul className="list-disc ml-5 space-y-1">
             <li>Una <span className="text-white">Valuación</span> con el saldo de hoy (botón "Actualizar valor").</li>
@@ -161,7 +182,10 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
             <p className="text-xs text-yellow-400">No se pudieron leer {erroresParseo.length} bloque(s): {erroresParseo.join(', ')}</p>
           )}
           {operaciones.some(op => op.duplicado) && (
-            <p className="text-xs text-gray-400">Las marcadas como "ya cargada" coinciden en fecha, tipo y monto con un movimiento existente y quedan sin tildar.</p>
+            <p className="text-xs text-gray-400">
+              Las marcadas como "ya cargada" coinciden en fecha, tipo y monto con un movimiento existente y quedan sin tildar.
+              {aCompletar.length > 0 && ` A ${aCompletar.length} de ellas les faltan las cuotapartes: se completan al importar.`}
+            </p>
           )}
 
           <div className="overflow-x-auto max-h-[50vh]">
@@ -174,6 +198,7 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
                   <th className="py-2 pr-3 font-medium">Fecha</th>
                   <th className="py-2 pr-3 font-medium">Tipo</th>
                   <th className="py-2 pr-3 font-medium">Estado</th>
+                  <th className="py-2 pr-3 font-medium text-right">Cuotapartes</th>
                   <th className="py-2 pr-3 font-medium text-right">Monto</th>
                   <th className="py-2 font-medium" />
                 </tr>
@@ -193,8 +218,11 @@ const ImportMovementsModal = ({ asset, isOpen, onClose, onImported }) => {
                     <td className="py-1.5 pr-3">
                       <span className={`px-2 py-0.5 rounded text-xs ${COLOR_ESTADO[op.estado]}`}>{op.estado}</span>
                     </td>
+                    <td className="py-1.5 pr-3 text-right text-gray-400 tabular-nums">{op.cuotapartes ? formatUnidades(op.cuotapartes) : ''}</td>
                     <td className="py-1.5 pr-3 text-right text-white tabular-nums">{formatMoney(op.monto, asset.moneda)}</td>
-                    <td className="py-1.5 text-xs text-gray-500">{op.duplicado && 'ya cargada'}</td>
+                    <td className="py-1.5 text-xs text-gray-500">
+                      {op.duplicado && (op.completa_unidades ? 'ya cargada · completa cuotapartes' : 'ya cargada')}
+                    </td>
                   </tr>
                 ))}
               </tbody>
