@@ -13,9 +13,17 @@ export default {
   run: async () => {
     const userIds = await FuenteConfig.distinct('user_id', { activa: { $ne: false } });
     let faltantes = 0;
+    let errores = 0;
     for (const userId of userIds) {
-      const req = { user: { _id: userId } };
-      const { checklist } = await checklistDelUsuario(req);
+      let checklist;
+      try {
+        ({ checklist } = await checklistDelUsuario({ user: { _id: userId } }));
+      } catch (error) {
+        // Un usuario con problemas no frena a los demás
+        console.error('[faltantes-resumenes] falló un usuario:', error.message);
+        errores++;
+        continue;
+      }
       for (const fila of checklist.filter(f => f.estado === 'faltante')) {
         faltantes++;
         const aviso = fila.llegada === 'aviso';
@@ -29,6 +37,6 @@ export default {
         });
       }
     }
-    return { usuarios: userIds.length, faltantes };
+    return { usuarios: userIds.length, faltantes, errores };
   }
 };

@@ -86,3 +86,9 @@ describe('validarConfigFuente', () => {
     expect(validarConfigFuente('galicia_visa', { dia_cierre: 5, llegada: 'otra' }).ok).toBe(false);
   });
 });
+
+describe('candidatoDe con archivos ilegibles', () => {
+  it('un archivo con error de parseo no cuenta como recibido', () => {
+    expect(candidatoDe({ estado: 'error', deteccion: { tipo: 'galicia', producto: 'visa', cierre: '2026-10-15' } })).toBeNull();
+  });
+});

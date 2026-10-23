@@ -76,12 +76,13 @@ const CalendarioCierres = ({ version }) => {
         <div>
           <h2 className="text-lg font-semibold text-white">Calendario de cierres</h2>
           <p className="text-sm text-gray-400">
-            {controladas.length === 0
+            {error && fuentes.length === 0 ? 'No se pudo cargar el calendario'
+              : controladas.length === 0
               ? 'Configurá el día de cierre de cada resumen y te avisamos si alguno no llega'
               : faltan === 0 ? 'Llegaron todos los resúmenes esperados' : (faltan === 1 ? '1 resumen sin archivo' : `${faltan} resúmenes sin archivo`)}
           </p>
         </div>
-        <span className="text-gray-400 text-sm">{visible ? 'Ocultar' : 'Ver'}</span>
+        {controladas.length > 0 && <span className="text-gray-400 text-sm">{visible ? 'Ocultar' : 'Ver'}</span>}
       </button>
 
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}

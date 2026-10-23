@@ -2,6 +2,7 @@
 // Con eso se calcula el cierre esperado más reciente y si el resumen llegó, está avisado o falta.
 // Todo son funciones puras sobre fechas 'YYYY-MM-DD'.
 
+import { fechaLocal } from './jobSchedule.js';
 import { FUENTES, fuenteDeDeteccion, fuenteDeAviso, fechaDelResumen } from './fuentesResumen.js';
 
 export const LLEGADAS = ['adjunto', 'aviso', 'manual'];
@@ -74,8 +75,10 @@ export const candidatoDe = (doc) => {
   if (doc.fuente === 'email_aviso') {
     const recibido = doc.email?.received_at ? new Date(doc.email.received_at) : null;
     const { fuente } = fuenteDeAviso(doc.email);
-    return fuente && recibido && !isNaN(recibido) ? { fuente, fecha: aTexto(recibido), aviso: true } : null;
+    return fuente && recibido && !isNaN(recibido) ? { fuente, fecha: fechaLocal(recibido).fecha, aviso: true } : null;
   }
+  // Un archivo que no se pudo leer todavía no cuenta como recibido
+  if (doc.estado === 'error' || doc.estado === 'no_reconocido') return null;
   const fuente = fuenteDeDeteccion(doc.deteccion);
   return fuente ? { fuente, fecha: fechaDelResumen(doc.deteccion), aviso: false } : null;
 };
