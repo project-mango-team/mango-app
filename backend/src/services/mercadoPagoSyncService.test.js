@@ -36,6 +36,7 @@ const depsCon = (mp, { token = 'APP_USR-x', estado = { ultimaFechaImportada: '15
   recibir: vi.fn(async () => ({ existente })),
   crearCliente: vi.fn(() => mp),
   esperar: vi.fn(async () => {}),
+  valuarSaldo: vi.fn(async () => ({ estado: 'guardada' })),
   ahora: AHORA
 });
 
@@ -56,7 +57,11 @@ describe('sincronizarUsuario', () => {
     const deps = depsCon(mp);
     const r = await sincronizarUsuario('u1', deps);
 
-    expect(r).toEqual({ estado: 'en_bandeja', movimientos: 2, desde: '2026-10-16', hasta: '2026-10-19' });
+    expect(r).toEqual({ estado: 'en_bandeja', movimientos: 2, desde: '2026-10-16', hasta: '2026-10-19', saldo: 351.25 });
+    expect(deps.valuarSaldo).toHaveBeenCalledWith('u1', {
+      fecha: '2026-10-19', saldo: 351.25, desde: '2026-10-16', saldoInicial: 400,
+      flujos: [{ fecha: '2026-10-18', monto: -50 }]
+    });
     const [userId, { buffer, filename }] = deps.recibir.mock.calls[0];
     expect(userId).toBe('u1');
     expect(filename).toBe('mercadopago-api-2026-10-16-a-2026-10-19.csv');
@@ -120,8 +125,28 @@ describe('sincronizarUsuario', () => {
   it('sin movimientos en el período no crea nada', async () => {
     const mp = clienteFalso({ reportes: [procesado('2026-10-19T03:00:00Z', '2026-10-20T03:00:00Z')] });
     const deps = depsCon(mp, { estado: { ultimaFechaImportada: '18/10/2026', ultimaSync: null } });
-    expect(await sincronizarUsuario('u1', deps)).toEqual({ estado: 'sin_movimientos', desde: '2026-10-19', hasta: '2026-10-19' });
+    expect(await sincronizarUsuario('u1', deps)).toEqual({ estado: 'sin_movimientos', desde: '2026-10-19', hasta: '2026-10-19', saldo: 351.25 });
     expect(deps.recibir).not.toHaveBeenCalled();
+    expect(deps.valuarSaldo).toHaveBeenCalledWith('u1', {
+      fecha: '2026-10-19', saldo: 351.25, desde: '2026-10-19', saldoInicial: 351.25, flujos: []
+    });
+  });
+
+  it('saldo informa null si la valuación no se guardó (ej: hay una manual ese día)', async () => {
+    const mp = clienteFalso({ reportes: [procesado('2026-10-10T03:00:00Z', '2026-10-20T03:00:00Z')] });
+    const deps = depsCon(mp);
+    deps.valuarSaldo.mockResolvedValue({ estado: 'omitida' });
+    expect((await sincronizarUsuario('u1', deps)).saldo).toBeNull();
+  });
+
+  it('si no se puede valuar el saldo igual deja los movimientos en la Bandeja', async () => {
+    const mp = clienteFalso({ reportes: [procesado('2026-10-10T03:00:00Z', '2026-10-20T03:00:00Z')] });
+    const deps = depsCon(mp);
+    deps.valuarSaldo.mockRejectedValue(new Error('dólar caído'));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await sincronizarUsuario('u1', deps);
+    spy.mockRestore();
+    expect(r).toMatchObject({ estado: 'en_bandeja', movimientos: 2, saldo: null });
   });
 });
 

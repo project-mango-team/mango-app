@@ -108,9 +108,11 @@ export const guardarValuacionAutomatica = async (asset, valuacion, cot) => {
         cotizacion_usd: cot.usd,
         ...(asset.moneda === 'EUR' && { cotizacion_eur: cot.eur }),
         ...convertirMonto(valuacion.monto, asset.moneda, cot),
-        notas: valuacion.unidades == null
-          ? `Automática · ${valuacion.fuente} ${numeroAR(valuacion.tasa_anual)}% anual`
-          : `Automática · ${valuacion.fuente}: ${numeroAR(valuacion.unidades)} × ${numeroAR(valuacion.precio)}`
+        notas: valuacion.unidades != null
+          ? `Automática · ${valuacion.fuente}: ${numeroAR(valuacion.unidades)} × ${numeroAR(valuacion.precio)}`
+          : valuacion.tasa_anual != null
+            ? `Automática · ${valuacion.fuente} ${numeroAR(valuacion.tasa_anual)}% anual`
+            : `Automática · ${valuacion.fuente}`
       }
     },
     { upsert: true, new: true, runValidators: true }

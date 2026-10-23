@@ -10,12 +10,13 @@ import { CONFIG_REPORTE, crearClienteMercadoPago } from './mercadoPagoClient.js'
 import { leerSecreto } from './secretService.js';
 import { recibirDocumento } from './ingestService.js';
 import { buildUserQuery } from '../utils/userQuery.js';
-import { leerReporteLiberaciones, movimientosDelReporte, csvParaBandeja, nombreArchivoSync } from '../utils/mercadoPagoMapping.js';
+import { leerReporteLiberaciones, movimientosDelReporte, csvParaBandeja, nombreArchivoSync, saldoAlCierre, flujosNetosPorDia } from '../utils/mercadoPagoMapping.js';
 import {
   ventanaSync, limitesReporte, reporteParaVentana, reporteEnPreparacion, movimientosEnVentana,
   fechaMangoAIso, periodoDeArchivoSync
 } from '../utils/mercadoPagoSync.js';
 import { SECRETO_MP } from './mercadoPagoCuentaService.js';
+import { valuarSaldoMp } from './mercadoPagoSaldoService.js';
 
 const reqDe = (userId) => ({ user: { _id: userId } });
 
@@ -40,7 +41,8 @@ export const DEPS_REALES = {
   estadoSync: estadoSyncDeUsuario,
   // reabrir: false → un período que el usuario descartó no vuelve a la Bandeja
   recibir: (userId, { buffer, filename }) => recibirDocumento(reqDe(userId), { buffer, filename, fuente: 'api', reabrir: false }),
-  crearCliente: (token) => crearClienteMercadoPago(token)
+  crearCliente: (token) => crearClienteMercadoPago(token),
+  valuarSaldo: valuarSaldoMp
 };
 
 // Columnas sin las que el mapeo no funciona
@@ -79,6 +81,7 @@ export const asegurarConfigReporte = async (mp) => {
  * @param {(userId) => Promise<{ ultimaFechaImportada: string|null, ultimaSync: string|null }>} deps.estadoSync
  * @param {(userId, { buffer, filename }) => Promise<{ existente: boolean }>} deps.recibir - a la Bandeja
  * @param {(token) => Object} deps.crearCliente
+ * @param {(userId, { fecha, saldo, saldoInicial, desde, flujos }) => Promise<{ estado: string }>} [deps.valuarSaldo] - MP-04: saldo como valuación en Inversiones
  * @param {(ms) => Promise} [deps.esperar]
  * @param {number} [deps.esperas] - cuántas veces esperar el reporte recién pedido (0 desde la UI)
  * @param {Date} [deps.ahora]
@@ -87,7 +90,7 @@ export const asegurarConfigReporte = async (mp) => {
  */
 export const sincronizarUsuario = async (userId, deps = DEPS_REALES) => {
   const {
-    leerToken, estadoSync, recibir, crearCliente,
+    leerToken, estadoSync, recibir, crearCliente, valuarSaldo,
     esperar = ms => new Promise(r => setTimeout(r, ms)), esperas = ESPERAS, ahora = new Date()
   } = deps;
 
@@ -121,14 +124,36 @@ export const sincronizarUsuario = async (userId, deps = DEPS_REALES) => {
   const periodo = { desde: ventana.desde, hasta: elegido.hasta };
   const { movimientos, saldoInicial } = movimientosDelReporte(leerReporteLiberaciones(await mp.descargarReporte(elegido.reporte.file_name)));
   const enVentana = movimientosEnVentana(movimientos, periodo);
-  if (!enVentana.length) return { estado: 'sin_movimientos', ...periodo };
 
   // Saldo antes del primer movimiento: del saldo corrido, o el inicial del reporte si arranca en la ventana
   const primero = enVentana[0];
-  const inicial = primero.saldo !== null
-    ? Math.round((primero.saldo - primero.monto) * 100) / 100
-    : (movimientos[0] === primero ? saldoInicial : null);
+  const inicial = primero
+    ? (primero.saldo !== null
+      ? Math.round((primero.saldo - primero.monto) * 100) / 100
+      : (movimientos[0] === primero ? saldoInicial : null))
+    : null;
+
+  // MP-04: el saldo al cierre del período queda como valuación (y lo que entró o salió, como aportes y
+  // retiros). Si falla no frena la sync de movimientos.
+  let saldo = null;
+  if (valuarSaldo) {
+    const monto = saldoAlCierre(movimientos, saldoInicial, periodo.hasta);
+    if (monto !== null && monto >= 0) {
+      try {
+        const r = await valuarSaldo(userId, {
+          fecha: periodo.hasta, saldo: monto, desde: periodo.desde, saldoInicial: inicial ?? monto,
+          flujos: flujosNetosPorDia(enVentana)
+        });
+        if (r?.estado === 'guardada') saldo = monto;
+      } catch (error) {
+        console.error('MP-04: no se pudo valuar el saldo de Mercado Pago:', error.message);
+      }
+    }
+  }
+
+  if (!enVentana.length) return { estado: 'sin_movimientos', ...periodo, saldo };
+
   const csv = csvParaBandeja(enVentana, { saldoInicial: inicial });
   const { existente } = await recibir(userId, { buffer: Buffer.from(csv, 'utf-8'), filename: nombreArchivoSync(periodo.desde, periodo.hasta) });
-  return { estado: existente ? 'ya_estaba' : 'en_bandeja', movimientos: enVentana.length, ...periodo };
+  return { estado: existente ? 'ya_estaba' : 'en_bandeja', movimientos: enVentana.length, ...periodo, saldo };
 };

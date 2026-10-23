@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   leerReporteLiberaciones, montoDelReporte, fechaDelReporte, detalleMovimiento,
-  movimientosDelReporte, csvParaBandeja, nombreArchivoSync
+  movimientosDelReporte, csvParaBandeja, nombreArchivoSync, saldoAlCierre, flujosNetosPorDia
 } from './mercadoPagoMapping.js';
 import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
 
@@ -129,4 +129,42 @@ describe('csvParaBandeja', () => {
 
 it('nombreArchivoSync indica el período', () => {
   expect(nombreArchivoSync('2026-10-01', '2026-10-19')).toBe('mercadopago-api-2026-10-01-a-2026-10-19.csv');
+});
+
+describe('saldoAlCierre', () => {
+  const movs = [
+    { fecha: '10-10-2026', monto: -100, saldo: 400 },
+    { fecha: '16-10-2026', monto: 1.25, saldo: 401.25 },
+    { fecha: '18-10-2026', monto: -50, saldo: 351.25 }
+  ];
+  it('toma el saldo corrido del último movimiento hasta el día', () => {
+    expect(saldoAlCierre(movs, 500, '2026-10-17')).toBe(401.25);
+    expect(saldoAlCierre(movs, 500, '2026-10-19')).toBe(351.25);
+  });
+  it('sin saldo corrido lo arma desde el inicial', () => {
+    const sinSaldo = movs.map(m => ({ ...m, saldo: null }));
+    expect(saldoAlCierre(sinSaldo, 500, '2026-10-17')).toBe(401.25);
+    expect(saldoAlCierre([], 500, '2026-10-17')).toBe(500);
+  });
+  it('sin datos para saberlo da null', () => {
+    expect(saldoAlCierre([], null, '2026-10-17')).toBeNull();
+  });
+});
+
+describe('flujosNetosPorDia', () => {
+  it('suma por día lo que entró o salió y deja afuera los rendimientos', () => {
+    const movs = [
+      { fecha: '16-10-2026', detalle: 'Pago recibido', monto: 1000 },
+      { fecha: '16-10-2026', detalle: 'Transferencia enviada', monto: -400 },
+      { fecha: '16-10-2026', detalle: 'Rendimientos', monto: 2 },
+      { fecha: '17-10-2026', detalle: 'Rendimientos', monto: 2 },
+      { fecha: '18-10-2026', detalle: 'Pago', monto: -50.5 },
+      { fecha: '19-10-2026', detalle: 'Pago recibido', monto: 10 },
+      { fecha: '19-10-2026', detalle: 'Pago', monto: -10 }
+    ];
+    expect(flujosNetosPorDia(movs)).toEqual([
+      { fecha: '2026-10-16', monto: 600 },
+      { fecha: '2026-10-18', monto: -50.5 }
+    ]);
+  });
 });

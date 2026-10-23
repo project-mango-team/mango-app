@@ -204,3 +204,42 @@ export const csvParaBandeja = (movimientos, { saldoInicial = null } = {}) => {
  * @param {string} hasta - YYYY-MM-DD
  */
 export const nombreArchivoSync = (desde, hasta) => `mercadopago-api-${desde}-a-${hasta}.csv`;
+
+/**
+ * Saldo de la cuenta al cierre de un día (MP-04): el saldo corrido del último movimiento hasta ese día
+ * (movimientos del reporte ordenados por fecha). Sin saldo corrido lo arma desde el saldo inicial.
+ * @param {Object[]} movimientos - salida de movimientosDelReporte
+ * @param {number|null} saldoInicial
+ * @param {string} hasta - YYYY-MM-DD
+ * @returns {number|null} null si el reporte no permite saber el saldo
+ */
+export const saldoAlCierre = (movimientos, saldoInicial, hasta) => {
+  const iso = (m) => m.fecha.split('-').reverse().join('-');
+  const hastaElDia = movimientos.filter(m => iso(m) <= hasta);
+  const ultimo = hastaElDia.at(-1);
+  if (ultimo?.saldo != null) return Math.round(ultimo.saldo * 100) / 100;
+  if (saldoInicial == null) return null;
+  return Math.round((saldoInicial + hastaElDia.reduce((s, m) => s + m.monto, 0)) * 100) / 100;
+};
+
+// Detalles que son ganancia o pérdida de la cuenta remunerada: no son plata que entra o sale
+const DETALLES_DE_RENDIMIENTO = new Set(['Rendimientos', 'Rendimientos negativos']);
+
+/**
+ * Plata que entró o salió de la cuenta por día, sin los rendimientos (MP-04): son los aportes y
+ * retiros del activo, así la ganancia de Inversiones solo cuenta los rendimientos.
+ * @param {Object[]} movimientos - salida de movimientosDelReporte
+ * @returns {{ fecha: string, monto: number }[]} fecha YYYY-MM-DD, monto neto con signo; sin los días en cero
+ */
+export const flujosNetosPorDia = (movimientos) => {
+  const porDia = new Map();
+  for (const m of movimientos) {
+    if (DETALLES_DE_RENDIMIENTO.has(m.detalle)) continue;
+    const fecha = m.fecha.split('-').reverse().join('-');
+    porDia.set(fecha, (porDia.get(fecha) ?? 0) + m.monto);
+  }
+  return [...porDia.entries()]
+    .map(([fecha, monto]) => ({ fecha, monto: Math.round(monto * 100) / 100 }))
+    .filter(f => f.monto !== 0)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+};
