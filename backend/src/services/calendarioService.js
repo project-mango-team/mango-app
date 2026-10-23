@@ -36,10 +36,11 @@ export const obtenerCalendario = async (req, ahora = new Date()) => {
     return {
       fuente,
       nombre,
-      configurada: Boolean(config),
+      configurada: Boolean(config?.dia_cierre),
+      auto_importar: Boolean(config?.auto_importar),
       dia_cierre: config?.dia_cierre ?? null,
       llegada: config?.llegada ?? null,
-      activa: config ? config.activa !== false : false,
+      activa: config?.dia_cierre ? config.activa !== false : false,
       estado: porFuente.get(fuente)?.estado ?? null,
       cierre: porFuente.get(fuente)?.cierre ?? null
     };
@@ -58,7 +59,25 @@ export const guardarConfigFuente = async (req, fuente, cuerpo) => {
   return obtenerCalendario(req);
 };
 
+// Saca la fuente del calendario; si tenía la importación automática, esa se conserva
 export const borrarConfigFuente = async (req, fuente) => {
-  await FuenteConfig.deleteOne(buildUserQuery(req, { fuente }));
+  await FuenteConfig.updateOne(buildUserQuery(req, { fuente }), { $unset: { dia_cierre: 1, llegada: 1 } });
+  await FuenteConfig.deleteOne(buildUserQuery(req, { fuente, auto_importar: { $ne: true } }));
   return obtenerCalendario(req);
 };
+
+/**
+ * ING-10: activa o desactiva la importación automática de una fuente
+ */
+export const guardarAutoImportar = async (req, fuente, activar) => {
+  if (!FUENTES[fuente]) throw new AppError('Fuente desconocida', 400);
+  await FuenteConfig.findOneAndUpdate(
+    buildUserQuery(req, { fuente }),
+    { $set: { auto_importar: Boolean(activar) }, $setOnInsert: addUserToData(req, { fuente }) },
+    { upsert: true }
+  );
+  return obtenerCalendario(req);
+};
+
+export const autoImportarActivo = async (req, fuente) =>
+  Boolean(await FuenteConfig.exists(buildUserQuery(req, { fuente, auto_importar: true })));

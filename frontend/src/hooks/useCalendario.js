@@ -42,6 +42,7 @@ const useCalendario = (version) => {
     loading,
     error,
     guardar: (fuente, config) => correr(() => calendarioService.guardarFuente(fuente, config)),
+    autoImportar: (fuente, activar) => correr(() => calendarioService.autoImportar(fuente, activar)),
     quitar: (fuente) => correr(() => calendarioService.quitarFuente(fuente))
   }
 }

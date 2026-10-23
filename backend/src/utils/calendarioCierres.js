@@ -92,7 +92,7 @@ export const candidatoDe = (doc) => {
 export const armarChecklist = (hoy, configs, documentos) => {
   const candidatos = documentos.map(candidatoDe).filter(Boolean);
   return configs
-    .filter(c => c.activa !== false && FUENTES[c.fuente])
+    .filter(c => c.dia_cierre && c.activa !== false && FUENTES[c.fuente])
     .map(c => ({
       fuente: c.fuente,
       nombre: FUENTES[c.fuente].nombre,

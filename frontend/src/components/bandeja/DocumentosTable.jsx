@@ -72,6 +72,14 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                       Bajalo del homebanking y soltalo arriba: este aviso se cierra solo.
                     </p>
                   )}
+                  {doc.auto_importado && doc.estado === 'importado' && (
+                    <p className="text-xs text-green-400 mt-1">Importado automáticamente · podés deshacerlo</p>
+                  )}
+                  {doc.estado === 'listo' && doc.auto_motivos?.length > 0 && (
+                    <p className="text-xs text-yellow-400 mt-1 max-w-[18rem]">
+                      No se importó solo: {doc.auto_motivos.join('; ')}
+                    </p>
+                  )}
                   {doc.cierra_aviso && <p className="text-xs text-green-400 mt-1">Cerró el aviso del mail</p>}
                   {doc.email?.from && <p className="text-xs text-gray-500">Por mail · {doc.email.from}</p>}
                   <p className="text-xs text-gray-500 truncate max-w-[18rem]" title={doc.filename}>{doc.filename}</p>

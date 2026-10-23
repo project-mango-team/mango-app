@@ -13,6 +13,12 @@ export const calendarioService = {
     return response.data;
   },
 
+  // ING-10: importar solo los resúmenes de la fuente que pasan todos los controles
+  autoImportar: async (fuente, activar) => {
+    const response = await api.put(`/calendario/${encodeURIComponent(fuente)}/auto-importar`, { activar });
+    return response.data;
+  },
+
   quitarFuente: async (fuente) => {
     const response = await api.delete(`/calendario/${encodeURIComponent(fuente)}`);
     return response.data;

@@ -6,9 +6,12 @@ import { LLEGADAS } from '../utils/calendarioCierres.js';
 const fuenteConfigSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   fuente: { type: String, required: true },
-  dia_cierre: { type: Number, required: true, min: 1, max: 31 },
+  // El día de cierre es opcional: la importación automática (ING-10) se puede activar sin calendario
+  dia_cierre: { type: Number, min: 1, max: 31 },
   llegada: { type: String, enum: LLEGADAS, default: 'adjunto' },
-  activa: { type: Boolean, default: true }
+  activa: { type: Boolean, default: true },
+  // ING-10: importar solo los resúmenes que llegan por mail/API si pasan todos los controles
+  auto_importar: { type: Boolean, default: false }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

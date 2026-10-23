@@ -59,7 +59,7 @@ const FormularioFuente = ({ fuente, onGuardar, onQuitar, onCancelar }) => {
 
 // Checklist del mes: por fuente, si el último resumen esperado llegó. Se configura el día de cierre de cada una.
 const CalendarioCierres = ({ version }) => {
-  const { fuentes, loading, error, guardar, quitar } = useCalendario(version)
+  const { fuentes, loading, error, guardar, quitar, autoImportar } = useCalendario(version)
   const [editando, setEditando] = useState(null)
   const [abierto, setAbierto] = useState(false)
 
@@ -109,6 +109,12 @@ const CalendarioCierres = ({ version }) => {
                     </button>
                   </div>
                 </div>
+                {(
+                  <label className="mt-2 flex items-center gap-2 text-xs text-gray-400" title="Solo aplica a lo que llega por mail: si pasa todos los controles se importa solo y podés deshacerlo desde la lista">
+                    <input type="checkbox" checked={f.auto_importar} onChange={e => autoImportar(f.fuente, e.target.checked)} />
+                    Importar solo si todo está en orden (sin duplicados, todo categorizado y el total cierra, si el resumen lo trae)
+                  </label>
+                )}
                 {editando === f.fuente && (
                   <FormularioFuente fuente={f} onGuardar={guardar} onQuitar={quitar} onCancelar={() => setEditando(null)} />
                 )}
