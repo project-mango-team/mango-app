@@ -4,6 +4,7 @@ import BandejaDropzone from '../components/bandeja/BandejaDropzone'
 import DocumentosTable from '../components/bandeja/DocumentosTable'
 import RevisarDocumentoModal from '../components/bandeja/RevisarDocumentoModal'
 import ElegirTipoModal from '../components/bandeja/ElegirTipoModal'
+import CalendarioCierres from '../components/bandeja/CalendarioCierres'
 import ConfirmModal from '../components/ConfirmModal'
 
 // Bandeja de resúmenes: soltar todos los archivos del mes, revisar e importar
@@ -28,6 +29,8 @@ const Bandeja = () => {
           </button>
         )}
       </div>
+
+      <CalendarioCierres version={bandeja.documentos} />
 
       <BandejaDropzone onArchivos={bandeja.subir} deshabilitado={bandeja.ocupado} />
 
