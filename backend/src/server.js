@@ -24,6 +24,7 @@ import ingestRoutes from './routes/ingest.js';
 import jobRoutes from './routes/jobs.js';
 import secretRoutes from './routes/secrets.js';
 import notificationRoutes from './routes/notifications.js';
+import mercadoPagoRoutes from './routes/mercadopago.js';
 import { verificarClaveSecretos } from './services/secretService.js';
 import './jobs/index.js';
 import { iniciarScheduler } from './services/scheduler.js';
@@ -89,6 +90,7 @@ app.use('/api/ingest', ingestRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/secrets', secretRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/mercadopago', mercadoPagoRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   const __filename = fileURLToPath(import.meta.url);
