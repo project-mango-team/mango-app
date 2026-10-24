@@ -1,9 +1,7 @@
 import TokensIntegracion from '../components/config/TokensIntegracion'
 import TareasProgramadas from '../components/config/TareasProgramadas'
 import CredencialesGuardadas from '../components/config/CredencialesGuardadas'
-=======
 import SugerenciasIA from '../components/config/SugerenciasIA'
-=======
 import CuentaMercadoPago from '../components/config/CuentaMercadoPago'
 
 const Configuracion = () => (
@@ -16,7 +14,6 @@ const Configuracion = () => (
     <TokensIntegracion />
     <CredencialesGuardadas />
     <TareasProgramadas />
-=======
     <SugerenciasIA />
   </div>
 )
