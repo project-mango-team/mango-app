@@ -87,6 +87,8 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     <>
                       <span className="text-white">{p.cantidad}</span>
                       {p.duplicados > 0 && <p className="text-xs text-gray-500">{p.duplicados} ya cargadas</p>}
+                      {p.ignoradas > 0 && <p className="text-xs text-gray-500">{p.ignoradas} ignoradas por reglas</p>}
+                      {p.dudosas > 0 && <p className="text-xs text-amber-400">{p.dudosas} para revisar</p>}
                     </>
                   ) : '—'}
                 </td>
@@ -113,7 +115,7 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     {doc.estado === 'listo' && (
                       <>
                         <Boton onClick={() => onRevisar(doc)} disabled={ocupado}>Revisar</Boton>
-                        <Boton variante="primario" onClick={() => onImportar(doc)} disabled={ocupado || p?.cantidad === p?.duplicados}>
+                        <Boton variante="primario" onClick={() => onImportar(doc)} disabled={ocupado || p?.cantidad === (p?.duplicados || 0) + (p?.ignoradas || 0)}>
                           Importar
                         </Boton>
                       </>

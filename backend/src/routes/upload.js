@@ -11,10 +11,15 @@ import {
   detectarDocumento,
   hashArchivo,
   marcarDuplicados,
+  marcarInternosSugeridos,
+  prepararRevision,
+  restaurarContrapartes,
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 import { reabrirPorRollback } from '../services/ingestService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
+import { reglasDelUsuario } from '../services/ruleService.js';
+import { contarDudosas } from '../utils/reviewFocus.js';
 
 const router = express.Router();
 
@@ -109,7 +114,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       tipoResumen,
       valorDolar,
       selectedCards,
-      categoryKeywords: req.user?.categoryKeywords || null
+      reglas: await reglasDelUsuario(req)
     });
 
     if (transactions.length === 0) {
@@ -121,8 +126,10 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
 
     // Ya cargadas: por transacción (resúmenes superpuestos) y por archivo (el mismo subido dos veces)
     const sha256 = hashArchivo(req.file.buffer);
-    const [conDuplicados, archivoYaImportado] = await Promise.all([
-      marcarDuplicados(req, transactions),
+    const [{ transactions: conDuplicados, limites }, archivoYaImportado] = await Promise.all([
+      marcarDuplicados(req, transactions)
+        .then(ts => marcarInternosSugeridos(req, ts))
+        .then(ts => prepararRevision(req, ts)),
       buscarImportacionDelArchivo(req, sha256)
     ]);
 
@@ -135,6 +142,11 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
         tipo,
         transactions: conDuplicados,
         duplicados: conDuplicados.filter(t => t.duplicado).length,
+        ignoradas: conDuplicados.filter(t => t.ignorada).length,
+        internos_sugeridos: conDuplicados.filter(t => t.interno_sugerido).length,
+        // REV-05: límites de monto por categoría y cuántas hay para revisar
+        limites,
+        dudosas: contarDudosas(conDuplicados, limites),
         sha256,
         archivoYaImportado,
         valorDolar: tipo === 'santander' ? dolarUsado : null,
@@ -189,8 +201,10 @@ router.post('/', upload.single('file'), async (req, res, next) => {
         tipoResumen,
         valorDolar,
         selectedCards,
-        categoryKeywords: req.user?.categoryKeywords || null
+        reglas: await reglasDelUsuario(req)
       }));
+      // Sin pasar por el editor, lo que una regla manda ignorar no se importa
+      transactions = transactions.filter(t => !t.ignorada);
     } else {
       // No transactions or file provided
       return res.status(400).json({
@@ -207,7 +221,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
     }
 
     // Las marcas de la vista previa no se guardan
-    transactions = transactions.map(({ duplicado, ...t }) => t);
+    transactions = transactions.map(({ duplicado, ignorada, regla, ...t }) => t);
     const data = await guardarImportacion({ req, transactions, tipo, filename: sourceFilename, sha256 });
 
     res.json({
@@ -308,6 +322,7 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
     // Delete all transactions with this operation_id - user scoped
     const deleteQuery = buildUserQuery(req, { operation_id: operation.operation_id });
     const result = await Transaction.deleteMany(deleteQuery);
+    await restaurarContrapartes(req, operation);
 
     // Update operation status
     operation.status = 'rolled_back';

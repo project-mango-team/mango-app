@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import iconv from 'iconv-lite';
@@ -12,6 +13,10 @@ import { addUserToTransactionData, addUserToOperationData, buildUserQuery } from
 import { marcarTransaccionesDuplicadas, normalizarFecha } from '../utils/transactionDedup.js';
 import { excelToCsvBuffer, isExcelFilename } from '../utils/excelToCsv.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { aplicarReglas } from '../utils/categoryRules.js';
+import { sugerirInternos, fechasCandidatas, contrapartesAMarcar } from '../utils/internalTransfers.js';
+import { CATEGORIA_INTERNO } from '../models/User.js';
+import { armarContextoRevision, marcarComerciosNuevos } from '../utils/reviewFocus.js';
 
 // Importación de resúmenes bancarios: parseo por banco y guardado como Operation + Transactions.
 // Lo usan el upload manual (routes/upload.js) y, más adelante, la bandeja de ingesta.
@@ -171,10 +176,18 @@ export const detectarDocumento = async ({ buffer }) => {
  * @param {'cuenta'|'tarjeta'} [params.tipoResumen] - Solo Galicia (default 'cuenta')
  * @param {number|string} [params.valorDolar] - Santander y tarjetas Galicia; si falta, la cotización del día
  * @param {Array|string} [params.selectedCards] - Solo Santander
- * @param {Object} [params.categoryKeywords] - Keywords del usuario para inferir categorías
+ * @param {Object} [params.categoryKeywords] - Keywords para inferir categorías (solo si no vienen reglas)
+ * @param {Array} [params.reglas] - Reglas del usuario (REV-02): reemplazan a las keywords
  * @returns {Promise<{ transactions: Array, valorDolar: number|null, cardFilter: Array|null }>}
  */
-export const parsearDocumento = async ({ buffer, filename, tipo, tipoResumen, valorDolar, selectedCards, categoryKeywords = null }) => {
+export const parsearDocumento = async ({ reglas = null, ...params }) => {
+  if (!reglas) return parsearConParser(params);
+  // Con reglas, el parser no infiere nada (todo queda en "Otros" salvo lo que fija él) y deciden las reglas
+  const resultado = await parsearConParser({ ...params, categoryKeywords: {} });
+  return { ...resultado, transactions: aplicarReglas(resultado.transactions, reglas) };
+};
+
+const parsearConParser = async ({ buffer, filename, tipo, tipoResumen, valorDolar, selectedCards, categoryKeywords = null }) => {
   validarTipo(tipo);
   const fileBuffer = await normalizarArchivo({ buffer, filename }, tipo, tipoResumen);
 
@@ -229,6 +242,60 @@ export const marcarDuplicados = async (req, transactions) => {
     .lean();
   const duplicados = marcarTransaccionesDuplicadas(transactions, existentes);
   return transactions.map((t, i) => ({ ...t, duplicado: duplicados[i] }));
+};
+
+/**
+ * REV-04: agrega `interno_sugerido` a las que parecen transferencias entre cuentas propias
+ * (contraparte del mismo monto en otra cuenta, ±2 días), buscando entre las ya cargadas
+ */
+export const marcarInternosSugeridos = async (req, transactions) => {
+  if (!transactions.length) return transactions;
+  const existentes = await Transaction.find(buildUserQuery(req, { fecha: { $in: fechasCandidatas(transactions) } }))
+    .select('fecha tipo moneda importe monto_original detalle origen categoria')
+    .lean();
+  return sugerirInternos(transactions, existentes);
+};
+
+/**
+ * REV-05: contexto para la revisión enfocada. Marca `comercio_nuevo` y devuelve los límites de
+ * monto por categoría (para marcar gastos fuera de lo normal) según el historial del usuario.
+ */
+export const prepararRevision = async (req, transactions) => {
+  const historial = await Transaction.find(buildUserQuery(req)).select('detalle categoria importe tipo').lean();
+  const { comercios, limites } = armarContextoRevision(historial);
+  return { transactions: marcarComerciosNuevos(transactions, comercios), limites };
+};
+
+/**
+ * Las contrapartes ya cargadas de las que se guardaron como Movimiento interno aceptando la
+ * sugerencia pasan también a Movimiento interno. Devuelve la categoría que tenían (para el rollback).
+ */
+const vincularContrapartes = async (req, transactions) => {
+  const ids = contrapartesAMarcar(transactions).filter(id => mongoose.isValidObjectId(id));
+  if (!ids.length) return [];
+  const contrapartes = await Transaction.find(buildUserQuery(req, { _id: { $in: ids }, categoria: { $ne: CATEGORIA_INTERNO } }))
+    .select('categoria')
+    .lean();
+  if (!contrapartes.length) return [];
+  await Transaction.updateMany(
+    buildUserQuery(req, { _id: { $in: contrapartes.map(t => t._id) } }),
+    { $set: { categoria: CATEGORIA_INTERNO } }
+  );
+  return contrapartes.map(t => ({ _id: String(t._id), categoria: t.categoria }));
+};
+
+/**
+ * Al revertir una importación, las contrapartes que se marcaron como internas vuelven a su categoría
+ */
+export const restaurarContrapartes = async (req, operation) => {
+  const vinculadas = operation?.metadata?.internos_vinculados || [];
+  if (!vinculadas.length) return;
+  await Transaction.bulkWrite(vinculadas.map(v => ({
+    updateOne: {
+      filter: buildUserQuery(req, { _id: v._id, categoria: CATEGORIA_INTERNO }),
+      update: { $set: { categoria: v.categoria } }
+    }
+  })));
 };
 
 // Helper function to convert DD-MM-YYYY or DD/MM/YYYY to standardized format
@@ -309,6 +376,7 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
 
   // Insert transactions into MongoDB
   const result = await Transaction.insertMany(transactionsToSave, { ordered: false });
+  const internosVinculados = await vincularContrapartes(req, transactions);
 
   // Create operation record with safe numeric values
   await Operation.create(addUserToOperationData(req, {
@@ -325,7 +393,8 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
       batch_id: batchId,
       tipo,
       transacciones_procesadas: transactions.length,
-      ...(sha256 && { sha256 })
+      ...(sha256 && { sha256 }),
+      ...(internosVinculados.length && { internos_vinculados: internosVinculados })
     },
     created_at: timestamp
   }));
