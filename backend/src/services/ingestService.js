@@ -6,6 +6,8 @@ import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
 import { compararTotales } from '../utils/totalesResumen.js';
 import { reglasDelUsuario } from './ruleService.js';
+import { autoImportarActivo } from './calendarioService.js';
+import { evaluarAutoImportacion } from '../utils/autoImportacion.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
 import { FUENTES, fuenteDeAviso, homebankingDe, avisoCoincide, elegirAviso, fuenteDeDeteccion } from '../utils/fuentesResumen.js';
 import {
@@ -200,7 +202,38 @@ export const recibirDocumento = async (req, { buffer, filename, fuente = 'upload
   }));
   await procesar(req, doc);
   await cerrarAvisoCoincidente(req, doc);
-  return { documento: vista(doc), existente: false };
+  return { documento: vista(await intentarAutoImportacion(req, doc)), existente: false };
+};
+
+/**
+ * ING-10: si la fuente tiene la importación automática activa y el documento pasa todos los controles,
+ * se importa sin revisión. Si no, queda listo con los motivos. Solo para lo que llega por integraciones.
+ * @returns {Promise<Object>} el documento actualizado
+ */
+const intentarAutoImportacion = async (req, doc) => {
+  const fuente = fuenteDeDeteccion(doc.deteccion);
+  if (doc.estado !== 'listo' || doc.fuente === 'upload' || !fuente || !(await autoImportarActivo(req, fuente))) return doc;
+
+  try {
+    const { transactions } = await transaccionesDe(req, doc);
+    const { ok, motivos } = evaluarAutoImportacion({
+      deteccion: doc.deteccion,
+      transacciones: transactions,
+      control: doc.preview?.control,
+      archivoYaImportado: doc.archivo_ya_importado
+    });
+    if (!ok) {
+      doc.auto_motivos = motivos;
+      return doc.save();
+    }
+    await importarDocumento(req, doc._id);
+    await IngestDocument.updateOne(buildUserQuery(req, { _id: doc._id }), { auto_importado: true, $unset: { auto_motivos: 1 } });
+  } catch (error) {
+    // No frena la recepción: el documento queda para revisar
+    console.error('[ingesta] importación automática falló:', error.message);
+    await IngestDocument.updateOne(buildUserQuery(req, { _id: doc._id, estado: 'listo' }), { auto_motivos: [`Falló la importación automática: ${error.message}`] });
+  }
+  return IngestDocument.findOne(buildUserQuery(req, { _id: doc._id }));
 };
 
 /**
@@ -370,5 +403,8 @@ export const reabrirPorRollback = async (req, operationId) => {
   if (!doc) return;
   doc.operation_id = null;
   doc.importado_at = undefined;
+  // Si se había importado solo, el rollback es una corrección del usuario: queda para revisar a mano
+  doc.auto_importado = false;
+  doc.auto_motivos = undefined;
   await procesar(req, doc, { redetectar: false });
 };

@@ -33,6 +33,17 @@ const nombreFuente = (clave) => (clave && FUENTES[clave]?.nombre) || null;
 // Llegó un resumen por mail (ING-07) y quedó en la Bandeja
 export const avisoResumenNuevo = (documento) => {
   const fuente = nombreFuente(fuenteDeDeteccion(documento.deteccion));
+  // ING-10: importado solo por la importación automática
+  if (documento.auto_importado) {
+    return {
+      tipo: 'resumen_importado',
+      nivel: 'exito',
+      titulo: fuente ? `Importé el resumen de ${fuente}` : 'Importé un resumen automáticamente',
+      mensaje: `${documento.filename} se importó solo. Si algo no está bien, deshacelo desde la Bandeja.`,
+      link: '/bandeja',
+      clave: `ingest:${documento._id}`
+    };
+  }
   return {
     tipo: 'resumen_nuevo',
     nivel: 'info',

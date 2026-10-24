@@ -89,6 +89,9 @@ const ingestDocumentSchema = new mongoose.Schema({
     default: null
   },
   importado_at: Date,
+  // ING-10: importado solo por la importación automática, o por qué quedó para revisar
+  auto_importado: { type: Boolean, default: false },
+  auto_motivos: { type: [String], default: undefined },
   // ING-08: en un aviso, el documento con el archivo que lo cerró; en un archivo, el aviso que cerró
   resuelto_por: {
     type: mongoose.Schema.Types.ObjectId,
