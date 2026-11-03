@@ -44,3 +44,17 @@ Para probar: `npm run dev` (usa `Mango_dev`), entrar como invitado.
 2. **`routes/operations.js` no llama a `reabrirPorRollback`** en `POST /:operationId/rollback` (sí lo hace `routes/upload.js:333`). Revertir una carga desde Datos deja el documento de la Bandeja como importado y no se puede volver a importar. *Arreglo propuesto*: agregar `await reabrirPorRollback(req, operation.operation_id)` después de `restaurarContrapartes`.
 3. ING-01 sigue en curso (falta relevar Santander).
 4. Warnings de Mongoose por índices duplicados (`email`, `googleId`, `operation_id`, `batch_id`, `migration_id`): ya existían, no rompen nada.
+
+## ING-12 / REV-07 (arreglos del uso real)
+- [ ] Abrir en la Bandeja el Mastercard real de octubre: ya no debe decir "Sin explicar" cuando Importado = Total del resumen.
+- [ ] Revisar un import con un detalle en "Otros" (ej. COMBUSTIBLE): "Asociar a una categoría…" crea la regla y pasa a esa categoría las demás filas parecidas del mismo import. Probarlo también en el editor de Datos → Cargar.
+
+## DAT (la Bandeja dentro de Datos)
+Verificado en dev: pestañas, redirecciones, historial con Origen y Cuenta, revertir una carga de la Bandeja desde el Historial (el documento vuelve a pendiente y el badge sube), Cargar con Santander/Galicia (selects) y carga manual, sin scroll horizontal en 375 px.
+- [ ] `/bandeja` y `/migracion` redirigen a `/datos/bandeja` y `/datos/migracion`; un aviso viejo (guardado con link `/bandeja`) lleva a la Bandeja.
+- [ ] El menú lateral muestra Inicio, Avisos, Datos (con el badge de pendientes), Inversiones; "Datos" queda marcado en cualquier pestaña.
+- [ ] Historial: columna Origen (Bandeja, Mail, Mercado Pago (API), Archivo, Carga manual, Migración Excel, más "automático") y Cuenta; filtro por origen. Las cargas viejas de la Bandeja ya revertidas se ven como "Archivo" (limitación conocida).
+- [ ] Cargar un resumen real de Santander con tarjetas a mano en Datos → Cargar (detección, tarjetas, valor del dólar) y guardarlo; verlo en el Historial y revertirlo.
+- [ ] Migración desde Excel: elegir el archivo, ver el preview y migrar (se restauraron los handlers de archivo tras un recorte).
+- [ ] Revertir una carga de Mail o de Mercado Pago (API) desde el Historial: el documento vuelve a la Bandeja.
+- [ ] Riesgo resuelto: el rollback de `routes/operations.js` ahora reabre el documento de la Bandeja (`revertirOperacion`).
