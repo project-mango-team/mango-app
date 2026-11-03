@@ -6,6 +6,9 @@ import { planDeInversiones } from '../utils/investmentFromStatement.js';
 import { convertirMonto } from '../utils/investmentCalc.js';
 import { crearCotizacionesEn } from './investmentQuoteService.js';
 import { CATEGORIA_INVERSION } from '../models/User.js';
+import Transaction from '../models/Transaction.js';
+import { reglasDelUsuario } from './ruleService.js';
+import { compilarReglas, buscarRegla } from '../utils/categoryRules.js';
 
 // Une las transacciones de un extracto con Inversiones (INV): sugiere el aporte o retiro en la vista previa,
 // lo crea al guardar y lo revierte con la carga. Todo se recalcula en el servidor y se filtra por usuario:
@@ -118,6 +121,82 @@ export const crearMovimientosDeExtracto = async (req, transacciones, operationId
     aviso.errores.push('No se pudieron cargar en Inversiones; cargalos a mano o revertí la carga y probá de nuevo');
   }
   return aviso;
+};
+
+// ---------- Backfill del histórico (INV-11) ----------
+
+const MAX_TRANSACCIONES_BACKFILL = 5000;
+
+/**
+ * Transacciones 'Inversión' ya cargadas que las reglas mandan a este activo, con lo que se cargaría:
+ * { transaction_id, fecha, detalle, tipo, monto, crear, duplicado: { fecha }|null, error }.
+ * Respeta el orden de las reglas (gana la primera que coincide) y no ofrece las que ya tienen un movimiento
+ * vinculado (transaction_id) ni las que equivalen a uno ya cargado (mismo tipo y monto, ±3 días).
+ * Todo filtrado por usuario; el activo tiene que ser del usuario (lo valida el controller).
+ */
+export const candidatasDeBackfill = async (req, asset) => {
+  const reglas = compilarReglas(await reglasDelUsuario(req));
+  const deEsteActivo = (regla) => regla?.accion?.tipo === 'inversion' && String(regla.accion.activo_id) === String(asset._id);
+  if (!reglas.some(c => deEsteActivo(c.regla))) return { candidatas: [], reglas: 0 };
+
+  const transacciones = await Transaction.find(buildUserQuery(req, { categoria: CATEGORIA_INVERSION }))
+    .sort({ _id: -1 })
+    .limit(MAX_TRANSACCIONES_BACKFILL)
+    .select('fecha detalle tipo origen importe moneda monto_original')
+    .lean();
+  const coinciden = transacciones
+    .filter(t => deEsteActivo(buscarRegla(t, reglas)))
+    .map(t => ({ ...t, inversion: { activo_id: String(asset._id) } }));
+  if (!coinciden.length) return { candidatas: [], reglas: 1 };
+
+  const movimientos = await InvestmentMovement.find(buildUserQuery(req, { asset_id: asset._id }))
+    .select('fecha tipo monto transaction_id')
+    .lean();
+  const vinculadas = new Set(movimientos.filter(m => m.transaction_id).map(m => String(m.transaction_id)));
+  const pendientes = coinciden.filter(t => !vinculadas.has(String(t._id)));
+
+  const plan = planDeInversiones(
+    pendientes,
+    new Map([[String(asset._id), { _id: asset._id, nombre: asset.nombre, moneda: asset.moneda }]]),
+    new Map([[String(asset._id), movimientos]])
+  );
+  return {
+    reglas: 1,
+    candidatas: pendientes.map((t, i) => ({
+      transaction_id: String(t._id),
+      fecha: t.fecha,
+      detalle: t.detalle,
+      tipo: plan[i].movimiento?.tipo ?? null,
+      monto: plan[i].movimiento?.monto ?? null,
+      crear: plan[i].crear,
+      duplicado: plan[i].duplicado,
+      error: plan[i].error
+    }))
+  };
+};
+
+/**
+ * Crea los movimientos de las transacciones elegidas. Se vuelven a calcular las candidatas en el servidor:
+ * solo se cargan las que siguen cumpliendo todo (regla del activo, sin duplicado ni error).
+ * @param {string[]} ids - transaction_id elegidos en la vista previa
+ * @returns {Promise<{ creados: number, duplicados: number, errores: string[], omitidas: number }>}
+ */
+export const cargarBackfill = async (req, asset, ids) => {
+  const elegidos = new Set((Array.isArray(ids) ? ids : []).map(String));
+  const { candidatas } = await candidatasDeBackfill(req, asset);
+  const aCrear = candidatas.filter(c => elegidos.has(c.transaction_id) && c.crear);
+  const omitidas = elegidos.size - aCrear.length;
+  if (!aCrear.length) return { creados: 0, duplicados: 0, errores: [], omitidas };
+
+  const transacciones = await Transaction.find(buildUserQuery(req, { _id: { $in: aCrear.map(c => c.transaction_id) } }))
+    .select('fecha tipo importe moneda monto_original categoria')
+    .lean();
+  const aviso = await crearMovimientosDeExtracto(
+    req,
+    transacciones.map(t => ({ ...t, inversion: { activo_id: String(asset._id), crear: true } })),
+    undefined
+  );
+  return { ...aviso, omitidas };
 };
 
 /**

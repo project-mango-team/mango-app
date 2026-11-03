@@ -1,4 +1,5 @@
 import express from 'express';
+import { previewBackfill, aplicarBackfill } from '../controllers/investmentBackfillController.js';
 import {
   getTypes,
   createType,
@@ -53,6 +54,10 @@ router.route('/assets/:id/movements')
 
 router.post('/assets/:id/import/preview', previewImport);
 router.post('/assets/:id/import', importMovements);
+
+// INV-11: buscar en extractos ya cargados
+router.post('/assets/:id/backfill/preview', previewBackfill);
+router.post('/assets/:id/backfill', aplicarBackfill);
 
 router.route('/assets/:id/auto-valuation')
   .get(previewAutoValuation)
