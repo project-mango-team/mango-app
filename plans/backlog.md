@@ -130,7 +130,8 @@ Los aportes y rescates a Fima caen en el extracto de la caja de ahorro de Galici
 | INV-06 | **Revisión.** `InversionSugerida.jsx`: casilla "Cargar en Inversiones", "ya cargado el DD/MM" y error en ámbar. | INV-05 | M | hecho |
 | INV-07 | **Regla desde la UI.** Acción "Cargar en una inversión" en `ReglaForm` y `reglaTexto`. | INV-03 | S | hecho |
 | INV-12 | **Integración.** REV-04 `esCandidata` excluye lo de inversión, `reviewFocus` y la importación automática (ING-10). | INV-05 | S | hecho |
-| INV-10 / INV-11 | **Opcionales**, fuera de esta tanda (ver el plan del architect). | — | — | pendiente |
+| INV-10 | **Opcional**, fuera de esta tanda (ver el plan del architect). | — | — | pendiente |
+| INV-11 | **Backfill del histórico.** Botón "Buscar en extractos ya cargados" en el detalle del activo: toma las transacciones Inversión ya cargadas que matchean las reglas del activo, deduplica con ±3 días y las carga con origen extracto y transaction_id (sin operation_id), con vista previa. | INV-05 | M | hecho |
 
 ---
 

@@ -40,7 +40,7 @@ Para probar: `npm run dev` (usa `Mango_dev`), entrar como invitado.
 - [ ] Gmail Apps Script sigue andando contra el webhook (tokens sin cambios).
 
 ## Riesgos conocidos
-1. **Posible ReDoS** en `backend/src/utils/categoryRules.js` (`compilarRegex`, viene de REV-02): el usuario guarda una regex y se compila/evalúa en el proceso del backend. El único límite es `MAX_REGEX = 200` caracteres, que no frena patrones como `(a+)+$`. Una regex así bloquea el event loop en cada importación. *Arreglo propuesto (no aplicado)*: rechazar al validar patrones con cuantificadores anidados o alternancias repetidas, o evaluar con un motor sin backtracking (`re2`), o correr las reglas en un worker con timeout; además limitar el largo del detalle evaluado.
+1. **ReDoS en regex de usuario (resuelto, a verificar)**: `utils/regexSegura.js` rechaza al guardar la regla las regex peligrosas (grupos repetidos con repeticiones o alternativas dentro, referencias hacia atrás, lookaround, más de 3 repeticiones sin tope); las ya guardadas que no pasan el chequeo no se evalúan y el texto evaluado se corta a 300 caracteres. Es conservador: una regex legítima puede rechazarse (se sugiere partirla en varias reglas). Probar en Reglas de categorización que `^PAGO TARJETA` se guarda y `(a+)+$` se rechaza con un mensaje claro.
 2. **`routes/operations.js` no llama a `reabrirPorRollback`** en `POST /:operationId/rollback` (sí lo hace `routes/upload.js:333`). Revertir una carga desde Datos deja el documento de la Bandeja como importado y no se puede volver a importar. *Arreglo propuesto*: agregar `await reabrirPorRollback(req, operation.operation_id)` después de `restaurarContrapartes`.
 3. ING-01 sigue en curso (falta relevar Santander).
 4. Warnings de Mongoose por índices duplicados (`email`, `googleId`, `operation_id`, `batch_id`, `migration_id`): ya existían, no rompen nada.
@@ -74,3 +74,9 @@ Verificado en dev (`Mango_dev`, contra la API con un extracto sintético): crear
 - [ ] Activo con precio automático (CAFCI): con un aporte del extracto sin cuotapartes, "Valuar ahora" avisa y el job diario lo salta (`faltan_unidades`).
 - Importación automática (ING-10): si la fuente la tiene activa y hay una regla de inversión, el movimiento se crea sin revisión. Frena solo si la inversión no se puede cargar (moneda distinta, activo borrado).
 - Conocido: `GaliciaParser.parseCuenta` fija la moneda en ARS; una caja en USD saldría mal (preexistente, no se tocó). Borrar transacciones sueltas o usar `DELETE /api/migrate/:id` no revierte los movimientos del extracto (la UI usa el historial).
+
+## INV-11 · Buscar en extractos ya cargados
+Verificado en dev (API sobre `Mango_dev`): sin regla del activo no ofrece nada; con la regla ofrece las transacciones Inversión pendientes, carga solo las elegidas que siguen siendo válidas (ignora ids inventados), un activo ajeno da 404 y los movimientos quedan con origen `extracto` y `transaction_id`, sin `operation_id`. El modal compila pero no lo manejé con clics.
+- [ ] Inversiones → detalle de un activo → "Buscar en extractos ya cargados": con una regla "Cargar en una inversión" para ese activo, listar los aportes/rescates viejos del extracto, tildar y cargar.
+- [ ] Los ya cargados a mano (±3 días, mismo monto) salen como "ya cargado el DD/MM" y no se tildan.
+- Ojo: estos movimientos no tienen operación, así que revertir la carga del extracto desde el Historial **no** los borra; se borran desde el detalle del activo. Quedan sin cuotapartes (completarlas con el importador de Fima antes de valuar solo).
