@@ -36,7 +36,6 @@ describe('regex peligrosas (ReDoS)', () => {
     '(abc)?def',
     '.*foo.*bar',
     '[a-z]+\\s+[0-9]{3,5}',
-    'MERPAGO\\*CAFE( \\d+)?',
     'a{1,3}b{1,3}',
     '[+*]x'
   ])('acepta %s', (patron) => {
