@@ -123,6 +123,11 @@ describe('crearMovimientosDeExtracto', () => {
     expect(insertMany).not.toHaveBeenCalled();
   });
 
+  it('si el usuario le cambió la categoría a la fila, ya no se carga en Inversiones', async () => {
+    expect(await crearMovimientosDeExtracto(req, [tx({ categoria: 'Comida' })], 'op')).toBeNull();
+    expect(insertMany).not.toHaveBeenCalled();
+  });
+
   it('no duplica un movimiento ya cargado', async () => {
     movimientosExistentes = [{ asset_id: ACTIVO, fecha: new Date('2026-10-04T00:00:00Z'), tipo: 'Aporte', monto: 50000 }];
     const aviso = await crearMovimientosDeExtracto(req, [tx()], 'op');

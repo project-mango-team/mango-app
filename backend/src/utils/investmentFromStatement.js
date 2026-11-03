@@ -11,15 +11,21 @@ const TIPO_DE_TRANSACCION = { Gasto: 'Aporte', Ingreso: 'Retiro' };
 /**
  * Fecha de una transacción (DD/MM/YYYY, DD-MM-YY o YYYY-MM-DD) a YYYY-MM-DD, o null si no se entiende
  */
+// Que exista en el calendario (31/13 o 30/02 no)
+const fechaReal = (iso) => {
+  const fecha = new Date(`${iso}T00:00:00Z`);
+  return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === iso ? iso : null;
+};
+
 export const fechaISO = (fecha) => {
   const texto = String(fecha ?? '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return texto;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return fechaReal(texto);
   const partes = texto.replace(/-/g, '/').split('/');
   if (partes.length !== 3) return null;
   let [d, m, y] = partes;
   if (y.length === 2) y = `20${y}`;
   if (!/^\d{1,2}$/.test(d) || !/^\d{1,2}$/.test(m) || !/^\d{4}$/.test(y)) return null;
-  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  return fechaReal(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
 };
 
 /**

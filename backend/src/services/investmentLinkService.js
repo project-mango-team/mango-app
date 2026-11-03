@@ -5,6 +5,7 @@ import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { planDeInversiones } from '../utils/investmentFromStatement.js';
 import { convertirMonto } from '../utils/investmentCalc.js';
 import { crearCotizacionesEn } from './investmentQuoteService.js';
+import { CATEGORIA_INVERSION } from '../models/User.js';
 
 // Une las transacciones de un extracto con Inversiones (INV): sugiere el aporte o retiro en la vista previa,
 // lo crea al guardar y lo revierte con la carga. Todo se recalcula en el servidor y se filtra por usuario:
@@ -75,7 +76,8 @@ export const marcarInversionesSugeridas = async (req, transactions) => {
  * @returns {Promise<null | { creados: number, duplicados: number, errores: string[] }>} null si ninguna pidió inversión
  */
 export const crearMovimientosDeExtracto = async (req, transacciones, operationId) => {
-  const pedidas = transacciones.filter(t => t?.inversion?.activo_id && t.inversion.crear === true);
+  // Solo si la fila sigue siendo una Inversión: si el usuario le cambió la categoría, ya no va a Inversiones
+  const pedidas = transacciones.filter(t => t?.inversion?.activo_id && t.inversion.crear === true && t.categoria === CATEGORIA_INVERSION);
   if (!pedidas.length) return null;
 
   const aviso = { creados: 0, duplicados: 0, errores: [] };

@@ -59,7 +59,7 @@ export const obtenerPrecio = async (asset) => {
   }
 };
 
-export const mensajeFaltanUnidades = (cantidad) => `Hay ${cantidad} movimiento${cantidad === 1 ? '' : 's'} cargado${cantidad === 1 ? '' : 's'} desde el extracto sin cuotapartes: completalas con el importador de Fima antes de valuar solo`;
+export const mensajeFaltanUnidades = (cantidad) => `Hay ${cantidad} movimiento${cantidad === 1 ? '' : 's'} cargado${cantidad === 1 ? '' : 's'} desde el extracto sin cuotapartes: completalas (importador de Fima o editando el movimiento) antes de valuar solo`;
 
 /**
  * Calcula (sin guardar) la valuación automática del activo con el último precio de su fuente
@@ -73,7 +73,7 @@ export const calcularValuacionAutomatica = async (asset, movimientos) => {
     return { fecha, precio: null, unidades: null, monto: devengarTasaFija(movimientos, tasa, fecha), fuente: 'Tasa fija', tasa_anual: tasa };
   }
   // INV-09: con aportes del extracto sin cuotapartes la tenencia sale incompleta
-  const sinUnidades = movimientosDeExtractoSinUnidades(movimientos);
+  const sinUnidades = movimientosDeExtractoSinUnidades(asset, movimientos);
   if (sinUnidades > 0) throw new AppError(mensajeFaltanUnidades(sinUnidades), 409);
   const cotizacion = await obtenerPrecio(asset);
   return { ...calcularValuacionPorPrecio(asset, movimientos, cotizacion), fuente: cotizacion.fuente };
@@ -145,7 +145,7 @@ export const valuarActivos = async (activos, { movimientosDe, calcular, cotizaci
     try {
       const movimientos = await movimientosDe(asset);
       // INV-09: no se valúa solo un activo con aportes del extracto sin cuotapartes (la tenencia saldría mal)
-      if (asset.fuente_precio !== 'tasa_fija' && movimientosDeExtractoSinUnidades(movimientos) > 0) {
+      if (asset.fuente_precio !== 'tasa_fija' && movimientosDeExtractoSinUnidades(asset, movimientos) > 0) {
         resumen.faltan_unidades++;
         continue;
       }

@@ -12,12 +12,18 @@ const tieneUnidades = (mov) => typeof mov.unidades === 'number' && Number.isFini
 
 /**
  * Aportes y retiros que creó un extracto (INV) y todavía no tienen cuotapartes. Con precio por unidad, valuar
- * así daría una tenencia incompleta: hay que completarlos (importador de Fima) antes de valuar solo.
+ * así daría una tenencia incompleta: hay que completarlos antes de valuar solo. Si la cuenta de unidades ya
+ * cierra (una Valuación con unidades posterior, o unidades cargadas a mano en el activo) no bloquea.
+ * @param {Object} activo
  * @param {Array<{ tipo: string, origen?: string, unidades?: number }>} movimientos
  * @returns {number}
  */
-export const movimientosDeExtractoSinUnidades = (movimientos = []) => movimientos
-  .filter(m => m.origen === 'extracto' && m.tipo !== 'Valuacion' && !tieneUnidades(m)).length;
+export const movimientosDeExtractoSinUnidades = (activo, movimientos = []) => {
+  const pendientes = movimientos.filter(m => m.origen === 'extracto' && m.tipo !== 'Valuacion' && !tieneUnidades(m)).length;
+  if (!pendientes) return 0;
+  const { unidades, incompletas } = calcularUnidades(activo, movimientos);
+  return unidades === null || incompletas ? pendientes : 0;
+};
 
 /**
  * Unidades en tenencia de un activo (cuotapartes, acciones, BTC...).
