@@ -19,14 +19,13 @@ const Layout = () => {
 
   const navItems = [
     { name: 'Inicio', path: '/inicio' },
-    { name: 'Bandeja', path: '/bandeja', badge: pendientesBandeja },
     { name: 'Avisos', path: '/avisos', badge: avisosNoLeidos },
-    { name: 'Datos', path: '/datos' },
-    { name: 'Inversiones', path: '/inversiones' },
-    { name: 'Migración', path: '/migracion' }
+    { name: 'Datos', path: '/datos', badge: pendientesBandeja },
+    { name: 'Inversiones', path: '/inversiones' }
   ]
 
-  const isActive = (path) => location.pathname === path
+  // Las rutas anidadas (/datos/historial) también dejan marcado el ítem del menú
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
     <div className="h-screen flex bg-gray-900 overflow-hidden">

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { migrateService, operationsService } from '../services/transactionService'
-import ConfirmModal from '../components/ConfirmModal'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { migrateService } from '../../services/transactionService'
+import ConfirmModal from '../ConfirmModal'
 
-const Migracion = () => {
+const MigracionTab = () => {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -11,116 +12,6 @@ const Migracion = () => {
   const [migrationResult, setMigrationResult] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [operations, setOperations] = useState([])
-  const [loadingOperations, setLoadingOperations] = useState(false)
-  const [showRollbackModal, setShowRollbackModal] = useState(false)
-  const [selectedOperation, setSelectedOperation] = useState(null)
-
-  useEffect(() => {
-    loadOperations()
-  }, [])
-
-  const loadOperations = async () => {
-    try {
-      setLoadingOperations(true)
-      const response = await operationsService.getAll('migration', null, 10)
-      setOperations(response.data)
-    } catch (error) {
-      console.error('Error loading operations:', error)
-    } finally {
-      setLoadingOperations(false)
-    }
-  }
-
-  const handleRollback = async (operation) => {
-    setSelectedOperation(operation)
-    setShowRollbackModal(true)
-  }
-
-  const confirmRollback = async () => {
-    if (!selectedOperation) return
-
-    try {
-      const response = await operationsService.rollback(selectedOperation.operation_id)
-      setMessage({ 
-        type: 'success', 
-        text: response.message
-      })
-      loadOperations()
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Error al hacer rollback'
-      })
-    } finally {
-      setSelectedOperation(null)
-      setShowRollbackModal(false)
-    }
-  }
-
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0]
-    setFile(selectedFile)
-    setPreview(null)
-    setMessage(null)
-    setMigrationResult(null)
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-
-    const droppedFile = e.dataTransfer.files[0]
-    if (droppedFile) {
-      // Validate file type
-      if (droppedFile.name.toLowerCase().endsWith('.xlsx') || droppedFile.name.toLowerCase().endsWith('.xls')) {
-        setFile(droppedFile)
-        setPreview(null)
-        setMessage(null)
-        setMigrationResult(null)
-      } else {
-        setMessage({ type: 'error', text: 'Por favor selecciona un archivo Excel (.xlsx o .xls)' })
-      }
-    }
-  }
-
-  const handlePreview = async () => {
-    if (!file) {
-      setMessage({ type: 'error', text: 'Por favor selecciona un archivo Excel' })
-      return
-    }
-
-    try {
-      setLoading(true)
-      setMessage(null)
-      const response = await migrateService.preview(file)
-      setPreview(response.data.preview)
-      setMessage({ 
-        type: 'success', 
-        text: `Se encontraron ${response.data.preview.totals.total_transacciones} transacciones en ${response.data.preview.totals.sheets_con_datos} hojas`
-      })
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Error al obtener preview del archivo'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleMigrate = async () => {
     if (!file || !preview) {
@@ -147,9 +38,7 @@ const Migracion = () => {
       setFile(null)
       setPreview(null)
       document.getElementById('file-upload-migrate').value = ''
-      
-      // Reload operations
-      loadOperations()
+
     } catch (error) {
       setMessage({ 
         type: 'error', 
@@ -173,7 +62,7 @@ const Migracion = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Migración de Excel a Mango</h1>
+        <h2 className="text-2xl font-bold text-white mb-2">Migración de Excel a Mango</h2>
         <p className="text-gray-400">Importá tus archivos Excel históricos completos a la base de datos</p>
       </div>
 
@@ -182,6 +71,7 @@ const Migracion = () => {
         <div className={`card ${message.type === 'error' ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800'}`}>
           <p className={message.type === 'error' ? 'text-red-400' : 'text-green-400'}>
             {message.text}
+            {message.type !== 'error' && <> <Link to="/datos/historial" className="underline">Ver en el historial</Link></>}
           </p>
         </div>
       )}
@@ -382,67 +272,6 @@ const Migracion = () => {
         </>
       )}
 
-      {/* Operations History */}
-      <div className="card">
-        <h3 className="text-xl font-semibold mb-4">Historial de Migraciones</h3>
-        
-        {loadingOperations ? (
-          <p className="text-gray-400 text-center py-4">Cargando historial...</p>
-        ) : operations.length === 0 ? (
-          <p className="text-gray-400 text-center py-4">No hay migraciones registradas</p>
-        ) : (
-          <div className="space-y-3">
-            {operations.map((op) => (
-              <div 
-                key={op.operation_id} 
-                className={`p-4 rounded-lg border transition-colors ${
-                  op.status === 'rolled_back' 
-                    ? 'bg-gray-700/30 border-gray-600' 
-                    : 'bg-gray-700/50 border-gray-600 hover:border-gray-500'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="font-semibold text-white">{op.filename}</h4>
-                      {op.status === 'rolled_back' && (
-                        <span className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-400 border border-red-800">
-                          Revertida
-                        </span>
-                      )}
-                      {op.status === 'completed' && (
-                        <span className="text-xs px-2 py-1 rounded bg-green-900/50 text-green-400 border border-green-800">
-                          Completada
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-4 mt-2 text-sm text-gray-400">
-                      <span>{op.transactions_count} transacciones</span>
-                      <span>Balance: ${formatNumber(op.balance)}</span>
-                      <span>{new Date(op.timestamp || op.created_at).toLocaleDateString('es-AR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}</span>
-                    </div>
-                  </div>
-                  {op.status === 'completed' && (
-                    <button
-                      onClick={() => handleRollback(op)}
-                      className="px-3 py-1.5 text-sm rounded-lg bg-red-900/30 text-red-400 border border-red-800 hover:bg-red-900/50 transition-colors"
-                    >
-                      Revertir
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Confirm Migration Modal */}
       <ConfirmModal
         isOpen={showConfirmModal}
@@ -455,22 +284,8 @@ const Migracion = () => {
         type="warning"
       />
 
-      {/* Confirm Rollback Modal */}
-      <ConfirmModal
-        isOpen={showRollbackModal}
-        onClose={() => {
-          setShowRollbackModal(false)
-          setSelectedOperation(null)
-        }}
-        onConfirm={confirmRollback}
-        title="Confirmar Eliminación"
-        message={`¿Estás seguro de eliminar la migración "${selectedOperation?.filename}"? Se eliminarán ${selectedOperation?.transactions_count || 0} transacciones.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        type="danger"
-      />
     </div>
   )
 }
 
-export default Migracion
+export default MigracionTab

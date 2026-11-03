@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import useBandeja from '../hooks/useBandeja'
-import BandejaDropzone from '../components/bandeja/BandejaDropzone'
-import DocumentosTable from '../components/bandeja/DocumentosTable'
-import RevisarDocumentoModal from '../components/bandeja/RevisarDocumentoModal'
-import ElegirTipoModal from '../components/bandeja/ElegirTipoModal'
-import CalendarioCierres from '../components/bandeja/CalendarioCierres'
-import ConfirmModal from '../components/ConfirmModal'
+import useBandeja from '../../hooks/useBandeja'
+import BandejaDropzone from '../bandeja/BandejaDropzone'
+import DocumentosTable from '../bandeja/DocumentosTable'
+import RevisarDocumentoModal from '../bandeja/RevisarDocumentoModal'
+import ElegirTipoModal from '../bandeja/ElegirTipoModal'
+import CalendarioCierres from '../bandeja/CalendarioCierres'
+import ConfirmModal from '../ConfirmModal'
 
 // Bandeja de resúmenes: soltar todos los archivos del mes, revisar e importar
-const Bandeja = () => {
+const BandejaTab = () => {
   const bandeja = useBandeja()
   const [revisando, setRevisando] = useState(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(null)
@@ -20,7 +20,7 @@ const Bandeja = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Bandeja</h1>
+          <h2 className="text-2xl font-bold text-white">Bandeja</h2>
           <p className="text-gray-400 mt-1">Los resúmenes que entran quedan acá para revisar e importar</p>
         </div>
         {listos.length > 0 && (
@@ -87,4 +87,4 @@ const Bandeja = () => {
   )
 }
 
-export default Bandeja
+export default BandejaTab
