@@ -94,7 +94,7 @@ Diseño: [bandeja-en-datos.md](bandeja-en-datos.md). La Bandeja deja de ser una 
 | DAT-02 | **Canal de la carga.** Campos `canal`/`automatica`/`ingest_document_id` en `Operation` (sin default), `canalDeOperacion` para deducir las viejas al leer, `GET /operations` enriquecido. | — | M | hecho |
 | DAT-03 | **Datos con pestañas.** Rutas anidadas Bandeja \| Cargar \| Historial \| Migración, redirecciones de `/bandeja` y `/migracion`, menú y badge. | DAT-01 | M | hecho |
 | DAT-04 | **Origen y Cuenta en el historial.** Columna Origen con chip, "Cuenta", filtro y aviso "volvió a la Bandeja" al revertir. | DAT-02, DAT-03 | S | hecho |
-| DAT-06 | **Links y textos.** `LINK_BANDEJA = '/datos/bandeja'` en avisos y jobs, textos de Configuración, README del script y docs. | DAT-03 | S | pendiente |
+| DAT-06 | **Links y textos.** `LINK_BANDEJA = '/datos/bandeja'` en avisos y jobs, textos de Configuración, README del script y docs. | DAT-03 | S | hecho |
 | DAT-05 | **Achicar `CargarTab`.** Hook + `FormularioResumen`, sacar código inalcanzable. | DAT-03 | M | pendiente |
 
 ---

@@ -103,7 +103,7 @@ Todo termina en el mismo lugar: una **Bandeja** con los documentos pendientes de
 El contenido se borra a los N días de importado (configurable): Mango no es un archivo de resúmenes.
 
 **UI**:
-- Nueva sección **Bandeja**, con un badge en el menú con la cantidad de documentos `listo`.
+- Pestaña **Bandeja** dentro de **Datos** (DAT-03; antes era una sección aparte, `/bandeja` redirige), con un badge en el menú de Datos con la cantidad de documentos `listo`.
 - Una zona de drop que acepta varios archivos a la vez. Cada archivo pasa a ser una fila con banco, tipo, período, cantidad de transacciones, duplicados y estado.
 - "Revisar" abre el editor de transacciones que ya existe (el de Migración), con los duplicados marcados. "Importar" guarda. "Descartar" lo saca de la bandeja.
 - "Importar todos los listos" sirve para los meses tranquilos.

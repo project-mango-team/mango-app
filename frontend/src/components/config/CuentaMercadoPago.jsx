@@ -90,7 +90,7 @@ const CuentaMercadoPago = () => {
       <div>
         <h2 className="text-lg font-semibold text-white">Mercado Pago</h2>
         <p className="text-sm text-gray-400 mt-1">
-          Con tu access token, Mango trae los movimientos de tu cuenta todos los días y los deja en la Bandeja, sin bajar el CSV a mano. Solo los lee.
+          Con tu access token, Mango trae los movimientos de tu cuenta todos los días y los deja en la Bandeja (en Datos), sin bajar el CSV a mano. Solo los lee.
         </p>
       </div>
 

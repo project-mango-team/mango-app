@@ -50,5 +50,5 @@ Documento para retomar en una sesión nueva. El plan vive en [backlog.md](backlo
 
 ## Archivos clave de la épica ING
 - Backend: `services/statementImportService.js` (parseo, detección, duplicados, guardado), `services/ingestService.js` (Bandeja), `models/IngestDocument.js`, `models/ApiToken.js`, `middleware/apiToken.js`, `controllers/{bandeja,ingest,token}Controller.js`, `utils/transactionDedup.js`, `parsers/*` (cada uno con `static detectar`).
-- Frontend: `pages/Bandeja.jsx` + `components/bandeja/*`, `hooks/useBandeja*.js`, `pages/Configuracion.jsx` (tokens), `components/TransactionEditor.jsx` (filas duplicadas), `hooks/useDeteccionResumen.js` (Datos).
+- Frontend: `pages/Datos.jsx` (layout con pestañas Bandeja | Cargar | Historial | Migración) + `components/datos/*Tab.jsx` (la Bandeja es `BandejaTab.jsx`) + `components/bandeja/*`, `hooks/useBandeja*.js`, `pages/Configuracion.jsx` (tokens), `components/TransactionEditor.jsx` (filas duplicadas), `hooks/useDeteccionResumen.js` (Datos).
 - Integración: `integrations/gmail-apps-script/` (`Mango.gs` + README de instalación).

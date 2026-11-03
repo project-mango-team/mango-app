@@ -3,6 +3,7 @@
 // Ver plans/mercadopago.md.
 
 import { MAX_DIAS_REPORTE } from '../services/mercadoPagoClient.js';
+import { LINK_BANDEJA } from './notificaciones.js';
 
 // Sin nada importado ni sincronizado, la primera sync trae los últimos 30 días
 export const DIAS_PRIMERA_SYNC = 30;
@@ -118,7 +119,7 @@ export const avisoDeSync = (resultado, dia) => {
       nivel: 'info',
       titulo: 'Movimientos de Mercado Pago en la Bandeja',
       mensaje: `${movimientos} ${movimientos === 1 ? 'movimiento' : 'movimientos'} del ${diaMes(desde)} al ${diaMes(hasta)}, listos para revisar.`,
-      link: '/bandeja',
+      link: LINK_BANDEJA,
       clave: `mp-sync:${desde}:${hasta}`
     };
   }

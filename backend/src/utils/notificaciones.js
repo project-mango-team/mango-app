@@ -2,6 +2,9 @@ import { FUENTES, fuenteDeDeteccion, fuenteDeAviso } from './fuentesResumen.js';
 
 // Textos de las notificaciones que genera Mango. Devuelven el objeto que recibe notificar().
 
+// La Bandeja es una pestaña de Datos (DAT-03); /bandeja redirige acá, así que las notificaciones viejas siguen andando
+export const LINK_BANDEJA = '/datos/bandeja';
+
 const LARGO_TITULO = 120;
 const LARGO_MENSAJE = 500;
 
@@ -40,7 +43,7 @@ export const avisoResumenNuevo = (documento) => {
       nivel: 'exito',
       titulo: fuente ? `Importé el resumen de ${fuente}` : 'Importé un resumen automáticamente',
       mensaje: `${documento.filename} se importó solo. Si algo no está bien, deshacelo desde la Bandeja.`,
-      link: '/bandeja',
+      link: LINK_BANDEJA,
       clave: `ingest:${documento._id}`
     };
   }
@@ -49,7 +52,7 @@ export const avisoResumenNuevo = (documento) => {
     nivel: 'info',
     titulo: fuente ? `Llegó el resumen de ${fuente}` : 'Llegó un resumen nuevo',
     mensaje: `${documento.filename} está en la Bandeja para revisar.`,
-    link: '/bandeja',
+    link: LINK_BANDEJA,
     clave: `ingest:${documento._id}`
   };
 };
@@ -62,7 +65,7 @@ export const avisoResumenDisponible = (documento) => {
     nivel: 'alerta',
     titulo: fuente ? `Tu resumen de ${fuente} está disponible` : 'Tenés un resumen disponible para bajar',
     mensaje: 'El mail no trae el archivo: bajalo del homebanking y subilo en la Bandeja.',
-    link: '/bandeja',
+    link: LINK_BANDEJA,
     clave: `ingest:${documento._id}`
   };
 };

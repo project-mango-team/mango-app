@@ -52,7 +52,7 @@ const TokensIntegracion = () => {
       <div>
         <h2 className="text-lg font-semibold text-white">Tokens de integración</h2>
         <p className="text-sm text-gray-400 mt-1">
-          Permiten que el script de Gmail mande los resúmenes que te llegan por mail a la Bandeja.
+          Permiten que el script de Gmail mande los resúmenes que te llegan por mail a la Bandeja (en Datos).
           Solo sirven para subir documentos: no dan acceso a tus datos.
         </p>
       </div>

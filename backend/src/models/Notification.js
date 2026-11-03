@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema({
   nivel: { type: String, enum: NIVELES_NOTIFICACION, default: 'info' },
   titulo: { type: String, required: true },
   mensaje: String,
-  // Ruta del frontend a la que lleva (por ejemplo '/bandeja')
+  // Ruta del frontend a la que lleva (por ejemplo '/datos/bandeja')
   link: String,
   // Opcional: evita duplicados (una sola notificación por clave y usuario)
   clave: String,

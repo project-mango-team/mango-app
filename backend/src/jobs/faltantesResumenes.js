@@ -2,6 +2,7 @@ import FuenteConfig from '../models/FuenteConfig.js';
 import { checklistDelUsuario } from '../services/calendarioService.js';
 import { notificar } from '../services/notificationService.js';
 import { FUENTES } from '../utils/fuentesResumen.js';
+import { LINK_BANDEJA } from '../utils/notificaciones.js';
 
 const fechaCorta = (iso) => iso.split('-').reverse().slice(0, 2).join('/');
 
@@ -32,7 +33,7 @@ export default {
           nivel: 'alerta',
           titulo: `Falta el resumen de ${FUENTES[fila.fuente].nombre}`,
           mensaje: `Cerró el ${fechaCorta(fila.cierre)} y todavía no llegó.${aviso ? '' : ' Revisá el mail o bajalo del homebanking y subilo a la Bandeja.'}`,
-          link: '/bandeja',
+          link: LINK_BANDEJA,
           clave: `faltante:${fila.fuente}:${fila.cierre}`
         });
       }

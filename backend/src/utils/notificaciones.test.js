@@ -29,7 +29,7 @@ describe('avisos de la Bandeja', () => {
     const n = avisoResumenNuevo({ _id: 'd1', filename: 'visa.pdf', deteccion: { tipo: 'galicia', producto: 'visa' } });
     expect(n.titulo).toBe('Llegó el resumen de Visa Galicia');
     expect(n.mensaje).toContain('visa.pdf');
-    expect(n.link).toBe('/bandeja');
+    expect(n.link).toBe('/datos/bandeja');
     expect(n.clave).toBe('ingest:d1');
   });
 
