@@ -13,6 +13,70 @@ const MigracionTab = () => {
   const [isDragging, setIsDragging] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0]
+    setFile(selectedFile)
+    setPreview(null)
+    setMessage(null)
+    setMigrationResult(null)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile) {
+      // Validate file type
+      if (droppedFile.name.toLowerCase().endsWith('.xlsx') || droppedFile.name.toLowerCase().endsWith('.xls')) {
+        setFile(droppedFile)
+        setPreview(null)
+        setMessage(null)
+        setMigrationResult(null)
+      } else {
+        setMessage({ type: 'error', text: 'Por favor selecciona un archivo Excel (.xlsx o .xls)' })
+      }
+    }
+  }
+
+  const handlePreview = async () => {
+    if (!file) {
+      setMessage({ type: 'error', text: 'Por favor selecciona un archivo Excel' })
+      return
+    }
+
+    try {
+      setLoading(true)
+      setMessage(null)
+      const response = await migrateService.preview(file)
+      setPreview(response.data.preview)
+      setMessage({ 
+        type: 'success', 
+        text: `Se encontraron ${response.data.preview.totals.total_transacciones} transacciones en ${response.data.preview.totals.sheets_con_datos} hojas`
+      })
+    } catch (error) {
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Error al obtener preview del archivo'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleMigrate = async () => {
     if (!file || !preview) {
       setMessage({ type: 'error', text: 'Por favor genera el preview primero' })
@@ -71,7 +135,7 @@ const MigracionTab = () => {
         <div className={`card ${message.type === 'error' ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800'}`}>
           <p className={message.type === 'error' ? 'text-red-400' : 'text-green-400'}>
             {message.text}
-            {message.type !== 'error' && <> <Link to="/datos/historial" className="underline">Ver en el historial</Link></>}
+            {message.type !== 'error' && migrationResult && <> <Link to="/datos/historial" className="underline">Ver en el historial</Link></>}
           </p>
         </div>
       )}

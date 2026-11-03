@@ -118,6 +118,7 @@ router.post('/:operationId/rollback', async (req, res, next) => {
       data: {
         operation_id: operationId,
         deleted_count: deleteResult.deletedCount,
+        reabierto: deleteResult.reabierto,
         filename: operation.filename,
         type: operation.type,
         rolled_back_at: operation.rolled_back_at

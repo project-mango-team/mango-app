@@ -29,7 +29,7 @@ const useHistorialCargas = () => {
   const revertir = async (operacion) => {
     try {
       const res = await operationsService.rollback(operacion.operation_id)
-      const vuelveABandeja = ['bandeja', 'mail', 'api'].includes(operacion.canal)
+      const vuelveABandeja = ['bandeja', 'mail', 'api'].includes(operacion.canal) && res.data?.reabierto !== false
       setMensaje({
         type: 'success',
         text: vuelveABandeja ? `${res.message}. El documento volvió a la Bandeja para revisar.` : res.message
