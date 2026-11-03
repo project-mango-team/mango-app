@@ -57,7 +57,7 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.duplicado) motivos.push('duplicado');
   if (t.interno_sugerido && t.categoria !== CATEGORIA_INTERNO) motivos.push('interno');
   // INV: una inversión elegida por regla que no se puede cargar (moneda distinta, activo borrado)
-  if (t.inversion?.error) motivos.push('inversion');
+  if (t.inversion?.error && t.categoria === 'Inversión') motivos.push('inversion');
   const limite = limites[t.categoria];
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto');
   return motivos;

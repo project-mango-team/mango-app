@@ -7,6 +7,8 @@ const fechaCorta = (iso) => iso.split('-').reverse().slice(0, 2).join('/')
 const InversionSugerida = ({ fila, onCambiar }) => {
   const inv = fila.inversion
   if (!inv?.activo_id) return null
+  // Si la fila dejó de ser una Inversión (el usuario le cambió la categoría) ya no se ofrece cargarla
+  if (fila.categoria !== 'Inversión') return null
 
   if (inv.error) {
     return <p className="mt-1 text-xs text-amber-400">No se carga en Inversiones: {inv.error}</p>
@@ -28,7 +30,7 @@ const InversionSugerida = ({ fila, onCambiar }) => {
         disabled={fila.duplicado || fila.ignorada}
         onChange={(e) => onCambiar(e.target.checked)}
       />
-      Cargar en Inversiones · {inv.tipo === 'Retiro' ? 'retiro' : 'aporte'} de {formatImporte(inv.monto)} en {inv.activo_nombre}
+      Cargar en Inversiones · {inv.tipo === 'Retiro' ? 'retiro' : 'aporte'} de {formatImporte(inv.monto, fila.moneda)} en {inv.activo_nombre}
     </label>
   )
 }

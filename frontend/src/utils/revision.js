@@ -11,7 +11,7 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.comercio_nuevo) motivos.push('nuevo')
   if (t.duplicado) motivos.push('duplicado')
   if (t.interno_sugerido && t.categoria !== INTERNO) motivos.push('interno')
-  if (t.inversion?.error) motivos.push('inversion')
+  if (t.inversion?.error && t.categoria === 'Inversión') motivos.push('inversion')
   const limite = limites?.[t.categoria]
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto')
   return motivos
@@ -20,6 +20,7 @@ export const motivosDeRevision = (t, limites = {}) => {
 // Etiquetas de los motivos que no tienen ya su propio aviso en la fila (duplicado e interno sí lo tienen)
 export const etiquetaMotivo = (motivo, t, limites = {}) => ({
   otros: 'Sin categoría',
+  inversion: 'No se carga en Inversiones',
   nuevo: 'Comercio nuevo',
   monto: `Monto alto para ${t.categoria} (suele ser hasta ${formatImporte(limites?.[t.categoria])})`
 }[motivo] || null)

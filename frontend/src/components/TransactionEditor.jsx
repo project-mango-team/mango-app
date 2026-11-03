@@ -163,7 +163,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
       .map(({ _id, incluir, duplicado, ignorada, regla, interno_sugerido, inversion, ...rest }) => ({
         ...rest,
         // INV: del cliente solo viaja la inversión elegida y si se tildó cargarla; el servidor recalcula el resto
-        ...(inversion?.activo_id && { inversion: { activo_id: inversion.activo_id, crear: Boolean(inversion.crear) } }),
+        ...(inversion?.activo_id && { inversion: { activo_id: inversion.activo_id, crear: Boolean(inversion.crear) && rest.categoria === 'Inversión' } }),
         // REV-04: al guardarla como interna, la contraparte ya cargada también pasa a interna
         ...(rest.categoria === INTERNO && interno_sugerido?.con?._id && { interno_con: interno_sugerido.con._id })
       }))
