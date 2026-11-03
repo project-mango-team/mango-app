@@ -7,15 +7,19 @@
  *     origen: String | null, tipo: 'Gasto' | 'Ingreso' | null,
  *     montoMin: Number | null, montoMax: Number | null              // sobre el importe en ARS
  *   }
- *   accion: { tipo: 'categoria', categoria } | { tipo: 'ignorar' }
+ *   accion: { tipo: 'categoria', categoria } | { tipo: 'ignorar' } | { tipo: 'inversion', activo_id }
+ *   (inversion: la transacción queda en la categoría Inversión y se ofrece cargarla como aporte o retiro del activo, INV-03)
  *
  * Todas las condiciones presentes se tienen que cumplir. Las reglas se evalúan en orden y gana la
  * primera que coincide, igual que las keywords que reemplazan.
  */
 
+import { CATEGORIA_INVERSION } from '../models/User.js';
+
 export const CATEGORIA_SIN_REGLA = 'Otros';
 export const MODOS_DETALLE = ['contiene', 'regex'];
-export const TIPOS_ACCION = ['categoria', 'ignorar'];
+export const TIPOS_ACCION = ['categoria', 'ignorar', 'inversion'];
+const ID_RE = /^[a-f0-9]{24}$/i;
 const MAX_REGEX = 200;
 
 const vacio = (v) => v === undefined || v === null || v === '';
@@ -71,6 +75,10 @@ export const validarRegla = (datos, categorias = []) => {
     if (!categoria) return { error: 'Elegí una categoría' };
     if (categorias.length && !categorias.includes(categoria)) return { error: 'La categoría no existe' };
     accion = { tipo: 'categoria', categoria };
+  } else if (a.tipo === 'inversion') {
+    const activoId = String(a.activo_id || '').trim();
+    if (!ID_RE.test(activoId)) return { error: 'Elegí la inversión' };
+    accion = { tipo: 'inversion', categoria: CATEGORIA_INVERSION, activo_id: activoId };
   }
 
   return {
@@ -137,6 +145,10 @@ export const aplicarReglas = (transactions, reglas) => {
     const id = regla._id ? String(regla._id) : null;
     if (regla.accion?.tipo === 'ignorar') return { ...t, ignorada: true, regla: id };
     if (t.categoria && t.categoria !== CATEGORIA_SIN_REGLA) return t;
+    // La inversión solo marca a qué activo iría; el servidor recalcula y valida todo al previsualizar y al guardar
+    if (regla.accion?.tipo === 'inversion') {
+      return { ...t, categoria: CATEGORIA_INVERSION, regla: id, inversion: { activo_id: String(regla.accion.activo_id) } };
+    }
     return { ...t, categoria: regla.accion.categoria, regla: id };
   });
 };

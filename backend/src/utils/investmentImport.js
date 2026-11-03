@@ -94,3 +94,39 @@ export const emparejarExistentes = (operaciones, existentes) => {
  */
 export const marcarDuplicados = (operaciones, existentes) =>
   emparejarExistentes(operaciones, existentes).map(Boolean);
+
+const DIA_MS = 86400000;
+const diaDe = (fecha) => {
+  const d = fecha instanceof Date ? fecha : new Date(String(fecha).length <= 10 ? `${fecha}T00:00:00Z` : fecha);
+  return Math.floor(d.getTime() / DIA_MS);
+};
+
+/**
+ * Como emparejarExistentes, pero tolera que la fecha difiera hasta `dias` días (el extracto del banco y la app
+ * del broker no siempre acreditan el mismo día). Mismo tipo y mismo monto al centavo; cada movimiento existente
+ * se usa una sola vez y gana el más cercano en fecha (primero se emparejan los del mismo día).
+ * @param {Array<{ fecha: Date|string, tipo: string, monto: number }>} operaciones
+ * @param {Array<{ fecha: Date|string, tipo: string, monto: number }>} existentes
+ * @param {{ dias?: number }} [opciones]
+ * @returns {Array<Object|null>} el movimiento existente de cada operación (o null), en el mismo orden
+ */
+export const emparejarConTolerancia = (operaciones, existentes, { dias = 3 } = {}) => {
+  const centavos = (monto) => Math.round(monto * 100);
+  const libres = existentes.map(e => ({ e, dia: diaDe(e.fecha), tipo: e.tipo, c: centavos(e.monto), usado: false }));
+  const resultado = operaciones.map(() => null);
+
+  for (let tolerancia = 0; tolerancia <= dias; tolerancia++) {
+    operaciones.forEach((op, i) => {
+      if (resultado[i]) return;
+      const dia = diaDe(op.fecha);
+      const c = centavos(op.monto);
+      const candidato = libres
+        .filter(l => !l.usado && l.tipo === op.tipo && l.c === c && Math.abs(l.dia - dia) === tolerancia)[0];
+      if (candidato) {
+        candidato.usado = true;
+        resultado[i] = candidato.e;
+      }
+    });
+  }
+  return resultado;
+};

@@ -11,6 +11,7 @@ import { resumirPrestamos } from '../utils/loanCalc.js';
 import { parseOperacionesFima, emparejarExistentes } from '../utils/investmentImport.js';
 import { calcularUnidades, parseUnidades, normalizarFuentePrecio } from '../utils/investmentValuation.js';
 import { FciService } from '../services/fciService.js';
+import { reglasDeInversionACategoria } from '../services/ruleService.js';
 import { calcularValuacionAutomatica, guardarValuacionAutomatica } from '../services/valuationService.js';
 import { parseFecha, parseMonto, parseCotizacion } from '../utils/inputParsers.js';
 import {
@@ -304,6 +305,8 @@ export const deleteAsset = async (req, res, next) => {
     const asset = await findAssetOrFail(req, req.params.id);
     const { deletedCount } = await InvestmentMovement.deleteMany(buildUserQuery(req, { asset_id: asset._id }));
     await InvestmentAsset.deleteOne(buildUserQuery(req, { _id: asset._id }));
+    // INV-03: las reglas que cargaban en este activo vuelven a ser de categoría Inversión
+    await reglasDeInversionACategoria(req, asset._id);
 
     res.json({
       success: true,

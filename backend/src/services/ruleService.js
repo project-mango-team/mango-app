@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 import CategoryRule from '../models/CategoryRule.js';
 import Transaction from '../models/Transaction.js';
-import User from '../models/User.js';
+import User, { CATEGORIA_INVERSION } from '../models/User.js';
+import InvestmentAsset from '../models/InvestmentAsset.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
@@ -41,6 +42,13 @@ const categoriasDelUsuario = async (req) => {
   return user?.categories || [];
 };
 
+// INV-03: la inversión de la regla tiene que ser del usuario (el id viene del cliente)
+const validarActivoDeLaRegla = async (req, regla) => {
+  if (regla.accion?.tipo !== 'inversion') return;
+  const existe = await InvestmentAsset.exists(buildUserQuery(req, { _id: regla.accion.activo_id }));
+  if (!existe) throw new AppError('La inversión elegida no existe', 400);
+};
+
 const findReglaOrFail = async (req, id) => {
   const regla = mongoose.isValidObjectId(id) ? await CategoryRule.findOne(buildUserQuery(req, { _id: id })) : null;
   if (!regla) throw new AppError('Regla no encontrada', 404);
@@ -55,6 +63,7 @@ export const crearRegla = async (req, datos, { creadaPor = 'usuario' } = {}) => 
   await migrarKeywords(req);
   const { regla, error } = validarRegla(datos, await categoriasDelUsuario(req));
   if (error) throw new AppError(error, 400);
+  await validarActivoDeLaRegla(req, regla);
   const primera = await CategoryRule.findOne(buildUserQuery(req)).sort({ orden: 1 }).select('orden').lean();
   return CategoryRule.create(addUserToData(req, {
     ...regla,
@@ -67,6 +76,7 @@ export const actualizarRegla = async (req, id, datos) => {
   const existente = await findReglaOrFail(req, id);
   const { regla, error } = validarRegla(datos, await categoriasDelUsuario(req));
   if (error) throw new AppError(error, 400);
+  await validarActivoDeLaRegla(req, regla);
   existente.set(regla);
   return existente.save();
 };
@@ -151,6 +161,15 @@ export const deshacerAplicacion = async (req, datos) => {
 export const renombrarCategoriaEnReglas = (req, anterior, nueva) => CategoryRule.updateMany(
   buildUserQuery(req, { 'accion.tipo': 'categoria', 'accion.categoria': anterior }),
   { $set: { 'accion.categoria': nueva } }
+);
+
+/**
+ * Al borrar una inversión, las reglas que cargaban en ella pasan a ser reglas de categoría Inversión
+ * (la transacción sigue categorizada, pero ya no se ofrece cargarla como movimiento).
+ */
+export const reglasDeInversionACategoria = (req, activoId) => CategoryRule.updateMany(
+  buildUserQuery(req, { 'accion.tipo': 'inversion', 'accion.activo_id': activoId }),
+  { $set: { 'accion.tipo': 'categoria', 'accion.categoria': CATEGORIA_INVERSION }, $unset: { 'accion.activo_id': 1 } }
 );
 
 export const eliminarReglasDeCategoria = (req, categoria) => CategoryRule.deleteMany(
