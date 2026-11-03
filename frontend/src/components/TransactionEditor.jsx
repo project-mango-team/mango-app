@@ -3,6 +3,7 @@ import { categoryService } from '../services/transactionService'
 import { motivosDeRevision, etiquetaMotivo } from '../utils/revision'
 import useSugerenciasIA from '../hooks/useSugerenciasIA'
 import SugerenciaIAFila from './SugerenciaIAFila'
+import AsociarDetalleFila from './reglas/AsociarDetalleFila'
 
 const MONEDAS = ['ARS', 'USD']
 const INTERNO = 'Movimiento interno'
@@ -333,6 +334,14 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     onUsar={(categoria) => handleCellChange(t._id, 'categoria', categoria)}
                     crearRegla={ia.crearRegla}
                   />
+                  {!isManualMode && (
+                    <AsociarDetalleFila
+                      fila={t}
+                      transacciones={transactions}
+                      categorias={categories}
+                      onAplicar={(ids, categoria) => setTransactions(prev => prev.map(x => (ids.includes(x._id) ? { ...x, categoria } : x)))}
+                    />
+                  )}
                   <MotivosRevision
                     t={t}
                     limites={limites}
