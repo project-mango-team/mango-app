@@ -2,11 +2,14 @@ import { useState } from 'react'
 import useHistorialCargas from '../../hooks/useHistorialCargas'
 import HistorialCargasTable from './HistorialCargasTable'
 import ConfirmModal from '../ConfirmModal'
+import { ETIQUETAS_CANAL } from './OrigenCarga'
 
 // Todo lo que se cargó, venga de donde venga, con la opción de revertirlo
 const HistorialTab = () => {
   const { operaciones, cargando, mensaje, revertir } = useHistorialCargas()
   const [seleccionada, setSeleccionada] = useState(null)
+  const [canal, setCanal] = useState('')
+  const visibles = canal ? operaciones.filter(o => o.canal === canal) : operaciones
 
   const confirmar = async () => {
     const operacion = seleccionada
@@ -23,13 +26,19 @@ const HistorialTab = () => {
       )}
 
       <div className="card">
-        <h2 className="text-xl font-bold mb-4">Historial de cargas</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Historial de cargas</h2>
+          <select value={canal} onChange={(e) => setCanal(e.target.value)} className="input-field w-auto py-1 text-sm" aria-label="Filtrar por origen">
+            <option value="">Todos los orígenes</option>
+            {Object.entries(ETIQUETAS_CANAL).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
+          </select>
+        </div>
         {cargando ? (
           <div className="text-center py-8 text-gray-400">Cargando historial...</div>
-        ) : operaciones.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">No hay cargas registradas</div>
+        ) : visibles.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">{canal ? 'No hay cargas de ese origen' : 'No hay cargas registradas'}</div>
         ) : (
-          <HistorialCargasTable operaciones={operaciones} onRevertir={setSeleccionada} />
+          <HistorialCargasTable operaciones={visibles} onRevertir={setSeleccionada} />
         )}
       </div>
 

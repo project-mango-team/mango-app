@@ -1,3 +1,5 @@
+import OrigenCarga from './OrigenCarga'
+
 const formatDate = (dateString) => new Date(dateString).toLocaleString('es-AR', {
   year: 'numeric',
   month: '2-digit',
@@ -13,6 +15,7 @@ const HistorialCargasTable = ({ operaciones, onRevertir }) => (
         <tr className="border-b border-gray-700">
           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Archivo</th>
           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Origen</th>
+          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Cuenta</th>
           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Fecha</th>
           <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Estado</th>
           <th className="text-right py-3 px-4 text-sm font-semibold text-gray-300">Transacciones</th>
@@ -24,6 +27,7 @@ const HistorialCargasTable = ({ operaciones, onRevertir }) => (
         {operaciones.map((op) => (
           <tr key={op.operation_id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${op.status === 'rolled_back' ? 'opacity-60' : ''}`}>
             <td className="py-3 px-4 text-sm text-gray-300">{op.filename}</td>
+            <td className="py-3 px-4 text-sm"><OrigenCarga canal={op.canal} automatica={op.automatica} /></td>
             <td className="py-3 px-4 text-sm text-gray-400">{op.origen}</td>
             <td className="py-3 px-4 text-sm text-gray-400">{formatDate(op.timestamp || op.created_at)}</td>
             <td className="py-3 px-4 text-sm">
