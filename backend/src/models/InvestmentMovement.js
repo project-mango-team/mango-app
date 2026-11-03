@@ -64,6 +64,15 @@ const investmentMovementSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // INV-02: de dónde salió. 'app' = cargado en Inversiones; 'extracto' = lo creó Mango al importar un extracto
+  // (en ese caso trae la operación y la transacción que lo originaron, para poder revertirlo)
+  origen: {
+    type: String,
+    enum: ['app', 'extracto'],
+    default: 'app'
+  },
+  operation_id: { type: String, index: true },
+  transaction_id: { type: mongoose.Schema.Types.ObjectId },
   created_at: {
     type: Date,
     default: Date.now

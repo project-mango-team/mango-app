@@ -115,6 +115,25 @@ Diseño: [bandeja-en-datos.md](bandeja-en-datos.md). La Bandeja deja de ser una 
 
 ---
 
+## Épica INV — Movimientos de Fima desde el extracto de la caja de ahorro
+Los aportes y rescates a Fima caen en el extracto de la caja de ahorro de Galicia como gastos e ingresos "Inversión" (neutros). La idea es que, al importar el extracto, Mango cree solo el aporte o retiro en Inversiones, sin duplicar lo que ya se cargó. Decisiones: sin categoría nueva (la transacción queda `Inversión`); el opt-in es una regla de categorización (REV-02) con acción nueva `inversion` {activo_id}; la transacción crea un `InvestmentMovement` (Gasto → Aporte, Ingreso → Retiro; la moneda tiene que coincidir con la del activo) con `origen: 'extracto'`, `operation_id` y `transaction_id`; no se agregan campos a `transactions` (la base la comparte mango-py); dedupe contra lo ya cargado por tipo, monto al centavo y ±3 días; el rollback borra los movimientos sin cuotapartes y desvincula los que ya las tienen.
+
+| ID | Ticket | Depende de | Tam. | Estado |
+|---|---|---|---|---|
+| INV-01 | **Relevar el detalle de Fima en el extracto (lo hace el usuario).** Ver la sección "Fima en el extracto" de [inversiones.md](inversiones.md): ¿el detalle trae el nombre del fondo?, ¿el mismo día que la app de Fima?, ¿el monto al centavo?, ¿hay caja en USD? | — | S | pendiente |
+| INV-02 | **Modelo y reversión.** `InvestmentMovement` con `origen`, `operation_id` y `transaction_id`; `revertirMovimientosDeOperacion` dentro de `revertirOperacion`. | — | S | hecho |
+| INV-03 | **Lógica pura y acción de regla.** `utils/investmentFromStatement.js`, `emparejarConTolerancia` y la acción `inversion` en CategoryRule / `validarRegla` / `aplicarReglas` / `ruleService`. | INV-02 | M | pendiente |
+| INV-09 | **Valuación segura.** Un Aporte del extracto sin cuotapartes en un activo con precio por unidad no se valúa solo: `valuarActivos` lo salta y cuenta `faltan_unidades`; "Valuar ahora" da un error claro. | INV-02 | S | pendiente |
+| INV-08 | **Importador Fima con tolerancia.** Empareja con ±3 días y completa las cuotapartes de los movimientos que creó el extracto. | INV-03 | S | pendiente |
+| INV-04 | **Sugerencia en la vista previa.** `investmentLinkService.marcarInversionesSugeridas`; las cotizaciones pasan a `investmentQuoteService`. | INV-03 | M | pendiente |
+| INV-05 | **Creación al guardar.** En `guardarImportacion`, best effort, con `_id` explícito y antes de vincular contrapartes; `aviso_inversiones` en la respuesta. | INV-04 | M | pendiente |
+| INV-06 | **Revisión.** `InversionSugerida.jsx`: casilla "Cargar en Inversiones", "ya cargado el DD/MM" y error en ámbar. | INV-05 | M | pendiente |
+| INV-07 | **Regla desde la UI.** Acción "Cargar en una inversión" en `ReglaForm` y `reglaTexto`. | INV-03 | S | pendiente |
+| INV-12 | **Integración.** REV-04 `esCandidata` excluye lo de inversión, `reviewFocus` y la importación automática (ING-10). | INV-05 | S | pendiente |
+| INV-10 / INV-11 | **Opcionales**, fuera de esta tanda (ver el plan del architect). | — | — | pendiente |
+
+---
+
 ## Ideas sueltas (sin épica todavía)
 - **Consumos en moneda extranjera mal importados antes del 20/10/2026**: el parser de Visa Galicia guardaba los consumos en reales (y otras monedas que no fueran USD) como pesos con el monto en dólares (por ejemplo, US$ 21,33 → $21,33). Ya está corregido para los imports nuevos (ING-13). Para los ya cargados haría falta una corrección puntual, con preview y confirmación del usuario: no se toca la DB sin que lo pida.
 - **Conciliación mensual**: para cada mes, comparar cuánto cambió el patrimonio contra ingresos − gastos + ganancia de inversiones, y mostrar lo "sin explicar" (lo que se pasó anotar). Requiere tener todas las cuentas y el efectivo cargados como activos.

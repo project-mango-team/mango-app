@@ -7,6 +7,9 @@ vi.mock('../models/Transaction.js', () => ({
 vi.mock('./statementImportService.js', () => ({
   restaurarContrapartes: vi.fn(async () => { orden.push('contrapartes'); })
 }));
+vi.mock('./investmentLinkService.js', () => ({
+  revertirMovimientosDeOperacion: vi.fn(async () => { orden.push('inversiones'); return { borrados: 1, desvinculados: 0 }; })
+}));
 const reabrir = vi.fn();
 vi.mock('./ingestService.js', () => ({ reabrirPorRollback: (...a) => reabrir(...a) }));
 
@@ -22,14 +25,14 @@ describe('revertirOperacion', () => {
     reabrir.mockImplementation(async () => { orden.push('reabrir'); });
   });
 
-  it('borra, restaura contrapartes, marca revertida y reabre el documento, en ese orden', async () => {
+  it('borra, restaura contrapartes, revierte inversiones, marca revertida y reabre el documento, en ese orden', async () => {
     const op = nuevaOperacion();
     const r = await revertirOperacion(req, op);
-    expect(orden).toEqual(['borrar', 'contrapartes', 'guardar', 'reabrir']);
+    expect(orden).toEqual(['borrar', 'contrapartes', 'inversiones', 'guardar', 'reabrir']);
     expect(op.status).toBe('rolled_back');
     expect(op.rolled_back_at).toBeInstanceOf(Date);
     expect(reabrir).toHaveBeenCalledWith(req, 'op-1');
-    expect(r).toEqual({ deletedCount: 3, reabierto: true });
+    expect(r).toEqual({ deletedCount: 3, reabierto: true, inversiones: { borrados: 1, desvinculados: 0 } });
   });
 
   it('si reabrir falla, la reversión igual sale bien', async () => {
@@ -38,7 +41,7 @@ describe('revertirOperacion', () => {
     const op = nuevaOperacion();
     const r = await revertirOperacion(req, op);
     expect(op.status).toBe('rolled_back');
-    expect(r).toEqual({ deletedCount: 3, reabierto: false });
+    expect(r).toEqual({ deletedCount: 3, reabierto: false, inversiones: { borrados: 1, desvinculados: 0 } });
     spy.mockRestore();
   });
 });
