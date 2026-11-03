@@ -3,6 +3,8 @@ import Operation from '../models/Operation.js';
 import Transaction from '../models/Transaction.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildUserQuery } from '../utils/userQuery.js';
+import IngestDocument from '../models/IngestDocument.js';
+import { canalDeOperacion } from '../utils/canalOperacion.js';
 import { revertirOperacion } from '../services/operationService.js';
 
 const router = express.Router();
@@ -25,12 +27,20 @@ router.get('/', async (req, res, next) => {
     const query = buildUserQuery(req, filters);
     const operations = await Operation.find(query)
       .sort({ created_at: -1 })
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
+
+    // DAT-02: las operaciones viejas de la Bandeja se reconocen por el documento que las importó
+    const documentos = await IngestDocument.find(buildUserQuery(req, { operation_id: { $in: operations.map(o => o.operation_id) } }))
+      .select('operation_id fuente auto_importado')
+      .lean();
+    const porOperacion = new Map(documentos.map(d => [d.operation_id, d]));
+    const data = operations.map(op => ({ ...op, ...canalDeOperacion(op, porOperacion.get(op.operation_id)) }));
 
     res.json({
       success: true,
-      count: operations.length,
-      data: operations
+      count: data.length,
+      data
     });
   } catch (error) {
     next(error);

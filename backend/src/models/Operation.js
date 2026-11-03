@@ -34,6 +34,13 @@ const operationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // DAT-02: por dónde entró la carga. Sin default: las operaciones viejas no lo tienen y se deducen al leer
+  canal: {
+    type: String,
+    enum: ['manual', 'archivo', 'bandeja', 'mail', 'api', 'migracion']
+  },
+  automatica: { type: Boolean },
+  ingest_document_id: { type: mongoose.Schema.Types.ObjectId },
   filename: {
     type: String
   },

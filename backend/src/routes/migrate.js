@@ -136,6 +136,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
       type: 'migration',
       status: 'completed',
       origen: 'Migración Excel',
+      canal: 'migracion',
       filename: req.file.originalname,
       transactions_count: result.length,
       total_gastos: safeNumber(totalGastos),

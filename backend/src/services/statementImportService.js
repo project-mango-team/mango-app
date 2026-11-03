@@ -342,8 +342,11 @@ export const getMonthName = (dateStr) => {
  * @param {string} params.tipo - Origen del import ('mercadopago', 'santander', 'galicia', 'manual')
  * @param {string} params.filename
  * @param {string} [params.sha256] - Hash del archivo, para avisar si se vuelve a subir el mismo
+ * @param {string} [params.canal] - Por dónde entró (manual, archivo, bandeja, mail, api); por defecto manual o archivo según `tipo`
+ * @param {boolean} [params.automatica] - Importada sin revisión (ING-10)
+ * @param {string} [params.ingestDocumentId] - Documento de la Bandeja de origen
  */
-export const guardarImportacion = async ({ req, transactions, tipo, filename, sha256 }) => {
+export const guardarImportacion = async ({ req, transactions, tipo, filename, sha256, canal, automatica, ingestDocumentId }) => {
   if (!transactions || transactions.length === 0) {
     throw new AppError('No se encontraron transacciones válidas en el archivo', 400);
   }
@@ -384,6 +387,9 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
     type: 'upload',
     status: 'completed',
     origen: transactions[0]?.origen || tipo,
+    canal: canal || (tipo === 'manual' ? 'manual' : 'archivo'),
+    ...(automatica && { automatica: true }),
+    ...(ingestDocumentId && { ingest_document_id: ingestDocumentId }),
     filename,
     transactions_count: result.length,
     total_gastos: safeNumber(gastos),

@@ -5,6 +5,7 @@ import { isExcelFilename } from '../utils/excelToCsv.js';
 import { normalizarFecha } from '../utils/transactionDedup.js';
 import { DolarService } from './dolarService.js';
 import { compararTotales } from '../utils/totalesResumen.js';
+import { canalDeFuente } from '../utils/canalOperacion.js';
 import { reglasDelUsuario } from './ruleService.js';
 import { autoImportarActivo } from './calendarioService.js';
 import { evaluarAutoImportacion } from '../utils/autoImportacion.js';
@@ -226,7 +227,7 @@ const intentarAutoImportacion = async (req, doc) => {
       doc.auto_motivos = motivos;
       return doc.save();
     }
-    await importarDocumento(req, doc._id);
+    await importarDocumento(req, doc._id, { automatica: true });
     await IngestDocument.updateOne(buildUserQuery(req, { _id: doc._id }), { auto_importado: true, $unset: { auto_motivos: 1 } });
   } catch (error) {
     // No frena la recepción: el documento queda para revisar
@@ -331,7 +332,7 @@ export const actualizarParametros = async (req, id, { tipo, tipoResumen, valorDo
  * Importa el documento. Con `transactions` (editadas en la revisión) guarda esas;
  * si no, las del archivo sin las que ya estaban cargadas.
  */
-export const importarDocumento = async (req, id, { transactions } = {}) => {
+export const importarDocumento = async (req, id, { transactions, automatica = false } = {}) => {
   const doc = await findDocumentoOrFail(req, id, { conContenido: true });
   if (doc.estado !== 'listo') {
     throw new AppError(doc.estado === 'importado' ? 'El documento ya se importó' : 'El documento no está listo para importar', 400);
@@ -350,7 +351,10 @@ export const importarDocumento = async (req, id, { transactions } = {}) => {
     transactions: aGuardar,
     tipo: doc.parametros.tipo,
     filename: doc.filename,
-    sha256: doc.sha256
+    sha256: doc.sha256,
+    canal: canalDeFuente(doc.fuente),
+    automatica,
+    ingestDocumentId: doc._id
   });
 
   doc.estado = 'importado';
