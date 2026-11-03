@@ -33,7 +33,8 @@ const cuantificadorEn = (patron, i) => {
   return { min, max, largo };
 };
 
-const repite = (q) => q.max > 1;
+// Cualquier cuantificador variable (incluido ?) cuenta como repetición: (a?){30}a{30} también explota
+const repite = (q) => q.max > 1 || q.max !== q.min;
 const sinTope = (q) => q.max === Infinity || q.max > TOPE_GRANDE;
 
 /**
@@ -64,7 +65,6 @@ export const analizarRegex = (patron) => {
     } else if (c === '[') {
       let j = i + 1;
       if (texto[j] === '^') j++;
-      if (texto[j] === ']') j++;
       while (j < texto.length && texto[j] !== ']') j += texto[j] === '\\' ? 2 : 1;
       i = cerrarAtomo(j + 1);
     } else if (c === '(') {
