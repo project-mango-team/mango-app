@@ -50,7 +50,7 @@ export const bandejaService = {
   },
 
   deshacer: async (operationId) => {
-    const response = await api.delete(`/upload/rollback/${operationId}`);
+    const response = await api.post(`/operations/${operationId}/rollback`);
     return response.data;
   }
 };

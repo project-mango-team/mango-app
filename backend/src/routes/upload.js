@@ -13,10 +13,9 @@ import {
   marcarDuplicados,
   marcarInternosSugeridos,
   prepararRevision,
-  restaurarContrapartes,
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
-import { reabrirPorRollback } from '../services/ingestService.js';
+import { revertirOperacion } from '../services/operationService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
@@ -319,18 +318,7 @@ router.delete('/rollback/:batchId', async (req, res, next) => {
       });
     }
 
-    // Delete all transactions with this operation_id - user scoped
-    const deleteQuery = buildUserQuery(req, { operation_id: operation.operation_id });
-    const result = await Transaction.deleteMany(deleteQuery);
-    await restaurarContrapartes(req, operation);
-
-    // Update operation status
-    operation.status = 'rolled_back';
-    operation.rolled_back_at = new Date();
-    await operation.save();
-
-    // Si vino de la bandeja, el documento vuelve a quedar para revisar
-    await reabrirPorRollback(req, operation.operation_id);
+    const result = await revertirOperacion(req, operation);
 
     res.json({
       success: true,

@@ -85,6 +85,20 @@ No hace falta integrarse con cada broker: alcanza con saber la cantidad que ten�
 
 ---
 
+## Épica DAT — La Bandeja dentro de Datos
+Diseño: [bandeja-en-datos.md](bandeja-en-datos.md). La Bandeja deja de ser una sección aparte: pasa a ser una pestaña de Datos y lo importado por ahí se ve en el mismo historial de cargas.
+
+| ID | Ticket | Depende de | Tam. | Estado |
+|---|---|---|---|---|
+| DAT-01 | **`revertirOperacion` compartido.** `services/operationService.js` (borra, restaura contrapartes, marca revertida y reabre el documento de la Bandeja) usado por `routes/operations.js` y `routes/upload.js`; `bandejaService.deshacer` usa `/operations/:id/rollback`. → Arregla que revertir desde Datos dejara el documento como importado. | — | S | hecho |
+| DAT-02 | **Canal de la carga.** Campos `canal`/`automatica`/`ingest_document_id` en `Operation` (sin default), `canalDeOperacion` para deducir las viejas al leer, `GET /operations` enriquecido. | — | M | pendiente |
+| DAT-03 | **Datos con pestañas.** Rutas anidadas Bandeja \| Cargar \| Historial \| Migración, redirecciones de `/bandeja` y `/migracion`, menú y badge. | DAT-01 | M | pendiente |
+| DAT-04 | **Origen y Cuenta en el historial.** Columna Origen con chip, "Cuenta", filtro y aviso "volvió a la Bandeja" al revertir. | DAT-02, DAT-03 | S | pendiente |
+| DAT-06 | **Links y textos.** `LINK_BANDEJA = '/datos/bandeja'` en avisos y jobs, textos de Configuración, README del script y docs. | DAT-03 | S | pendiente |
+| DAT-05 | **Achicar `CargarTab`.** Hook + `FormularioResumen`, sacar código inalcanzable. | DAT-03 | M | pendiente |
+
+---
+
 ## Ideas sueltas (sin épica todavía)
 - **Consumos en moneda extranjera mal importados antes del 20/10/2026**: el parser de Visa Galicia guardaba los consumos en reales (y otras monedas que no fueran USD) como pesos con el monto en dólares (por ejemplo, US$ 21,33 → $21,33). Ya está corregido para los imports nuevos (ING-13). Para los ya cargados haría falta una corrección puntual, con preview y confirmación del usuario: no se toca la DB sin que lo pida.
 - **Conciliación mensual**: para cada mes, comparar cuánto cambió el patrimonio contra ingresos − gastos + ganancia de inversiones, y mostrar lo "sin explicar" (lo que se pasó anotar). Requiere tener todas las cuentas y el efectivo cargados como activos.

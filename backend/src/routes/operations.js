@@ -3,7 +3,7 @@ import Operation from '../models/Operation.js';
 import Transaction from '../models/Transaction.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildUserQuery } from '../utils/userQuery.js';
-import { restaurarContrapartes } from '../services/statementImportService.js';
+import { revertirOperacion } from '../services/operationService.js';
 
 const router = express.Router();
 
@@ -99,16 +99,8 @@ router.post('/:operationId/rollback', async (req, res, next) => {
       });
     }
 
-    // Delete all transactions with this operation_id - user scoped
-    const deleteQuery = buildUserQuery(req, { operation_id: operationId });
-    const deleteResult = await Transaction.deleteMany(deleteQuery);
-    // REV-04: las contrapartes marcadas como internas al importar vuelven a su categoría
-    await restaurarContrapartes(req, operation);
-
-    // Update operation status
-    operation.status = 'rolled_back';
-    operation.rolled_back_at = new Date();
-    await operation.save();
+    // Borra las transacciones, restaura contrapartes y, si vino de la Bandeja, reabre el documento
+    const deleteResult = await revertirOperacion(req, operation);
 
     res.json({
       success: true,
