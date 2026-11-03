@@ -68,6 +68,17 @@ export const investmentService = {
     return response.data;
   },
 
+  // INV-11: transacciones 'Inversión' ya cargadas que las reglas mandan a este activo
+  previewBackfill: async (assetId) => {
+    const response = await api.post(`/investments/assets/${assetId}/backfill/preview`);
+    return response.data;
+  },
+
+  aplicarBackfill: async (assetId, transactionIds) => {
+    const response = await api.post(`/investments/assets/${assetId}/backfill`, { transaction_ids: transactionIds });
+    return response.data;
+  },
+
   // { fecha, cotizacion_usd?, cotizacion_eur?, valuaciones: [{ asset_id, monto }] }
   createValuations: async (data) => {
     const response = await api.post('/investments/valuations', data);

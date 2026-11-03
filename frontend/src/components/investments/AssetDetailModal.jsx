@@ -4,6 +4,7 @@ import Modal from '../Modal'
 import ConfirmModal from '../ConfirmModal'
 import MovementForm from './MovementForm'
 import ImportMovementsModal from './ImportMovementsModal'
+import BackfillExtractosModal from './BackfillExtractosModal'
 import { investmentService } from '../../services/investmentService'
 import { formatMoney, formatPercent, formatFecha, mensajeError } from '../../utils/format'
 import ValuationSourceInfo from './ValuationSourceInfo'
@@ -42,6 +43,7 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
   const [form, setForm] = useState(null) // null | { inicial, titulo }
   const [confirmar, setConfirmar] = useState(null) // null | { tipo: 'mov' | 'activo', mov? }
   const [importando, setImportando] = useState(false)
+  const [buscandoExtractos, setBuscandoExtractos] = useState(false)
 
   const cargar = useCallback(async () => {
     try {
@@ -182,6 +184,9 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
                 <button onClick={() => setImportando(true)} className="btn-secondary">
                   Importar
                 </button>
+                <button onClick={() => setBuscandoExtractos(true)} className="btn-secondary">
+                  Buscar en extractos ya cargados
+                </button>
                 {!r.cerrado && r.valor_actual > 0 && (
                   <button
                     onClick={() => setForm({ inicial: { tipo: 'Retiro', monto: r.valor_actual }, titulo: 'Cerrar activo (retiro total)' })}
@@ -261,6 +266,16 @@ const AssetDetailModal = ({ assetId, onClose, onChanged, onEdit, moneda, iniciar
         asset={asset}
         isOpen={importando}
         onClose={() => setImportando(false)}
+        onImported={() => {
+          cargar()
+          onChanged()
+        }}
+      />
+
+      <BackfillExtractosModal
+        asset={asset}
+        isOpen={buscandoExtractos}
+        onClose={() => setBuscandoExtractos(false)}
         onImported={() => {
           cargar()
           onChanged()
