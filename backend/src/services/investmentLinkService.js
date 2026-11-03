@@ -119,6 +119,19 @@ export const crearMovimientosDeExtracto = async (req, transacciones, operationId
 };
 
 /**
+ * Frase para sumar al mensaje de la importación: qué pasó con lo que se pidió cargar en Inversiones
+ * @param {null | { creados: number, duplicados: number, errores: string[] }} aviso
+ */
+export const textoAvisoInversiones = (aviso) => {
+  if (!aviso) return '';
+  const partes = [];
+  if (aviso.creados) partes.push(`Se cargaron ${aviso.creados} movimiento${aviso.creados === 1 ? '' : 's'} en Inversiones`);
+  if (aviso.duplicados) partes.push(`${aviso.duplicados} ya estaba${aviso.duplicados === 1 ? '' : 'n'} cargado${aviso.duplicados === 1 ? '' : 's'}`);
+  if (aviso.errores?.length) partes.push(`No se pudo cargar en Inversiones: ${aviso.errores[0]}`);
+  return partes.length ? `. ${partes.join('. ')}` : '';
+};
+
+/**
  * Al revertir una importación (INV-02), los movimientos de Inversiones que creó el extracto:
  * - sin cuotapartes: se borran, porque solo existen por esa transacción;
  * - con cuotapartes (el usuario ya las completó con el importador de Fima): se conservan y se

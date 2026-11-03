@@ -14,6 +14,7 @@ const formDesdeRegla = (regla) => {
     montoMax: c.montoMax ?? '',
     accion: regla ? accionDeRegla(regla.accion) : 'categoria',
     categoria: regla?.accion?.tipo === 'categoria' ? regla.accion.categoria : '',
+    activoId: regla?.accion?.tipo === 'inversion' ? String(regla.accion.activo_id || '') : '',
     activa: regla?.activa !== false
   }
 }
@@ -31,6 +32,8 @@ const reglaDesdeForm = (f) => ({
   },
   accion: f.accion === 'ignorar'
     ? { tipo: 'ignorar' }
+    : f.accion === 'inversion'
+    ? { tipo: 'inversion', activo_id: f.activoId }
     : { tipo: 'categoria', categoria: f.accion === 'interno' ? CATEGORIA_INTERNO : f.categoria },
   activa: f.activa
 })
@@ -43,7 +46,7 @@ const Campo = ({ label, children, className = '' }) => (
 )
 
 // Alta y edición de una regla: condiciones (todas se tienen que cumplir) → una acción
-const ReglaForm = ({ regla, categorias, onGuardar, onCancelar }) => {
+const ReglaForm = ({ regla, categorias, activos = [], onGuardar, onCancelar }) => {
   const [form, setForm] = useState(() => formDesdeRegla(regla))
   const [error, setError] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -110,9 +113,19 @@ const ReglaForm = ({ regla, categorias, onGuardar, onCancelar }) => {
           <select value={form.accion} onChange={set('accion')} className="input-field w-full">
             <option value="categoria">Asignar categoría</option>
             <option value="interno">Marcar como movimiento interno</option>
+            {(activos.length > 0 || form.accion === 'inversion') && <option value="inversion">Cargar en una inversión</option>}
             <option value="ignorar">No importar</option>
           </select>
         </Campo>
+        {form.accion === 'inversion' && (
+          <Campo label="Inversión" className="sm:col-span-2">
+            <select value={form.activoId} onChange={set('activoId')} className="input-field w-full">
+              <option value="">Elegir…</option>
+              {activos.map(a => <option key={a._id} value={a._id}>{a.nombre} ({a.moneda})</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-gray-500">La transacción queda en la categoría Inversión y, al revisar, se ofrece cargarla como aporte o retiro. La moneda tiene que coincidir con la de la inversión.</span>
+          </Campo>
+        )}
         {form.accion === 'categoria' && (
           <Campo label="Categoría">
             <select value={form.categoria} onChange={set('categoria')} className="input-field w-full">

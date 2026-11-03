@@ -16,7 +16,7 @@ import {
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 import { revertirOperacion } from '../services/operationService.js';
-import { marcarInversionesSugeridas } from '../services/investmentLinkService.js';
+import { marcarInversionesSugeridas, textoAvisoInversiones } from '../services/investmentLinkService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
@@ -227,7 +227,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `Se importaron ${data.transacciones_guardadas} transacciones exitosamente`,
+      message: `Se importaron ${data.transacciones_guardadas} transacciones exitosamente${textoAvisoInversiones(data.aviso_inversiones)}`,
       data
     });
   } catch (error) {

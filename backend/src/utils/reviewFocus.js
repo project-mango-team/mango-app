@@ -42,11 +42,12 @@ export const armarContextoRevision = (historial) => {
  */
 export const marcarComerciosNuevos = (transactions, comercios) => transactions.map(t => ({
   ...t,
-  comercio_nuevo: comercios.size > 0 && !comercios.has(claveComercio(t.detalle))
+  // Lo que una regla manda a una inversión no es un comercio
+  comercio_nuevo: comercios.size > 0 && !t.inversion?.activo_id && !comercios.has(claveComercio(t.detalle))
 }));
 
 /**
- * Motivos para revisar una transacción: otros · nuevo · duplicado · interno · monto
+ * Motivos para revisar una transacción: otros · nuevo · duplicado · interno · monto · inversion
  */
 export const motivosDeRevision = (t, limites = {}) => {
   if (t.ignorada && !t.duplicado) return [];
@@ -55,6 +56,8 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.comercio_nuevo) motivos.push('nuevo');
   if (t.duplicado) motivos.push('duplicado');
   if (t.interno_sugerido && t.categoria !== CATEGORIA_INTERNO) motivos.push('interno');
+  // INV: una inversión elegida por regla que no se puede cargar (moneda distinta, activo borrado)
+  if (t.inversion?.error) motivos.push('inversion');
   const limite = limites[t.categoria];
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto');
   return motivos;

@@ -11,6 +11,7 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.comercio_nuevo) motivos.push('nuevo')
   if (t.duplicado) motivos.push('duplicado')
   if (t.interno_sugerido && t.categoria !== INTERNO) motivos.push('interno')
+  if (t.inversion?.error) motivos.push('inversion')
   const limite = limites?.[t.categoria]
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto')
   return motivos

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Modal from '../Modal'
 import ReglaForm from './ReglaForm'
 import useReglas from '../../hooks/useReglas'
+import useActivosInversion from '../../hooks/useActivosInversion'
 import { mensajeError } from '../../utils/format'
 import { describirCondiciones, describirAccion } from './reglaTexto'
 
@@ -24,6 +25,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
   const [editando, setEditando] = useState(null) // 'nueva' | id
   const [busqueda, setBusqueda] = useState('')
   const [aviso, setAviso] = useState(null)
+  const activos = useActivosInversion(isOpen)
 
   const accion = async (fn) => {
     try {
@@ -36,7 +38,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
 
   const q = busqueda.trim().toLowerCase()
   const visibles = q
-    ? reglas.filter(r => `${describirCondiciones(r)} ${describirAccion(r)}`.toLowerCase().includes(q))
+    ? reglas.filter(r => `${describirCondiciones(r)} ${describirAccion(r, activos)}`.toLowerCase().includes(q))
     : reglas
 
   return (
@@ -66,6 +68,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
         {editando === 'nueva' && (
           <ReglaForm
             categorias={categorias}
+            activos={activos}
             onGuardar={async (datos) => { await crear(datos); setEditando(null) }}
             onCancelar={() => setEditando(null)}
           />
@@ -86,6 +89,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
                   <ReglaForm
                     regla={r}
                     categorias={categorias}
+                    activos={activos}
                     onGuardar={async (datos) => { await actualizar(r._id, datos); setEditando(null) }}
                     onCancelar={() => setEditando(null)}
                   />
@@ -101,7 +105,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
                 <div className="flex-1 min-w-0 text-sm">
                   <p className="text-gray-200 break-words">Si {describirCondiciones(r)}</p>
                   <p className="text-gray-400">
-                    → <span className={r.accion.tipo === 'ignorar' ? 'text-yellow-400' : 'text-primary'}>{describirAccion(r)}</span>
+                    → <span className={r.accion.tipo === 'ignorar' ? 'text-yellow-400' : 'text-primary'}>{describirAccion(r, activos)}</span>
                     {r.creada_por === 'keywords' && <span className="ml-2 text-xs text-gray-500">(asociaciones anteriores)</span>}
                     {!r.activa && <span className="ml-2 text-xs text-gray-500">(pausada)</span>}
                   </p>

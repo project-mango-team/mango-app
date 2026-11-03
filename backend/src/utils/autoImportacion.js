@@ -27,6 +27,10 @@ export const evaluarAutoImportacion = ({ deteccion, transacciones = [], control 
   const sinCategoria = aImportar.filter(t => !t.categoria || t.categoria === SIN_CATEGORIA).length;
   if (sinCategoria > 0) motivos.push(`${sinCategoria} transacciones sin categoría`);
 
+  // INV: una regla manda cargar la transacción en Inversiones y no se puede (moneda distinta, activo borrado)
+  const inversionesConError = aImportar.filter(t => t.inversion?.error).length;
+  if (inversionesConError > 0) motivos.push(`${inversionesConError} transacciones de inversión que no se pueden cargar en Inversiones`);
+
   const internos = aImportar.filter(t => t.interno_sugerido).length;
   if (internos > 0) motivos.push(`${internos} posibles movimientos internos para confirmar`);
 

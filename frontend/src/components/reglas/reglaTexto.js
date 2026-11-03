@@ -7,6 +7,7 @@ export const ORIGENES = ['Mercado Pago', 'Santander', 'Banco Galicia', 'Banco Ga
 // Acción tal como se elige en el formulario: "interno" es asignar la categoría Movimiento interno
 export const accionDeRegla = (accion) => {
   if (accion?.tipo === 'ignorar') return 'ignorar'
+  if (accion?.tipo === 'inversion') return 'inversion'
   if (accion?.categoria === CATEGORIA_INTERNO) return 'interno'
   return 'categoria'
 }
@@ -27,9 +28,14 @@ export const describirCondiciones = ({ condiciones: c = {} }) => {
   return partes.join(' · ')
 }
 
-export const describirAccion = ({ accion }) => {
+// `activos`: las inversiones del usuario, para mostrar el nombre del activo de una regla 'inversion'
+export const describirAccion = ({ accion }, activos = []) => {
   const tipo = accionDeRegla(accion)
   if (tipo === 'ignorar') return 'No importar'
+  if (tipo === 'inversion') {
+    const activo = activos.find(a => a._id === String(accion.activo_id))
+    return activo ? `Cargar en ${activo.nombre}` : 'Cargar en una inversión'
+  }
   if (tipo === 'interno') return 'Movimiento interno'
   return accion.categoria
 }
