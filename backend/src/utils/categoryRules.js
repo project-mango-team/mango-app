@@ -15,6 +15,7 @@
  */
 
 import { CATEGORIA_INVERSION } from '../models/User.js';
+import { analizarRegex, esRegexSegura, MAX_TEXTO_REGEX } from './regexSegura.js';
 
 export const CATEGORIA_SIN_REGLA = 'Otros';
 export const MODOS_DETALLE = ['contiene', 'regex'];
@@ -47,6 +48,9 @@ export const validarRegla = (datos, categorias = []) => {
     if (valores.length !== 1) return { error: 'La expresión regular tiene que ser una sola' };
     if (valores[0].length > MAX_REGEX) return { error: `La expresión regular no puede superar ${MAX_REGEX} caracteres` };
     if (!compilarRegex(valores[0])) return { error: 'La expresión regular no es válida' };
+    // ReDoS: una regex como (a+)+$ frena el servidor. Si hace falta, partila en varias reglas o usá "contiene alguno de".
+    const analisis = analizarRegex(valores[0]);
+    if (!analisis.segura) return { error: `La expresión regular se rechaza por seguridad: ${analisis.motivo}. Usá una más simple o varias reglas.` };
   }
 
   const tipo = vacio(c.tipo) ? null : c.tipo;
@@ -102,7 +106,8 @@ export const compilarReglas = (reglas = []) => [...reglas]
     return {
       regla: r,
       textos: d.modo === 'regex' ? null : valores.map(v => String(v).toUpperCase()),
-      regex: d.modo === 'regex' && valores[0] ? compilarRegex(valores[0]) : null
+      // Una regex insegura que ya estuviera guardada (de antes del chequeo) no se evalúa: no coincide con nada
+      regex: d.modo === 'regex' && valores[0] && esRegexSegura(valores[0]) ? compilarRegex(valores[0]) : null
     };
   })
   // Una regex que dejó de compilar no coincide con nada (en vez de romper la importación)
@@ -116,7 +121,8 @@ const cumple = ({ regla, textos, regex }, t) => {
   if (c.montoMin !== null && c.montoMin !== undefined && importe < c.montoMin) return false;
   if (c.montoMax !== null && c.montoMax !== undefined && importe > c.montoMax) return false;
   const detalle = String(t.detalle || '');
-  if (regex) return regex.test(detalle);
+  // Tope de largo del texto: acota el peor caso de una regex con varias repeticiones
+  if (regex) return regex.test(detalle.slice(0, MAX_TEXTO_REGEX));
   if (textos.length === 0) return true;
   const upper = detalle.toUpperCase();
   return textos.some(texto => upper.includes(texto));
