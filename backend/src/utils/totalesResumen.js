@@ -37,6 +37,7 @@ export const extraerTotalesTarjeta = (texto) => {
   let total = null;
   let pagoMinimo = null;
   let saldoAnterior = null;
+  let saldoPendiente = null;
   let consumos = null;
   const pagos = { ars: 0, usd: 0 };
   const cargos = [];
@@ -68,6 +69,12 @@ export const extraerTotalesTarjeta = (texto) => {
       continue;
     }
 
+    // Mastercard: "SALDO PENDIENTE" es el saldo anterior ya descontados los pagos del período
+    if (/^SALDO PENDIENTE/i.test(sinFecha) && montos.length) {
+      saldoPendiente ??= { ars: montos[0], usd: montos[1] ?? 0 };
+      continue;
+    }
+
     if (/^(TOTAL A PAGAR|SALDO ACTUAL)/i.test(sinFecha) && montos.length) {
       total = { ars: montos[0], usd: montos[1] ?? 0 };
       continue;
@@ -75,7 +82,7 @@ export const extraerTotalesTarjeta = (texto) => {
 
     if (!enResumen || !montos.length) continue;
 
-    if (/^SU PAGO/i.test(sinFecha)) {
+    if (/^(SU )?PAGO(?! MINIMO)/i.test(sinFecha)) {
       const enDolares = /(USD|U\$S|DOLARES)/i.test(sinFecha);
       pagos[enDolares ? 'usd' : 'ars'] += montos.at(-1);
       continue;
@@ -98,6 +105,12 @@ export const extraerTotalesTarjeta = (texto) => {
   }
 
   if (!total) return null;
+
+  // Si el resumen informa el saldo pendiente, los pagos son la diferencia (aunque la línea del pago no se reconozca)
+  if (saldoPendiente && saldoAnterior) {
+    pagos.ars = saldoPendiente.ars - saldoAnterior.ars;
+    pagos.usd = saldoPendiente.usd - saldoAnterior.usd;
+  }
 
   const par = (p) => ({ ars: redondear(p.ars), usd: redondear(p.usd) });
   return {
@@ -145,21 +158,23 @@ export const compararTotales = (totales, transacciones = []) => {
 
   const difArs = totales.total.ars - importadoArs;
   const difUsd = totales.total.usd - importadoUsd;
+  // Si lo importado coincide con el total (menos de un centavo), no hay nada por explicar
+  const cierra = (dif) => Math.abs(dif) < 0.01;
   return {
     ars: {
       importado: redondear(importadoArs),
       resumen: totales.total.ars,
       diferencia: redondear(difArs),
-      saldo_pendiente: redondear(pendiente('ars')),
-      cargos_no_importados: redondear(noImportados),
-      sin_explicar: redondear(difArs - pendiente('ars') - noImportados)
+      saldo_pendiente: cierra(difArs) ? 0 : redondear(pendiente('ars')),
+      cargos_no_importados: cierra(difArs) ? 0 : redondear(noImportados),
+      sin_explicar: cierra(difArs) ? 0 : redondear(difArs - pendiente('ars') - noImportados)
     },
     usd: {
       importado: redondear(importadoUsd),
       resumen: totales.total.usd,
       diferencia: redondear(difUsd),
-      saldo_pendiente: redondear(pendiente('usd')),
-      sin_explicar: redondear(difUsd - pendiente('usd'))
+      saldo_pendiente: cierra(difUsd) ? 0 : redondear(pendiente('usd')),
+      sin_explicar: cierra(difUsd) ? 0 : redondear(difUsd - pendiente('usd'))
     },
     cargos,
     pago_minimo: totales.pago_minimo ?? null

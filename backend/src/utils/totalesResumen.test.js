@@ -100,6 +100,34 @@ describe('extraerTotalesTarjeta', () => {
     expect(t.cargos).toEqual([{ detalle: 'IMPUESTO DE SELLOS', importe: 600 }]);
   });
 
+  it('PDF Mastercard con saldo anterior pagado: los pagos salen del saldo pendiente', () => {
+    const texto = [
+      'CONSOLIDADO PESOS DÓLARES',
+      'SALDO ANTERIOR 100.000,00 0,00',
+      'SALDO PENDIENTE 0,00 0,00',
+      'TOTAL CONSUMOS DEL MES 50.000,00 0,00',
+      'TOTAL A PAGAR 50.000,00 0,00'
+    ].join('\n');
+    const t = extraerTotalesTarjeta(texto);
+    expect(t.saldo_anterior).toEqual({ ars: 100000, usd: 0 });
+    expect(t.pagos).toEqual({ ars: -100000, usd: 0 });
+    const c = compararTotales(t, [tx(50000)]);
+    expect(c.ars.diferencia).toBe(0);
+    expect(c.ars.sin_explicar).toBe(0);
+    expect(c.ars.saldo_pendiente).toBe(0);
+  });
+
+  it('reconoce una línea de pago que no empieza con "SU PAGO"', () => {
+    const texto = [
+      'CONSOLIDADO PESOS DÓLARES',
+      'SALDO ANTERIOR 100.000,00 0,00',
+      '05-08-26 PAGO EN PESOS -100.000,00',
+      'TOTAL CONSUMOS DEL MES 50.000,00 0,00',
+      'TOTAL A PAGAR 50.000,00 0,00'
+    ].join('\n');
+    expect(extraerTotalesTarjeta(texto).pagos).toEqual({ ars: -100000, usd: 0 });
+  });
+
   it('PDF de eresumen: montos negativos con el signo al final y pago mínimo después del saldo', () => {
     const t = extraerTotalesTarjeta(ERESUMEN_VISA);
     expect(t.total).toEqual({ ars: 210350, usd: 5 });
@@ -116,6 +144,14 @@ describe('extraerTotalesTarjeta', () => {
 });
 
 describe('compararTotales', () => {
+  it('con diferencia 0 no marca saldo sin pagar ni sin explicar, aunque falte el pago', () => {
+    const totales = { total: { ars: 50000, usd: 0 }, saldo_anterior: { ars: 100000, usd: 0 }, pagos: { ars: 0, usd: 0 }, cargos: [] };
+    const c = compararTotales(totales, [tx(50000)]);
+    expect(c.ars.diferencia).toBe(0);
+    expect(c.ars.sin_explicar).toBe(0);
+    expect(c.ars.saldo_pendiente).toBe(0);
+  });
+
   it('explica la diferencia con el saldo no pagado y los cargos que no están importados', () => {
     const totales = extraerTotalesTarjeta(HOMEBANKING_VISA);
     // Lo que lee el parser: consumos en pesos, el consumo en dólares y la percepción DB.RG
