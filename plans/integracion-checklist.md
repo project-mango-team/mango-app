@@ -63,3 +63,14 @@ Verificado en dev: pestañas, redirecciones, historial con Origen y Cuenta, reve
 - [ ] MP-05: relevar el mail y el PDF del resumen de la tarjeta (ver la fila en `plans/backlog.md`). Desbloquea MP-08 a MP-10.
 - [ ] MP-06: correr el probe con tu token (`node src/scripts/mpProbe.js`, mismo comando que en MP-01) y pasar la sección "Tarjeta de crédito": dice si la API trae los consumos o hay que usar el PDF. No imprime montos ni nombres.
 - MP-07 está hecho (`utils/pagoTarjeta.js`) pero todavía no se usa en ningún flujo: nada cambia hasta MP-11, que no se mergea antes de MP-09.
+
+## INV (movimientos de Fima desde el extracto de la caja de ahorro)
+Verificado en dev (`Mango_dev`, contra la API con un extracto sintético): crear la regla "Cargar en una inversión" (y rechazar un activo inexistente o ajeno), vista previa con "aporte de $50.000 / retiro de $20.000", guardado que crea los 2 movimientos con origen `extracto`, segundo guardado que los detecta como ya cargados, "Valuar ahora" que avisa que faltan cuotapartes (409) y revertir la carga que borra los movimientos. La interfaz (casilla en la revisión y la acción en el formulario de reglas) compila pero no la manejé con clics.
+- [ ] INV-01: contestar las 4 preguntas de "Fima en el extracto" en `plans/inversiones.md` mirando un extracto real.
+- [ ] Crear en Reglas una regla "detalle contiene FIMA → Cargar en una inversión" (el selector aparece cuando ya tenés al menos una inversión) y subir un extracto real: en la revisión debe aparecer "Cargar en Inversiones · aporte de $X en <activo>".
+- [ ] Un aporte que ya cargaste a mano en Inversiones (hasta 3 días de diferencia, mismo monto) debe aparecer como "Ya cargado el DD/MM" y no duplicarse.
+- [ ] Importador de Fima (Inversiones → importar): completar las cuotapartes de un movimiento creado desde el extracto (empareja con ±3 días).
+- [ ] Revertir la carga desde Datos → Historial: los movimientos sin cuotapartes desaparecen; los que ya tenían cuotapartes quedan en Inversiones como manuales.
+- [ ] Activo con precio automático (CAFCI): con un aporte del extracto sin cuotapartes, "Valuar ahora" avisa y el job diario lo salta (`faltan_unidades`).
+- Importación automática (ING-10): si la fuente la tiene activa y hay una regla de inversión, el movimiento se crea sin revisión. Frena solo si la inversión no se puede cargar (moneda distinta, activo borrado).
+- Conocido: `GaliciaParser.parseCuenta` fija la moneda en ARS; una caja en USD saldría mal (preexistente, no se tocó). Borrar transacciones sueltas o usar `DELETE /api/migrate/:id` no revierte los movimientos del extracto (la UI usa el historial).
