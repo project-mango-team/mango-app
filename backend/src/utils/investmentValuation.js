@@ -11,6 +11,15 @@ const redondearUnidades = (n) => Math.round(n * 1e8) / 1e8;
 const tieneUnidades = (mov) => typeof mov.unidades === 'number' && Number.isFinite(mov.unidades);
 
 /**
+ * Aportes y retiros que creó un extracto (INV) y todavía no tienen cuotapartes. Con precio por unidad, valuar
+ * así daría una tenencia incompleta: hay que completarlos (importador de Fima) antes de valuar solo.
+ * @param {Array<{ tipo: string, origen?: string, unidades?: number }>} movimientos
+ * @returns {number}
+ */
+export const movimientosDeExtractoSinUnidades = (movimientos = []) => movimientos
+  .filter(m => m.origen === 'extracto' && m.tipo !== 'Valuacion' && !tieneUnidades(m)).length;
+
+/**
  * Unidades en tenencia de un activo (cuotapartes, acciones, BTC...).
  * Si algún movimiento trae unidades, salen de los movimientos en orden cronológico:
  * una Valuación con unidades fija la tenencia, un Aporte suma y un Retiro resta.

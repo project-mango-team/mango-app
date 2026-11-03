@@ -5,7 +5,7 @@ import { FciService } from './fciService.js';
 import { MarketPriceService } from './marketPriceService.js';
 import { convertirPrecio } from '../utils/marketPrices.js';
 import { DolarService, hoyArgentina } from './dolarService.js';
-import { calcularValuacionPorPrecio, calcularUnidades, devengarTasaFija } from '../utils/investmentValuation.js';
+import { calcularValuacionPorPrecio, calcularUnidades, devengarTasaFija, movimientosDeExtractoSinUnidades } from '../utils/investmentValuation.js';
 import { convertirMonto } from '../utils/investmentCalc.js';
 
 // Valuación automática de activos según su fuente de precio (VAL).
@@ -59,6 +59,8 @@ export const obtenerPrecio = async (asset) => {
   }
 };
 
+export const mensajeFaltanUnidades = (cantidad) => `Hay ${cantidad} movimiento${cantidad === 1 ? '' : 's'} cargado${cantidad === 1 ? '' : 's'} desde el extracto sin cuotapartes: completalas con el importador de Fima antes de valuar solo`;
+
 /**
  * Calcula (sin guardar) la valuación automática del activo con el último precio de su fuente
  * @returns {Promise<{ fecha: string, precio: number, unidades: number, monto: number, fuente: string }>}
@@ -70,6 +72,9 @@ export const calcularValuacionAutomatica = async (asset, movimientos) => {
     const tasa = asset.precio_config?.tasa_anual;
     return { fecha, precio: null, unidades: null, monto: devengarTasaFija(movimientos, tasa, fecha), fuente: 'Tasa fija', tasa_anual: tasa };
   }
+  // INV-09: con aportes del extracto sin cuotapartes la tenencia sale incompleta
+  const sinUnidades = movimientosDeExtractoSinUnidades(movimientos);
+  if (sinUnidades > 0) throw new AppError(mensajeFaltanUnidades(sinUnidades), 409);
   const cotizacion = await obtenerPrecio(asset);
   return { ...calcularValuacionPorPrecio(asset, movimientos, cotizacion), fuente: cotizacion.fuente };
 };
@@ -133,12 +138,17 @@ export const guardarValuacionAutomatica = async (asset, valuacion, cot) => {
  * @returns {Promise<{ resumen: { activos, guardadas, omitidas, sin_tenencia, errores }, errores: Array<{ asset_id, status, mensaje }> }>}
  */
 export const valuarActivos = async (activos, { movimientosDe, calcular, cotizaciones, guardar }) => {
-  const resumen = { activos: activos.length, guardadas: 0, omitidas: 0, sin_tenencia: 0, errores: 0 };
+  const resumen = { activos: activos.length, guardadas: 0, omitidas: 0, sin_tenencia: 0, faltan_unidades: 0, errores: 0 };
   const errores = [];
 
   for (const asset of activos) {
     try {
       const movimientos = await movimientosDe(asset);
+      // INV-09: no se valúa solo un activo con aportes del extracto sin cuotapartes (la tenencia saldría mal)
+      if (asset.fuente_precio !== 'tasa_fija' && movimientosDeExtractoSinUnidades(movimientos) > 0) {
+        resumen.faltan_unidades++;
+        continue;
+      }
       // Sin unidades o vendido del todo (0 unidades): no hay nada que valuar. Tasa fija no usa unidades.
       if (asset.fuente_precio !== 'tasa_fija' && !(calcularUnidades(asset, movimientos).unidades > 0)) {
         resumen.sin_tenencia++;

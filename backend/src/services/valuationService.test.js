@@ -42,6 +42,33 @@ describe('calcularValuacionAutomatica', () => {
   });
 });
 
+describe('INV-09: aportes del extracto sin cuotapartes', () => {
+  const delExtracto = (extra = {}) => ({ tipo: 'Aporte', fecha: new Date('2026-10-05T00:00:00Z'), monto: 1000, origen: 'extracto', ...extra });
+
+  it('Valuar ahora da un error claro en vez de una tenencia incompleta', async () => {
+    const asset = { fuente_precio: 'cafci', precio_config: {} };
+    const movs = [movimiento('Aporte', '2026-10-01', 100), delExtracto()];
+    await expect(calcularValuacionAutomatica(asset, movs)).rejects.toMatchObject({ statusCode: 409, message: expect.stringMatching(/sin cuotapartes/) });
+  });
+
+  it('con las cuotapartes completadas se valúa normal', async () => {
+    const asset = { fuente_precio: 'cafci', precio_config: {} };
+    await expect(calcularValuacionAutomatica(asset, [delExtracto({ unidades: 100 })])).resolves.toMatchObject({ unidades: 100, monto: 250 });
+  });
+
+  it('valuarActivos lo salta y lo cuenta como faltan_unidades', async () => {
+    const calcular = vi.fn(async () => ({ fecha: '2026-10-16', monto: 10 }));
+    const { resumen } = await valuarActivos([{ _id: 'a', moneda: 'ARS', fuente_precio: 'cafci' }], {
+      movimientosDe: async () => [movimiento('Aporte', '2026-10-01', 100), delExtracto()],
+      calcular,
+      cotizaciones: async () => ({ usd: 1500 }),
+      guardar: async () => ({ estado: 'guardada' })
+    });
+    expect(resumen).toMatchObject({ guardadas: 0, faltan_unidades: 1, errores: 0 });
+    expect(calcular).not.toHaveBeenCalled();
+  });
+});
+
 describe('valuarActivos', () => {
   const activo = (id, unidades, moneda = 'ARS') => ({ _id: id, moneda, unidades });
   const deps = (overrides = {}) => ({
@@ -55,7 +82,7 @@ describe('valuarActivos', () => {
   it('valúa cada activo con unidades y guarda con la cotización de la fecha del precio', async () => {
     const d = deps();
     const { resumen, errores } = await valuarActivos([activo('a', 10), activo('b', 5, 'EUR')], d);
-    expect(resumen).toEqual({ activos: 2, guardadas: 2, omitidas: 0, sin_tenencia: 0, errores: 0 });
+    expect(resumen).toEqual({ activos: 2, guardadas: 2, omitidas: 0, sin_tenencia: 0, faltan_unidades: 0, errores: 0 });
     expect(errores).toEqual([]);
     expect(d.cotizaciones).toHaveBeenCalledWith('2026-10-16', 'EUR');
     expect(d.guardar).toHaveBeenCalledWith(expect.objectContaining({ _id: 'a' }), { fecha: '2026-10-16', monto: 20 }, { usd: 1500 });
@@ -69,7 +96,7 @@ describe('valuarActivos', () => {
       guardar: vi.fn(async () => ({ estado: 'omitida' }))
     });
     const { resumen } = await valuarActivos([activo('sin', undefined), activo('vendido', undefined), activo('ok', 3)], d);
-    expect(resumen).toEqual({ activos: 3, guardadas: 0, omitidas: 1, sin_tenencia: 2, errores: 0 });
+    expect(resumen).toEqual({ activos: 3, guardadas: 0, omitidas: 1, sin_tenencia: 2, faltan_unidades: 0, errores: 0 });
     expect(d.calcular).toHaveBeenCalledTimes(1);
   });
 
@@ -97,7 +124,7 @@ describe('tasa fija', () => {
       [{ _id: 'nexo', fuente_precio: 'tasa_fija' }, { _id: 'cerrado', fuente_precio: 'tasa_fija' }],
       { movimientosDe: async () => [], calcular, cotizaciones: async () => ({ usd: 1500 }), guardar }
     );
-    expect(resumen).toEqual({ activos: 2, guardadas: 1, omitidas: 0, sin_tenencia: 1, errores: 0 });
+    expect(resumen).toEqual({ activos: 2, guardadas: 1, omitidas: 0, sin_tenencia: 1, faltan_unidades: 0, errores: 0 });
   });
 });
 
