@@ -6,9 +6,12 @@
 // movimientos y qué campos trae la API, para confirmar el mapeo de plans/mercadopago.md.
 // Con --pedir-reporte crea la configuración del reporte de liberaciones (si no existe) y pide uno
 // de los últimos 30 días; volver a correr el probe unos minutos después para leerlo.
+// MP-06: la sección "Tarjeta de crédito" cuenta cómo aparece la tarjeta en la API (pago del resumen en la
+// cuenta, pagos hechos con tarjeta y si la API trae algo del resumen de la tarjeta). Tampoco imprime datos.
 
 import { crearClienteMercadoPago, CONFIG_REPORTE } from '../services/mercadoPagoClient.js';
 import { leerReporteLiberaciones, movimientosDelReporte } from '../utils/mercadoPagoMapping.js';
+import { esPagoTarjetaMP } from '../utils/pagoTarjeta.js';
 
 const contar = (valores) => {
   const conteo = {};
@@ -49,6 +52,7 @@ const main = async () => {
     .sort((a, b) => String(b.end_date).localeCompare(String(a.end_date)))[0];
 
   let fuentes = [];
+  const tarjeta = {};
   if (listo) {
     const filas = leerReporteLiberaciones(await mp.descargarReporte(listo.file_name));
     const { movimientos, otrasMonedas } = movimientosDelReporte(filas);
@@ -65,6 +69,8 @@ const main = async () => {
       detalle_mango: contar(movimientos.map(m => m.detalle)),
       otras_monedas: otrasMonedas
     });
+    tarjeta.pagosEnReporte = movimientos.filter(m => esPagoTarjetaMP(m.detalle)).length;
+    tarjeta.descripcionesConTarjeta = contar(filas.map(f => String(f.DESCRIPTION || '')).filter(d => /tarjeta|card|credit|cr[eé]dito/i.test(d)).map(d => d.replace(/_\d+$/, '_<id>')));
   } else {
     console.log('No hay reportes listos para leer.');
   }
@@ -92,6 +98,16 @@ const main = async () => {
     payment_type_id: contar((r.results || []).map(p => p.payment_type_id))
   });
   console.log({ como_cobrador: resumir(comoCobrador), como_pagador: resumir(comoPagador) });
+
+  seccion('Tarjeta de crédito');
+  const conTarjeta = (comoPagador.results || []).filter(p => p.payment_type_id === 'credit_card');
+  console.log({
+    ...tarjeta,
+    pagos_como_pagador_con_tarjeta: conTarjeta.length,
+    emisores: contar(conTarjeta.map(p => p.issuer_id || p.payment_method_id)),
+    campos_de_un_pago_con_tarjeta: conTarjeta[0] ? camposConDatos(conTarjeta[0]).filter(c => /card|issuer|installments|statement/.test(c)) : []
+  });
+  console.log('Si pagos_como_pagador_con_tarjeta es 0 y no hay campos de resumen, la API no trae los consumos de la tarjeta de Mercado Pago: hay que importarlos desde el PDF del resumen (MP-08).');
 
   seccion('Detalle de pagos (qué campos traen datos)');
   // Hasta 3 operaciones del reporte, o de la búsqueda si no hubo reporte

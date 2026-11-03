@@ -58,3 +58,8 @@ Verificado en dev: pestañas, redirecciones, historial con Origen y Cuenta, reve
 - [ ] Migración desde Excel: elegir el archivo, ver el preview y migrar (se restauraron los handlers de archivo tras un recorte).
 - [ ] Revertir una carga de Mail o de Mercado Pago (API) desde el Historial: el documento vuelve a la Bandeja.
 - [ ] Riesgo resuelto: el rollback de `routes/operations.js` ahora reabre el documento de la Bandeja (`revertirOperacion`).
+
+## MP · tarjeta de crédito (MP-05 a MP-16, en curso)
+- [ ] MP-05: relevar el mail y el PDF del resumen de la tarjeta (ver la fila en `plans/backlog.md`). Desbloquea MP-08 a MP-10.
+- [ ] MP-06: correr el probe con tu token (`node src/scripts/mpProbe.js`, mismo comando que en MP-01) y pasar la sección "Tarjeta de crédito": dice si la API trae los consumos o hay que usar el PDF. No imprime montos ni nombres.
+- MP-07 está hecho (`utils/pagoTarjeta.js`) pero todavía no se usa en ningún flujo: nada cambia hasta MP-11, que no se mergea antes de MP-09.
