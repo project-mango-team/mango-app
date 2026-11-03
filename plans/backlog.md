@@ -124,9 +124,9 @@ Los aportes y rescates a Fima caen en el extracto de la caja de ahorro de Galici
 | INV-02 | **Modelo y reversión.** `InvestmentMovement` con `origen`, `operation_id` y `transaction_id`; `revertirMovimientosDeOperacion` dentro de `revertirOperacion`. | — | S | hecho |
 | INV-03 | **Lógica pura y acción de regla.** `utils/investmentFromStatement.js`, `emparejarConTolerancia` y la acción `inversion` en CategoryRule / `validarRegla` / `aplicarReglas` / `ruleService`. | INV-02 | M | hecho |
 | INV-09 | **Valuación segura.** Un Aporte del extracto sin cuotapartes en un activo con precio por unidad no se valúa solo: `valuarActivos` lo salta y cuenta `faltan_unidades`; "Valuar ahora" da un error claro. | INV-02 | S | hecho |
-| INV-08 | **Importador Fima con tolerancia.** Empareja con ±3 días y completa las cuotapartes de los movimientos que creó el extracto. | INV-03 | S | pendiente |
-| INV-04 | **Sugerencia en la vista previa.** `investmentLinkService.marcarInversionesSugeridas`; las cotizaciones pasan a `investmentQuoteService`. | INV-03 | M | pendiente |
-| INV-05 | **Creación al guardar.** En `guardarImportacion`, best effort, con `_id` explícito y antes de vincular contrapartes; `aviso_inversiones` en la respuesta. | INV-04 | M | pendiente |
+| INV-08 | **Importador Fima con tolerancia.** Empareja con ±3 días y completa las cuotapartes de los movimientos que creó el extracto. | INV-03 | S | hecho |
+| INV-04 | **Sugerencia en la vista previa.** `investmentLinkService.marcarInversionesSugeridas`; las cotizaciones pasan a `investmentQuoteService`. | INV-03 | M | hecho |
+| INV-05 | **Creación al guardar.** En `guardarImportacion`, best effort, con `_id` explícito y antes de vincular contrapartes; `aviso_inversiones` en la respuesta. | INV-04 | M | hecho |
 | INV-06 | **Revisión.** `InversionSugerida.jsx`: casilla "Cargar en Inversiones", "ya cargado el DD/MM" y error en ámbar. | INV-05 | M | pendiente |
 | INV-07 | **Regla desde la UI.** Acción "Cargar en una inversión" en `ReglaForm` y `reglaTexto`. | INV-03 | S | pendiente |
 | INV-12 | **Integración.** REV-04 `esCandidata` excluye lo de inversión, `reviewFocus` y la importación automática (ING-10). | INV-05 | S | pendiente |

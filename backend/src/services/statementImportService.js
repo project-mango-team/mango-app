@@ -16,6 +16,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { aplicarReglas } from '../utils/categoryRules.js';
 import { sugerirInternos, fechasCandidatas, contrapartesAMarcar } from '../utils/internalTransfers.js';
 import { CATEGORIA_INTERNO } from '../models/User.js';
+import { crearMovimientosDeExtracto } from './investmentLinkService.js';
 import { armarContextoRevision, marcarComerciosNuevos } from '../utils/reviewFocus.js';
 
 // Importación de resúmenes bancarios: parseo por banco y guardado como Operation + Transactions.
@@ -358,6 +359,8 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
 
   // Transform transactions to MongoDB format and save
   const transactionsToSave = addUserToTransactionData(req, transactions.map(t => ({
+    // _id explícito: los movimientos de Inversiones que se creen desde el extracto referencian la transacción
+    _id: new mongoose.Types.ObjectId(),
     fecha: normalizeDate(t.fecha),
     mes: getMonthName(normalizeDate(t.fecha)),
     categoria: t.categoria,
@@ -379,6 +382,13 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
 
   // Insert transactions into MongoDB
   const result = await Transaction.insertMany(transactionsToSave, { ordered: false });
+  // INV-05: aportes/retiros en Inversiones para las transacciones que pidieron cargarse (mejor esfuerzo)
+  const guardadas = new Set(result.map(r => String(r._id)));
+  const avisoInversiones = await crearMovimientosDeExtracto(
+    req,
+    transactions.map((t, i) => ({ ...t, _id: transactionsToSave[i]._id })).filter(t => guardadas.has(String(t._id))),
+    operationId
+  );
   const internosVinculados = await vincularContrapartes(req, transactions);
 
   // Create operation record with safe numeric values
@@ -400,7 +410,8 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
       tipo,
       transacciones_procesadas: transactions.length,
       ...(sha256 && { sha256 }),
-      ...(internosVinculados.length && { internos_vinculados: internosVinculados })
+      ...(internosVinculados.length && { internos_vinculados: internosVinculados }),
+      ...(avisoInversiones?.creados && { inversiones_creadas: avisoInversiones.creados })
     },
     created_at: timestamp
   }));
@@ -412,6 +423,7 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
     tipo,
     transacciones_procesadas: transactions.length,
     transacciones_guardadas: result.length,
+    ...(avisoInversiones && { aviso_inversiones: avisoInversiones }),
     timestamp
   };
 };

@@ -16,6 +16,7 @@ import {
   buscarImportacionDelArchivo
 } from '../services/statementImportService.js';
 import { revertirOperacion } from '../services/operationService.js';
+import { marcarInversionesSugeridas } from '../services/investmentLinkService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
@@ -128,6 +129,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
     const [{ transactions: conDuplicados, limites }, archivoYaImportado] = await Promise.all([
       marcarDuplicados(req, transactions)
         .then(ts => marcarInternosSugeridos(req, ts))
+        .then(ts => marcarInversionesSugeridas(req, ts))
         .then(ts => prepararRevision(req, ts)),
       buscarImportacionDelArchivo(req, sha256)
     ]);

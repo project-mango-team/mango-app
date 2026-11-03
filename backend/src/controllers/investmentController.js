@@ -6,9 +6,11 @@ import LoanMovement from '../models/LoanMovement.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { DolarService, hoyArgentina } from '../services/dolarService.js';
+import { crearCotizacionesEn, getCotizacionesHoy } from '../services/investmentQuoteService.js';
 import { getInvestmentTypes } from '../config/investmentTypes.js';
 import { resumirPrestamos } from '../utils/loanCalc.js';
-import { parseOperacionesFima, emparejarExistentes } from '../utils/investmentImport.js';
+import { parseOperacionesFima, emparejarConTolerancia } from '../utils/investmentImport.js';
+import { DIAS_TOLERANCIA } from '../utils/investmentFromStatement.js';
 import { calcularUnidades, parseUnidades, normalizarFuentePrecio } from '../utils/investmentValuation.js';
 import { FciService } from '../services/fciService.js';
 import { reglasDeInversionACategoria } from '../services/ruleService.js';
@@ -34,30 +36,6 @@ const resolverCotizaciones = async (moneda, fecha, body) => {
   const usd = parseCotizacion(body.cotizacion_usd, 'USD') ?? (await DolarService.getBlue(fecha)).promedio;
   if (moneda !== 'EUR') return { usd };
   const eur = parseCotizacion(body.cotizacion_eur, 'EUR') ?? (await DolarService.getEuro(fecha)).promedio;
-  return { usd, eur };
-};
-
-/**
- * Función fecha → cotizaciones { usd, eur? } para muchas fechas con una sola llamada por moneda:
- * hoy usa la cotización en vivo (igual que Portfolio) y los días pasados, el historial.
- * El historial del euro arranca en 2023: antes de eso se usa su primer valor.
- */
-const crearCotizacionesEn = async (necesitaEuro) => {
-  const hoy = hoyArgentina();
-  const [historialUsd, historialEur, cotHoy] = await Promise.all([
-    DolarService.getHistorial('blue'),
-    necesitaEuro ? DolarService.getHistorialEuro() : null,
-    getCotizacionesHoy(necesitaEuro)
-  ]);
-  const cotizacionesEn = (fecha) => (fecha >= hoy
-    ? cotHoy
-    : { usd: cotizacionEnFecha(historialUsd, fecha), eur: historialEur ? cotizacionEnFecha(historialEur, fecha) : undefined });
-  return { cotizacionesEn, cotHoy };
-};
-
-const getCotizacionesHoy = async (incluirEuro) => {
-  const usd = (await DolarService.getBlue()).promedio;
-  const eur = incluirEuro ? (await DolarService.getEuro()).promedio : undefined;
   return { usd, eur };
 };
 
@@ -632,7 +610,8 @@ export const previewImport = async (req, res, next) => {
     }
 
     const existentes = await InvestmentMovement.find(buildUserQuery(req, { asset_id: asset._id })).lean();
-    const pares = emparejarExistentes(operaciones, existentes);
+    // INV-08: ±3 días, porque el extracto del banco y la app de Fima no siempre acreditan el mismo día
+    const pares = emparejarConTolerancia(operaciones, existentes, { dias: DIAS_TOLERANCIA });
 
     res.json({
       success: true,
@@ -667,7 +646,7 @@ const completarUnidades = async (req, asset, completar) => {
   const sinUnidades = await InvestmentMovement.find(
     buildUserQuery(req, { asset_id: asset._id, unidades: { $exists: false } })
   ).lean();
-  const pares = emparejarExistentes(ops, sinUnidades);
+  const pares = emparejarConTolerancia(ops, sinUnidades, { dias: DIAS_TOLERANCIA });
 
   const updates = pares
     .map((mov, i) => mov && {
