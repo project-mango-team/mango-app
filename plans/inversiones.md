@@ -120,3 +120,25 @@ GET                  /api/dolar/blue?fecha=YYYY-MM-DD
 - Cantidad × precio y cotización automática de cripto.
 - Rendimiento anualizado (TIR/XIRR) y comparación contra la inflación o el dólar.
 - Interés en préstamos.
+
+## Fima en el extracto de la caja de ahorro (épica INV)
+
+Los aportes y rescates a Fima caen en el extracto de la caja de ahorro de Galicia como transacciones de categoría `Inversión` (neutras). Una regla de categorización con la acción **"Cargar en una inversión"** hace que, al importar el extracto, Mango ofrezca crear el movimiento en Inversiones. Diseño y tickets: épica INV en [backlog.md](backlog.md).
+
+**Cómo funciona**
+- La regla (REV-02) tiene la acción `inversion` con el activo elegido. La transacción queda en `Inversión` y no se agregan campos a `transactions` (la base la comparte mango-py).
+- En la revisión aparece "Cargar en Inversiones · aporte de $X en <activo>" (Gasto → Aporte, Ingreso → Retiro). La moneda del extracto tiene que ser la del activo: si no, se avisa y no se carga.
+- Si ya hay un movimiento del mismo tipo y monto al centavo en ±3 días, se avisa "ya cargado el DD/MM" y no se duplica (lo mismo hace ahora el importador de Fima).
+- El movimiento creado trae `origen: 'extracto'`, la operación y la transacción. Revertir la carga borra los que no tienen cuotapartes y desvincula los que ya las tienen.
+- Un aporte del extracto no trae cuotapartes: en un activo con precio por unidad (CAFCI, ticker, cripto) no se valúa solo hasta completarlas con el importador de Fima (el job las cuenta como `faltan_unidades` y "Valuar ahora" avisa).
+
+**INV-01 · Relevamiento del detalle de Fima (lo hace el usuario)**
+Mirar un extracto real de la caja de ahorro con movimientos de Fima y contestar:
+1. ¿El detalle trae el nombre del fondo (por ejemplo "Fima Premium")? ¿Con qué texto exacto, aporte y rescate?
+2. ¿La fecha del extracto es la misma que la de la operación en la app de Fima, o difiere unos días?
+3. ¿El monto coincide al centavo con el de la app?
+4. ¿Hay caja de ahorro en USD que también mueva plata a fondos?
+
+**Regla de ejemplo** (ajustar el texto cuando se conteste lo anterior): *Si el detalle contiene "FIMA" y el origen es Banco Galicia → Cargar en Fima Premium* (Configuración de reglas, ⚙ en Categorías).
+
+**Nota sobre el parser de la caja de ahorro:** `GaliciaParser.parseCuenta` pone la moneda en ARS fija. Es preexistente y no se tocó; una caja en USD saldría mal.
