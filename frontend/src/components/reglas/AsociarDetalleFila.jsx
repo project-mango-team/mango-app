@@ -25,6 +25,8 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar }) => {
   const [hecho, setHecho] = useState(null)
 
   if (!fila.detalle?.trim() || (fila.categoria !== 'Otros' && !hecho)) return null
+  // Las filas excluidas (duplicadas, ignoradas por una regla) no se categorizan acá
+  if (!hecho && (fila.duplicado || fila.ignorada || !fila.incluir)) return null
 
   if (hecho) {
     return (
@@ -61,7 +63,8 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar }) => {
         accion: { tipo: 'categoria', categoria },
         creada_por: 'aprendida'
       })
-      const ids = coinciden.map(t => t._id)
+      // La fila de origen siempre pasa a la categoría, aunque la palabra clave editada no esté en su detalle
+      const ids = [...new Set([fila._id, ...coinciden.map(t => t._id)])]
       onAplicar(ids, categoria)
       setHecho({ texto: texto.trim(), categoria, cantidad: ids.length })
     } catch (err) {

@@ -71,7 +71,7 @@ export const extraerTotalesTarjeta = (texto) => {
 
     // Mastercard: "SALDO PENDIENTE" es el saldo anterior ya descontados los pagos del período
     if (/^SALDO PENDIENTE/i.test(sinFecha) && montos.length) {
-      saldoPendiente ??= { ars: montos[0], usd: montos[1] ?? 0 };
+      saldoPendiente ??= { ars: montos[0], usd: montos[1] ?? null };
       continue;
     }
 
@@ -82,7 +82,8 @@ export const extraerTotalesTarjeta = (texto) => {
 
     if (!enResumen || !montos.length) continue;
 
-    if (/^(SU )?PAGO(?! MINIMO)/i.test(sinFecha)) {
+    // Solo las líneas de pago del consolidado (no un consumo "PAGO MIS CUENTAS" ni el pago mínimo)
+    if (/^(SU PAGO|PAGO (EN (PESOS|USD|U\$S|DOLARES)|DE RESUMEN|RESUMEN))/i.test(sinFecha)) {
       const enDolares = /(USD|U\$S|DOLARES)/i.test(sinFecha);
       pagos[enDolares ? 'usd' : 'ars'] += montos.at(-1);
       continue;
@@ -109,7 +110,8 @@ export const extraerTotalesTarjeta = (texto) => {
   // Si el resumen informa el saldo pendiente, los pagos son la diferencia (aunque la línea del pago no se reconozca)
   if (saldoPendiente && saldoAnterior) {
     pagos.ars = saldoPendiente.ars - saldoAnterior.ars;
-    pagos.usd = saldoPendiente.usd - saldoAnterior.usd;
+    // Sin columna de dólares en el saldo pendiente no se deduce ningún pago en dólares
+    if (saldoPendiente.usd !== null) pagos.usd = saldoPendiente.usd - saldoAnterior.usd;
   }
 
   const par = (p) => ({ ars: redondear(p.ars), usd: redondear(p.usd) });

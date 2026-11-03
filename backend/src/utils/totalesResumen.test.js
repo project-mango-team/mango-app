@@ -117,6 +117,20 @@ describe('extraerTotalesTarjeta', () => {
     expect(c.ars.saldo_pendiente).toBe(0);
   });
 
+  it('no toma como pago un consumo que empieza con PAGO ni el pago mínimo', () => {
+    const texto = [
+      'CONSOLIDADO PESOS DÓLARES',
+      'SALDO ANTERIOR 100.000,00 3,00',
+      'SALDO PENDIENTE 0,00',
+      '10-08-26 PAGO MIS CUENTAS 123456 5.000,00',
+      'PAGO MÍNIMO $ 20.000,00',
+      'PAGOS360 123456 4.000,00',
+      'TOTAL A PAGAR 50.000,00 3,00'
+    ].join('\n');
+    const t = extraerTotalesTarjeta(texto);
+    expect(t.pagos).toEqual({ ars: -100000, usd: 0 });
+  });
+
   it('reconoce una línea de pago que no empieza con "SU PAGO"', () => {
     const texto = [
       'CONSOLIDADO PESOS DÓLARES',
