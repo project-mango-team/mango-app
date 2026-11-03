@@ -117,3 +117,17 @@ describe('cargarBackfill', () => {
     expect(insertMany).not.toHaveBeenCalled();
   });
 });
+
+describe('cargarBackfill con duplicados en el mismo lote', () => {
+  it('cargar una sola de dos iguales no se confunde con el movimiento ya cargado', async () => {
+    // A y B iguales; un movimiento X a mano ya equivale a una: en la vista previa A queda "ya cargado" y B se ofrece
+    transacciones = [tx('tA'), tx('tB')];
+    movimientos = [{ fecha: new Date('2026-10-05T00:00:00Z'), tipo: 'Aporte', monto: 50000 }];
+    const { candidatas } = await candidatasDeBackfill(req, asset);
+    const ofrecida = candidatas.find(c => c.crear);
+    expect(ofrecida).toBeTruthy();
+    const aviso = await cargarBackfill(req, asset, [ofrecida.transaction_id]);
+    expect(aviso).toMatchObject({ creados: 1, duplicados: 0 });
+    expect(insertMany).toHaveBeenCalledTimes(1);
+  });
+});

@@ -24,8 +24,15 @@ describe('regex peligrosas (ReDoS)', () => {
   });
 
   it('rechaza demasiadas repeticiones sin tope', () => {
-    expect(esRegexSegura('a.*b.*c.*d.*e')).toBe(false);
-    expect(esRegexSegura('a.*b.*c.*d')).toBe(true);
+    expect(esRegexSegura('a.*b.*c.*d')).toBe(false);
+    expect(esRegexSegura('a.*b.*c')).toBe(true);
+    expect(esRegexSegura('a.*b')).toBe(true);
+  });
+
+  it('rechaza los ReDoS que usan repeticiones acotadas o alternativas en secuencia', () => {
+    expect(esRegexSegura('a{0,20}'.repeat(8) + '$')).toBe(false);
+    expect(esRegexSegura('(a|a)'.repeat(30) + '$')).toBe(false);
+    expect(esRegexSegura('a?'.repeat(30) + 'a'.repeat(30))).toBe(false);
   });
 
   it.each([
@@ -35,6 +42,7 @@ describe('regex peligrosas (ReDoS)', () => {
     '(?:LSH|BARRA) HOTEL',
     '(abc)?def',
     '.*foo.*bar',
+    '(?:LSH|BARRA|HOTEL) ?CENTRO',
     '[a-z]+\\s+[0-9]{3,5}',
     'a{1,3}b{1,3}',
     '[+*]x'

@@ -8,8 +8,11 @@
 // Junto con el tope de largo del texto evaluado (MAX_TEXTO_REGEX) el tiempo queda acotado.
 // Es conservador: puede rechazar algún patrón legítimo, y el mensaje sugiere cómo escribirlo.
 
-export const MAX_TEXTO_REGEX = 300;
-const MAX_REPETICIONES_SIN_TOPE = 3;
+export const MAX_TEXTO_REGEX = 150;
+const MAX_REPETICIONES_SIN_TOPE = 2;
+// Presupuesto total: todas las repeticiones variables (*, +, ?, {n,m}) y todas las alternativas del patrón
+const MAX_REPETICIONES_VARIABLES = 6;
+const MAX_ALTERNATIVAS = 3;
 const TOPE_GRANDE = 20;
 
 /**
@@ -45,13 +48,15 @@ export const analizarRegex = (patron) => {
   const texto = String(patron);
   const pila = [{ repeticion: false, alternancia: false }];
   let sinTopeTotal = 0;
+  let variablesTotal = 0;
+  let alternativas = 0;
   let i = 0;
 
   // Un átomo (carácter, escape, clase) seguido de su cuantificador
   const cerrarAtomo = (fin) => {
     const q = cuantificadorEn(texto, fin);
     if (!q) return fin;
-    if (repite(q)) pila.at(-1).repeticion = true;
+    if (repite(q)) { pila.at(-1).repeticion = true; variablesTotal++; }
     if (sinTope(q)) sinTopeTotal++;
     return fin + q.largo;
   };
@@ -80,6 +85,7 @@ export const analizarRegex = (patron) => {
         if (grupo.repeticion) return { segura: false, motivo: 'un grupo repetido no puede contener otra repetición, por ejemplo (a+)+' };
         if (grupo.alternancia) return { segura: false, motivo: 'un grupo repetido no puede contener alternativas con |, por ejemplo (a|b)+' };
         padre.repeticion = true;
+        variablesTotal++;
         if (sinTope(q)) sinTopeTotal++;
       }
       padre.repeticion ||= grupo.repeticion;
@@ -87,6 +93,7 @@ export const analizarRegex = (patron) => {
       i += 1 + (q ? q.largo : 0);
     } else if (c === '|') {
       pila.at(-1).alternancia = true;
+      alternativas++;
       i++;
     } else {
       i = cerrarAtomo(i + 1);
@@ -96,6 +103,12 @@ export const analizarRegex = (patron) => {
   if (pila.length !== 1) return { segura: false, motivo: 'los paréntesis no cierran' };
   if (sinTopeTotal > MAX_REPETICIONES_SIN_TOPE) {
     return { segura: false, motivo: `tiene demasiadas repeticiones sin tope (* o +): hasta ${MAX_REPETICIONES_SIN_TOPE}` };
+  }
+  if (variablesTotal > MAX_REPETICIONES_VARIABLES) {
+    return { segura: false, motivo: `tiene demasiadas repeticiones (*, +, ? o {n,m}): hasta ${MAX_REPETICIONES_VARIABLES}` };
+  }
+  if (alternativas > MAX_ALTERNATIVAS) {
+    return { segura: false, motivo: `tiene demasiadas alternativas con |: hasta ${MAX_ALTERNATIVAS}` };
   }
   return { segura: true };
 };

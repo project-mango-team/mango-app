@@ -78,7 +78,7 @@ export const marcarInversionesSugeridas = async (req, transactions) => {
  * @param {string} operationId
  * @returns {Promise<null | { creados: number, duplicados: number, errores: string[] }>} null si ninguna pidió inversión
  */
-export const crearMovimientosDeExtracto = async (req, transacciones, operationId) => {
+export const crearMovimientosDeExtracto = async (req, transacciones, operationId, { yaDeduplicadas = false } = {}) => {
   // Solo si la fila sigue siendo una Inversión: si el usuario le cambió la categoría, ya no va a Inversiones
   const pedidas = transacciones.filter(t => t?.inversion?.activo_id && t.inversion.crear === true && t.categoria === CATEGORIA_INVERSION);
   if (!pedidas.length) return null;
@@ -91,8 +91,8 @@ export const crearMovimientosDeExtracto = async (req, transacciones, operationId
     const aCrear = [];
     plan.forEach((p, i) => {
       if (p.error) aviso.errores.push(p.error);
-      else if (p.duplicado) aviso.duplicados++;
-      else if (p.crear) aCrear.push({ transaccion: pedidas[i], plan: p });
+      else if (p.duplicado && !yaDeduplicadas) aviso.duplicados++;
+      else if (p.crear || (yaDeduplicadas && p.duplicado)) aCrear.push({ transaccion: pedidas[i], plan: p });
     });
     if (!aCrear.length) return aviso;
 
@@ -194,9 +194,11 @@ export const cargarBackfill = async (req, asset, ids) => {
   const aviso = await crearMovimientosDeExtracto(
     req,
     transacciones.map(t => ({ ...t, inversion: { activo_id: String(asset._id), crear: true } })),
-    undefined
+    undefined,
+    // Las candidatas ya salieron de deduplicar contra todo: no volver a emparejar solo las elegidas
+    { yaDeduplicadas: true }
   );
-  return { ...aviso, omitidas };
+  return { creados: 0, duplicados: 0, errores: [], ...(aviso || {}), omitidas };
 };
 
 /**
