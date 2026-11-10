@@ -80,3 +80,30 @@ Verificado en dev (API sobre `Mango_dev`): sin regla del activo no ofrece nada; 
 - [ ] Inversiones → detalle de un activo → "Buscar en extractos ya cargados": con una regla "Cargar en una inversión" para ese activo, listar los aportes/rescates viejos del extracto, tildar y cargar.
 - [ ] Los ya cargados a mano (±3 días, mismo monto) salen como "ya cargado el DD/MM" y no se tildan.
 - Ojo: estos movimientos no tienen operación, así que revertir la carga del extracto desde el Historial **no** los borra; se borran desde el detalle del activo. Quedan sin cuotapartes (completarlas con el importador de Fima antes de valuar solo).
+
+## Antes de deployar a producción (validación final)
+**Variables de entorno nuevas en el hosting**
+| Variable | Qué hace | Obligatoria |
+|---|---|---|
+| `SECRETS_KEY` | Clave AES-256-GCM (32 bytes en base64) para el token de Mercado Pago. Tiene que ser propia: la de `nodemon.json` es pública y se rechaza fuera de desarrollo. Si se pierde o se cambia, los secretos guardados no se pueden leer. | Sí, si vas a conectar Mercado Pago (sin ella el server arranca y esa función da error 500) |
+| `ADMIN_EMAILS` | Mails (separados por coma) que ven y corren las Tareas programadas. Vacía = nadie. | Sí, si querés ver las tareas |
+| `NODE_ENV=production` | Gobierna admin, la clave de dev, las cookies seguras y servir el frontend. Fuera de `development`/`test` todos los chequeos son estrictos. | Sí (ya hacía falta) |
+| `ANTHROPIC_API_KEY` | Sugerencias de categoría con IA (REV-06). Manda detalles de movimientos a Anthropic. | No (sin ella la opción queda deshabilitada) |
+| `SCHEDULER_ENABLED=false` | Apaga el scheduler. Poner `false` en cualquier proceso local que apunte a la base real. | No |
+Ya existentes y necesarias: `MONGODB_URI`, `SESSION_SECRET` (el fallback del código es público), `FRONTEND_URL`, `GOOGLE_*`.
+
+**Tareas programadas que empiezan a correr** (hora de Argentina; una por día; reintentan 3 veces cada 30 min)
+| Job | Hora | Qué hace sobre datos reales |
+|---|---|---|
+| `limpieza-corridas` | 04:00 | Borra el historial de corridas de más de 90 días (solo su propia colección). |
+| `mercadopago-sync` | 06:30 | Solo para usuarios con token de MP guardado: deja el reporte en la Bandeja y actualiza el activo "Cuenta remunerada · Mercado Pago". Sin tokens no hace nada. |
+| `faltantes-resumenes` | 10:00 | Crea avisos de los resúmenes esperados que no llegaron (solo usuarios con calendario configurado). |
+| `valuacion-diaria` | 19:00 | Valúa los activos con precio automático (CAFCI, ticker, cripto, tasa fija); los activos viejos no tienen fuente y quedan fuera. No pisa valuaciones manuales. |
+Ninguno modifica `transactions`. Colecciones nuevas (las crea Mongoose al arrancar): `categoryrules`, `fuenteconfigs`, `jobruns`, `notifications`, `secrets`; el único índice nuevo en una colección existente es `InvestmentMovement.operation_id` (no único). Confirmar que mango-py no use esos nombres.
+
+**Riesgos conocidos que quedan (decisión tuya)**
+- Mercado Pago: la sync reutiliza un activo ya existente de tipo "Cuenta remunerada" en plataforma "Mercado Pago" y le agrega aportes/retiros automáticos sin deduplicar contra los manuales. Si ya tenés uno cargado a mano, conviene renombrarlo o no conectar MP todavía.
+- Importación automática (ING-10) activada: un documento que entra por el token de ingesta se importa sin revisión si todo cierra (opt-in por fuente).
+- Al probar el token real de MP en dev, usá un `SECRETS_KEY` propio en `.env`: la de `nodemon.json` es pública y `Mango_dev` está en el mismo cluster.
+- "Movimiento interno" se guarda como categoría en `transactions` y se agrega a las categorías del usuario: un lector viejo (mango-py) lo contaría como gasto o ingreso.
+- Sugerencias con IA sin tope de pedidos por usuario (opt-in; el costo corre por tu clave).

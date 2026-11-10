@@ -25,7 +25,13 @@ const migrarKeywords = async (req) => {
   const keywords = user.categoryKeywords?.size ? user.categoryKeywords : loadDefaultCategoryKeywords();
   const reglas = reglasDesdeKeywords(keywords);
   if (reglas.length) {
-    await CategoryRule.insertMany(addUserToData(req, reglas));
+    try {
+      await CategoryRule.insertMany(addUserToData(req, reglas));
+    } catch (error) {
+      // Si no se pudieron guardar, se quita la marca para que se reintente en el próximo pedido
+      await User.updateOne({ _id: req.user._id }, { $unset: { reglasMigradas: 1 } });
+      throw error;
+    }
   }
 };
 

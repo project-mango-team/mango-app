@@ -45,6 +45,10 @@ describe('claveDesdeEntorno', () => {
     const dev = 'r21MeKzZqZdDxlvzl1IiimRIpL8x2hqkVm7TbyWDZto=';
     expect(() => claveDesdeEntorno({ SECRETS_KEY: dev, NODE_ENV: 'production' })).toThrow('desarrollo');
     expect(claveDesdeEntorno({ SECRETS_KEY: dev, NODE_ENV: 'development' })).toHaveLength(32);
+    // También se rechaza en staging y con un salto de línea al final (mismos bytes)
+    expect(() => claveDesdeEntorno({ SECRETS_KEY: dev, NODE_ENV: 'staging' })).toThrow('desarrollo');
+    expect(() => claveDesdeEntorno({ SECRETS_KEY: `${dev}
+`, NODE_ENV: 'production' })).toThrow('desarrollo');
   });
 
   it('sin variable devuelve null y con largo incorrecto falla', () => {

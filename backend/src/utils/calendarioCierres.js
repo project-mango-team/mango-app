@@ -107,7 +107,7 @@ export const armarChecklist = (hoy, configs, documentos) => {
  * @returns {{ ok: true, datos } | { ok: false, error }}
  */
 export const validarConfigFuente = (fuente, { dia_cierre, llegada, activa } = {}) => {
-  if (!FUENTES[fuente]) return { ok: false, error: 'Fuente desconocida' };
+  if (!Object.hasOwn(FUENTES, fuente)) return { ok: false, error: 'Fuente desconocida' };
   const dia = Number(dia_cierre);
   if (!Number.isInteger(dia) || dia < 1 || dia > 31) return { ok: false, error: 'El día de cierre tiene que ser entre 1 y 31' };
   if (!LLEGADAS.includes(llegada)) return { ok: false, error: 'Elegí cómo llega el resumen' };

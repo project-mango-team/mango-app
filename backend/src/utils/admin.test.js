@@ -16,5 +16,6 @@ describe('esAdmin', () => {
 
   it('en producción sin ADMIN_EMAILS no hay admins', () => {
     expect(esAdmin('uno@mail.com', { NODE_ENV: 'production' })).toBe(false);
+    expect(esAdmin('uno@mail.com', { NODE_ENV: 'staging' })).toBe(false);
   });
 });

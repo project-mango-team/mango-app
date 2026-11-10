@@ -70,7 +70,7 @@ export const borrarConfigFuente = async (req, fuente) => {
  * ING-10: activa o desactiva la importación automática de una fuente
  */
 export const guardarAutoImportar = async (req, fuente, activar) => {
-  if (!FUENTES[fuente]) throw new AppError('Fuente desconocida', 400);
+  if (!Object.hasOwn(FUENTES, fuente)) throw new AppError('Fuente desconocida', 400);
   await FuenteConfig.findOneAndUpdate(
     buildUserQuery(req, { fuente }),
     { $set: { auto_importar: Boolean(activar) }, $setOnInsert: addUserToData(req, { fuente }) },

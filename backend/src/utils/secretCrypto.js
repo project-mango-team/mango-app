@@ -9,19 +9,23 @@ import crypto from 'crypto';
 const VERSION = 'v1';
 const ALGORITMO = 'aes-256-gcm';
 
-// Huella de la clave pública de dev de nodemon.json: en producción no se acepta
-const HUELLA_CLAVE_DEV = 'b1b48b4b154a0785';
+// Huella (sobre los 32 bytes ya decodificados) de la clave pública de dev de nodemon.json: solo se acepta en desarrollo y tests
+const HUELLA_CLAVE_DEV = 'aa2341b2c66408f2';
 
-const huella = (raw) => crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
+const huella = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+
+// Sin NODE_ENV se asume desarrollo; producción, staging, etc. no
+export const esEntornoDeDesarrollo = (env = process.env) => !env.NODE_ENV || ['development', 'test'].includes(env.NODE_ENV);
 
 export const claveDesdeEntorno = (env = process.env) => {
   const raw = env.SECRETS_KEY;
   if (!raw) return null;
-  if (env.NODE_ENV === 'production' && huella(raw) === HUELLA_CLAVE_DEV) {
-    throw new Error('SECRETS_KEY es la clave de desarrollo de nodemon.json: en producción configurá una propia');
-  }
   const clave = Buffer.from(raw, 'base64');
   if (clave.length !== 32) throw new Error('SECRETS_KEY tiene que ser de 32 bytes en base64');
+  // Se compara por bytes: un salto de línea o un padding distinto no la disfrazan
+  if (!esEntornoDeDesarrollo(env) && huella(clave) === HUELLA_CLAVE_DEV) {
+    throw new Error('SECRETS_KEY es la clave de desarrollo de nodemon.json: fuera de desarrollo configurá una propia');
+  }
   return clave;
 };
 
