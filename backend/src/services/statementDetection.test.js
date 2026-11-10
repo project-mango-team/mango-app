@@ -79,8 +79,11 @@ describe('detectores por parser', () => {
     expect(GaliciaParser.detectar(GALICIA_ERESUMEN)).toMatchObject({ producto: 'visa', formato: 'eresumen', cierre: '2026-10-01' });
   });
 
-  it('PDF consolidado de caja de ahorro: reconocido pero no soportado', () => {
-    expect(GaliciaParser.detectar('Resumen de Caja de Ahorro en Pesos')).toMatchObject({ soportado: false });
+  it('PDF consolidado de caja de ahorro en pesos: soportado; en dólares: no soportado', () => {
+    const pesos = GaliciaParser.detectar('Resumen de Caja de Ahorro en Pesos');
+    expect(pesos).toMatchObject({ tipo: 'galicia', tipoResumen: 'cuenta', producto: 'caja_ahorro', formato: 'pdf' });
+    expect(pesos.soportado).not.toBe(false);
+    expect(GaliciaParser.detectar('Resumen de Caja de Ahorro en Dólares')).toMatchObject({ soportado: false });
   });
 
   it('un texto cualquiera no se reconoce', () => {

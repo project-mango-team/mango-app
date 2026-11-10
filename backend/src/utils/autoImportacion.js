@@ -36,7 +36,9 @@ export const evaluarAutoImportacion = ({ deteccion, transacciones = [], control 
 
   // Las tarjetas traen el total del resumen: si no se pudo leer, el parseo puede estar incompleto
   const esTarjeta = ['visa', 'mastercard', 'amex'].includes(deteccion?.producto);
-  if (esTarjeta && !control) motivos.push('No se pudo leer el total del resumen para compararlo');
+  // El PDF consolidado de la caja también trae sus totales: sin ellos no hay forma de saber si faltan filas
+  const esCajaPdf = deteccion?.producto === 'caja_ahorro' && deteccion?.formato === 'pdf';
+  if ((esTarjeta || esCajaPdf) && !control) motivos.push('No se pudo leer el total del resumen para compararlo');
 
   const sinExplicar = [control?.ars?.sin_explicar, control?.usd?.sin_explicar].filter(n => Number.isFinite(n));
   if (sinExplicar.some(n => Math.abs(n) > TOLERANCIA_CONTROL)) motivos.push('El total importado no coincide con el del resumen');
