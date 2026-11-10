@@ -58,71 +58,51 @@ const FormularioFuente = ({ fuente, onGuardar, onQuitar, onCancelar }) => {
 }
 
 // Checklist del mes: por fuente, si el último resumen esperado llegó. Se configura el día de cierre de cada una.
-const CalendarioCierres = ({ version }) => {
-  const { fuentes, loading, error, guardar, quitar, autoImportar } = useCalendario(version)
+// Recibe el estado de `useCalendario` (lo maneja ConfiguracionDatos, que también avisa de los faltantes).
+const CalendarioCierres = ({ calendario }) => {
+  const { fuentes, error, guardar, quitar, autoImportar } = calendario
   const [editando, setEditando] = useState(null)
-  const [abierto, setAbierto] = useState(false)
-
-  if (loading) return null
-
-  const controladas = fuentes.filter(f => f.configurada && f.activa)
-  const faltan = controladas.filter(f => f.estado === 'faltante' || f.estado === 'avisado').length
-  // Sin nada configurado se muestra abierto, para que se vea que existe
-  const visible = abierto || controladas.length === 0
 
   return (
-    <div className="card">
-      <button onClick={() => setAbierto(!abierto)} className="w-full flex items-center justify-between text-left">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Calendario de cierres</h2>
-          <p className="text-sm text-gray-400">
-            {error && fuentes.length === 0 ? 'No se pudo cargar el calendario'
-              : controladas.length === 0
-              ? 'Configurá el día de cierre de cada resumen y te avisamos si alguno no llega'
-              : faltan === 0 ? 'Llegaron todos los resúmenes esperados' : (faltan === 1 ? '1 resumen sin archivo' : `${faltan} resúmenes sin archivo`)}
-          </p>
-        </div>
-        {controladas.length > 0 && <span className="text-gray-400 text-sm">{visible ? 'Ocultar' : 'Ver'}</span>}
-      </button>
+    <div>
+      <p className="text-sm text-gray-400">Configurá el día de cierre de cada resumen y te avisamos si alguno no llega.</p>
 
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
-      {visible && (
-        <ul className="mt-4 divide-y divide-gray-700">
-          {fuentes.map(f => {
-            const estado = f.configurada && f.activa ? ESTADOS[f.estado] : null
-            return (
-              <li key={f.fuente} className="py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-white">{f.nombre}</p>
-                    <p className="text-xs text-gray-400">
-                      {!f.configurada ? 'Sin configurar'
-                        : !f.activa ? 'Pausada'
-                          : `Cierra el ${f.dia_cierre} · último cierre ${formatFecha(f.cierre)}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {estado && <span className={`px-2 py-0.5 rounded text-xs ${estado.clase}`}>{estado.texto}</span>}
-                    <button onClick={() => setEditando(editando === f.fuente ? null : f.fuente)} className="text-sm text-gray-300 hover:text-white">
-                      {f.configurada ? 'Editar' : 'Configurar'}
-                    </button>
-                  </div>
+    <ul className="mt-2 divide-y divide-gray-700">
+        {fuentes.map(f => {
+          const estado = f.configurada && f.activa ? ESTADOS[f.estado] : null
+          return (
+            <li key={f.fuente} className="py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-white">{f.nombre}</p>
+                  <p className="text-xs text-gray-400">
+                    {!f.configurada ? 'Sin configurar'
+                      : !f.activa ? 'Pausada'
+                        : `Cierra el ${f.dia_cierre} · último cierre ${formatFecha(f.cierre)}`}
+                  </p>
                 </div>
-                {(
-                  <label className="mt-2 flex items-center gap-2 text-xs text-gray-400" title="Solo aplica a lo que llega por mail: si pasa todos los controles se importa solo y podés deshacerlo desde la lista">
-                    <input type="checkbox" checked={f.auto_importar} onChange={e => autoImportar(f.fuente, e.target.checked)} />
-                    Importar solo si todo está en orden (sin duplicados, todo categorizado y el total cierra, si el resumen lo trae)
-                  </label>
-                )}
-                {editando === f.fuente && (
-                  <FormularioFuente fuente={f} onGuardar={guardar} onQuitar={quitar} onCancelar={() => setEditando(null)} />
-                )}
-              </li>
-            )
+                <div className="flex items-center gap-3">
+                  {estado && <span className={`px-2 py-0.5 rounded text-xs ${estado.clase}`}>{estado.texto}</span>}
+                  <button onClick={() => setEditando(editando === f.fuente ? null : f.fuente)} className="text-sm text-gray-300 hover:text-white">
+                    {f.configurada ? 'Editar' : 'Configurar'}
+                  </button>
+                </div>
+              </div>
+              {(
+                <label className="mt-2 flex items-center gap-2 text-xs text-gray-400" title="Solo aplica a lo que llega por mail: si pasa todos los controles se importa solo y podés deshacerlo desde la lista">
+                  <input type="checkbox" checked={f.auto_importar} onChange={e => autoImportar(f.fuente, e.target.checked)} />
+                  Importar solo si todo está en orden (sin duplicados, todo categorizado y el total cierra, si el resumen lo trae)
+                </label>
+              )}
+              {editando === f.fuente && (
+                <FormularioFuente fuente={f} onGuardar={guardar} onQuitar={quitar} onCancelar={() => setEditando(null)} />
+              )}
+            </li>
+          )
           })}
-        </ul>
-      )}
+      </ul>
     </div>
   )
 }
