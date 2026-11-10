@@ -1,7 +1,7 @@
 import { BaseParser } from './BaseParser.js';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
-import { extraerTotalesTarjeta } from '../utils/totalesResumen.js';
+import { extraerTotalesTarjeta, extraerTotalesCuenta } from '../utils/totalesResumen.js';
 import { CATEGORIA_IMPUESTOS } from '../models/User.js';
 
 const MESES_ABREVIADOS = {
@@ -15,6 +15,20 @@ const MONEDA_EXTRANJERA_FINAL = /\b(?:USD|BRL|EUR|UYU|CLP|GBP|PYG|MXN|COP|PEN|BO
 // Taxes and tax refunds of the card statement (ING-14): imported as transactions so the
 // statement total matches (stamp tax, IIBB and IVA perceptions, RG 5617 perception and its refund)
 const LINEA_IMPUESTO = /^(IMPUESTO DE SELLOS|IIBB PERCEP|IVA RG|DB\.?\s?RG|DEV\.?\s?IMP)/;
+
+// Período del PDF consolidado de la caja de ahorro: dos fechas DD/MM/YYYY (la más nueva primero)
+// justo antes de la etiqueta "Período de movimientos"
+const periodoDelConsolidado = (texto) => {
+  const m = texto.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2})\/(\d{2})\/(\d{4})\s*Per.odo de movimientos/);
+  if (!m) return null;
+  const [desde, hasta] = [`${m[3]}-${m[2]}-${m[1]}`, `${m[6]}-${m[5]}-${m[4]}`].sort();
+  return { desde, hasta };
+};
+
+// Línea de montos de un movimiento del consolidado: "<crédito> <saldo>" o "-<débito> <saldo>"
+const MONTOS_CONSOLIDADO = /^(-?\d{1,3}(?:\.\d{3})*,\d{2}) (-?\d{1,3}(?:\.\d{3})*,\d{2})$/;
+// Paginado y encabezados repetidos del PDF
+const RUIDO_CONSOLIDADO = /^(-- \d+ of \d+ --|P.gina \d+ \/ \d+|Resumen de Caja de Ahorro|\d{10,}[A-Z]$|Movimientos$|Fecha Descripci\S+ Origen)/;
 
 /**
  * Parser for Banco Galicia files
@@ -40,14 +54,29 @@ export class GaliciaParser extends BaseParser {
           : null
       };
     }
-    if (/Resumen de Caja de Ahorro en Pesos/.test(texto)) {
+    // Caja de ahorro en dólares: no se importa como pesos
+    if (!/Resumen de Caja de Ahorro en Pesos/.test(texto) && /Resumen de Caja de Ahorro en D\S{1,2}lares/i.test(texto)) {
       return {
         tipo: 'galicia',
         tipoResumen: 'cuenta',
         producto: 'caja_ahorro',
-        descripcion: 'Galicia · caja de ahorro (PDF consolidado)',
+        descripcion: 'Galicia · caja de ahorro en dólares (PDF)',
         soportado: false,
-        motivo: 'El resumen PDF consolidado de la caja de ahorro no está soportado: descargá el extracto en Excel'
+        motivo: 'El resumen PDF de la caja de ahorro en dólares no está soportado: solo se importa la caja de ahorro en pesos'
+      };
+    }
+    // Resumen consolidado en PDF de la caja de ahorro en pesos (ING-15)
+    if (/Resumen de Caja de Ahorro en Pesos/.test(texto)) {
+      const periodo = periodoDelConsolidado(texto);
+      return {
+        tipo: 'galicia',
+        tipoResumen: 'cuenta',
+        producto: 'caja_ahorro',
+        formato: 'pdf',
+        descripcion: 'Galicia · caja de ahorro (PDF consolidado)',
+        periodo,
+        cierre: periodo?.hasta ?? null,
+        totales: extraerTotalesCuenta(texto)
       };
     }
 
@@ -113,9 +142,90 @@ export class GaliciaParser extends BaseParser {
   async parse() {
     if (this.tipoResumen === 'tarjeta') {
       return this.parseTarjeta();
-    } else {
-      return this.parseCuenta();
     }
+    const texto = await this.textoDelPdfConsolidado();
+    return texto ? this.parseCuentaPdf(texto) : this.parseCuenta();
+  }
+
+  /**
+   * Texto del PDF consolidado de la caja de ahorro (o de texto plano con ese layout), o null si el
+   * archivo es el extracto CSV/Excel
+   */
+  async textoDelPdfConsolidado() {
+    const texto = await this.extraerTexto();
+    return /Resumen de Caja de Ahorro en (Pesos|D\S{1,2}lares)/i.test(texto) && !/Fecha,Movimiento,D.bito/.test(texto) ? texto : null;
+  }
+
+  async extraerTexto() {
+    if (this.buffer && this.buffer.slice(0, 4).toString() === '%PDF') {
+      const pdfParser = new PDFParse({ data: new Uint8Array(this.buffer), verbosity: 0 });
+      await pdfParser.load();
+      return (await pdfParser.getText()).text;
+    }
+    const utf8 = iconv.decode(this.buffer, 'utf8');
+    return utf8.includes('�') ? iconv.decode(this.buffer, 'latin1') : utf8;
+  }
+
+  /**
+   * Caja de ahorro: PDF "Resumen de Caja de Ahorro en Pesos" (ING-15). Cada movimiento es una línea
+   * con fecha DD/MM/AA y descripción, 0..n líneas de detalle y una línea de montos
+   * ("<crédito> <saldo>" o "-<débito> <saldo>"). Misma salida que parseCuenta.
+   * @param {string} texto
+   * @returns {Array}
+   */
+  parseCuentaPdf(texto) {
+    if (!/Resumen de Caja de Ahorro en Pesos/.test(texto)) {
+      throw new Error('La caja de ahorro en dólares no está soportada: solo se importa la caja de ahorro en pesos');
+    }
+    const lineas = texto.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const inicio = lineas.findIndex(l => /^Fecha Descripci\S+ Origen Cr\S+dito/.test(l));
+    if (inicio < 0) {
+      throw new Error('No se encontró el detalle de movimientos. Verificá que sea el resumen de la caja de ahorro en pesos de Banco Galicia.');
+    }
+
+    const transactions = [];
+    let actual = null; // { fecha, descripcion, detalle: [] }
+    for (const linea of lineas.slice(inicio + 1)) {
+      if (/^Total \$/.test(linea)) break;
+      if (RUIDO_CONSOLIDADO.test(linea)) continue;
+
+      const apertura = linea.match(/^(\d{2})\/(\d{2})\/(\d{2}) (\S.*)$/);
+      if (apertura) {
+        if (actual) console.warn(`Galicia PDF: movimiento sin línea de montos descartado (${actual.fecha})`);
+        actual = { fecha: `${apertura[1]}/${apertura[2]}/20${apertura[3]}`, descripcion: apertura[4], detalle: [] };
+        continue;
+      }
+      if (!actual) continue;
+
+      const montos = linea.match(MONTOS_CONSOLIDADO);
+      if (!montos) {
+        actual.detalle.push(linea);
+        continue;
+      }
+      const transaccion = this.crearTransaccionConsolidado(actual, montos[1]);
+      if (transaccion) transactions.push(transaccion);
+      actual = null;
+    }
+    return transactions;
+  }
+
+  crearTransaccionConsolidado({ fecha, descripcion, detalle: lineas }, monto) {
+    const valor = this.cleanAmount(monto, true);
+    if (!valor || !this.isValidDate(fecha)) return null;
+
+    // Igual que el Excel de la caja, que guarda todo el texto del movimiento (descripción, fondo,
+    // contraparte, documentos...) como detalle: así el mismo movimiento no se duplica al subir los dos
+    const texto = [descripcion, ...lineas].join(' ').replace(/\s+/g, ' ').trim();
+
+    return this.createTransaction({
+      fecha,
+      categoria: this.inferCategoria(texto),
+      detalle: texto,
+      importe: Math.abs(valor),
+      moneda: 'ARS',
+      tipo: valor < 0 ? 'Gasto' : 'Ingreso',
+      origen: 'Banco Galicia'
+    });
   }
 
   /**

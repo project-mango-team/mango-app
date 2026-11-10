@@ -139,6 +139,12 @@ Mirar un extracto real de la caja de ahorro con movimientos de Fima y contestar:
 3. ¿El monto coincide al centavo con el de la app?
 4. ¿Hay caja de ahorro en USD que también mueva plata a fondos?
 
+**Lo que aprendimos del PDF consolidado de la caja de ahorro (ING-15):**
+- La descripción es `RESCATE FIMA` (el rescate es un **crédito**: entra plata a la caja) o `SUSCRIPCION FIMA` (el aporte es un **débito**: sale plata hacia el fondo).
+- El nombre del fondo viene en la **línea siguiente** a la descripción, con mayúsculas y minúsculas variables según el movimiento (por ejemplo `Fima Ejemplo Clase A` y `FIMA EJEMPLO CLASE A` para el mismo fondo) y truncado a unos 20 caracteres (`FIMA EJEMPLO PLUS CLAS`).
+- El parser arma el detalle con todo el texto del movimiento (`RESCATE FIMA Fima Ejemplo Clase A`), igual que el Excel de la caja, para que el mismo movimiento no se duplique si se sube por Excel y por PDF. Una regla `contiene "FIMA"` funciona; una regla por fondo tiene que ser insensible a mayúsculas.
+- No trae cuotapartes ni precio: solo el monto. Asociar el fondo con el activo queda como INV-13.
+
 **Regla de ejemplo** (ajustar el texto cuando se conteste lo anterior): *Si el detalle contiene "FIMA" y el origen es Banco Galicia → Cargar en Fima Premium* (Configuración de reglas, ⚙ en Categorías).
 
 **Nota sobre el parser de la caja de ahorro:** `GaliciaParser.parseCuenta` pone la moneda en ARS fija. Es preexistente y no se tocó; una caja en USD saldría mal.

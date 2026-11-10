@@ -5,7 +5,7 @@ import { formatImporte } from '../../utils/format'
 
 const cierra = (n) => Math.abs(n || 0) < 1
 
-const hayDolares = (usd) => usd && (usd.resumen || usd.importado)
+const hayDolares = (usd) => Boolean(usd && (usd.resumen || usd.importado))
 
 // Versión corta para la tabla de la bandeja
 export const ControlTotalesResumen = ({ control }) => {
@@ -14,7 +14,7 @@ export const ControlTotalesResumen = ({ control }) => {
   const ok = cierra(ars.sin_explicar) && (!hayDolares(usd) || cierra(usd.sin_explicar))
   return (
     <div className="mt-1 text-xs">
-      <p className="text-gray-500 whitespace-nowrap">Resumen {formatImporte(ars.resumen)}</p>
+      <p className="text-gray-500 whitespace-nowrap">{control.cuenta ? 'Neto del resumen' : 'Resumen'} {formatImporte(ars.resumen)}</p>
       {ok ? (
         <p className="text-green-400" title="La diferencia son impuestos, cargos o saldo anterior">
           Cierra
@@ -48,7 +48,7 @@ const SinExplicar = ({ valor, moneda }) => (
 // Versión completa para la revisión
 const ControlTotales = ({ control }) => {
   if (!control) return null
-  const { ars, usd, cargos, pago_minimo } = control
+  const { ars, usd, cargos, pago_minimo, cuenta } = control
   const noImportados = cargos.filter(c => !c.importado)
 
   return (
@@ -58,6 +58,17 @@ const ControlTotales = ({ control }) => {
         {pago_minimo !== null && <span className="text-xs text-gray-400">Pago mínimo {formatImporte(pago_minimo)}</span>}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
+        {cuenta ? (
+          <div className="space-y-1">
+            <Fila label="Créditos importados" valor={cuenta.creditos.importado} detalle={`El resumen dice ${formatImporte(cuenta.creditos.resumen)}`} />
+            <Fila label="Débitos importados" valor={cuenta.debitos.importado} detalle={`El resumen dice ${formatImporte(cuenta.debitos.resumen)}`} />
+            <Fila label="Saldo final del resumen" valor={cuenta.saldo_final} clase="text-white" />
+            {cuenta.conciliacion !== null && !cierra(cuenta.conciliacion) && (
+              <Fila label="Saldo inicial + créditos − débitos vs. saldo final" valor={cuenta.conciliacion} clase="text-yellow-400" />
+            )}
+            <SinExplicar valor={ars.sin_explicar} />
+          </div>
+        ) : (
         <div className="space-y-1">
           <Fila label="Importado" valor={ars.importado} detalle="Todo lo leído del archivo, también lo ya cargado" />
           <Fila label="Total del resumen" valor={ars.resumen} clase="text-white" />
@@ -78,6 +89,7 @@ const ControlTotales = ({ control }) => {
           )}
           <SinExplicar valor={ars.sin_explicar} />
         </div>
+        )}
         {hayDolares(usd) && (
           <div className="space-y-1">
             <Fila label="Importado en dólares" valor={usd.importado} moneda="USD" />

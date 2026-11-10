@@ -138,6 +138,7 @@ export const extraerTotalesTarjeta = (texto) => {
  * }}
  */
 export const compararTotales = (totales, transacciones = []) => {
+  if (totales?.tipo === 'cuenta') return compararTotalesCuenta(totales, transacciones);
   if (!totales?.total) return null;
 
   const signo = (t) => (t.tipo === 'Ingreso' ? -1 : 1);
@@ -180,5 +181,87 @@ export const compararTotales = (totales, transacciones = []) => {
     },
     cargos,
     pago_minimo: totales.pago_minimo ?? null
+  };
+};
+
+// ---------- Caja de ahorro (ING-15) ----------
+
+/**
+ * Totales del PDF consolidado de la caja de ahorro: la línea final
+ * "Total $ <créditos> -$ <débitos> $ <saldo final>" y el saldo inicial del encabezado
+ * (la línea de "$" anterior a "Saldos"; el saldo final es la otra).
+ * Conciliación: saldo inicial + créditos − débitos = saldo final.
+ * @param {string} texto
+ * @returns {null | { tipo: 'cuenta', creditos: number, debitos: number, saldo_final: number,
+ *   saldo_inicial: number|null, conciliacion: number|null }} null si no encuentra la línea de totales
+ */
+export const extraerTotalesCuenta = (texto) => {
+  if (!texto) return null;
+  const lineas = texto.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+  const linea = lineas.find(l => /^Total \$ /.test(l));
+  const montos = linea ? montosDe(linea.replace(/-\$/, '$').replace(/^Total /, '')) : [];
+  if (montos.length < 3) return null;
+  const [creditos, debitos] = montos.slice(0, 2).map(m => redondear(Math.abs(m)));
+  const saldoFinal = redondear(montos[2]);
+
+  // Encabezado: "$ <saldo>" en las dos líneas previas a "Saldos"
+  const i = lineas.indexOf('Saldos');
+  const saldosEncabezado = i > 1
+    ? lineas.slice(i - 2, i).filter(l => /^\$ ?-?\d/.test(l)).map(l => redondear(montosDe(l)[0]))
+    : [];
+  // El saldo final coincide con el de la línea de totales; el otro es el inicial
+  const [s1, s2] = saldosEncabezado;
+  const saldoInicial = saldosEncabezado.length !== 2 ? null : s1 === saldoFinal ? s2 : s2 === saldoFinal ? s1 : null;
+
+
+  return {
+    tipo: 'cuenta',
+    creditos,
+    debitos,
+    saldo_final: saldoFinal,
+    saldo_inicial: saldoInicial,
+    conciliacion: saldoInicial === null ? null : redondear(saldoInicial + creditos - debitos - saldoFinal)
+  };
+};
+
+const compararTotalesCuenta = (totales, transacciones) => {
+  const suma = (tipo) => redondear(transacciones.filter(t => t.tipo === tipo && t.moneda !== 'USD')
+    .reduce((s, t) => s + (Number(t.importe) || 0), 0));
+  const creditos = suma('Ingreso');
+  const debitos = suma('Gasto');
+  const difCreditos = redondear(totales.creditos - creditos);
+  const difDebitos = redondear(totales.debitos - debitos);
+  const neto = redondear(totales.creditos - totales.debitos);
+  const importado = redondear(creditos - debitos);
+  const diferencia = redondear(neto - importado);
+
+  const cierra = (n) => Math.abs(n) < 0.01;
+  // Créditos y débitos se controlan por separado (un error de cada lado puede compensarse en el neto);
+  // la conciliación contra el saldo inicial y final también
+  const sinExplicar = !cierra(diferencia) ? diferencia
+    : !cierra(difCreditos) ? difCreditos
+      : !cierra(difDebitos) ? -difDebitos
+        : (totales.conciliacion && !cierra(totales.conciliacion) ? totales.conciliacion : 0);
+
+  return {
+    ars: {
+      importado,
+      resumen: neto,
+      diferencia,
+      saldo_pendiente: 0,
+      cargos_no_importados: 0,
+      sin_explicar: sinExplicar
+    },
+    usd: { importado: 0, resumen: 0, diferencia: 0, saldo_pendiente: 0, sin_explicar: 0 },
+    cargos: [],
+    pago_minimo: null,
+    cuenta: {
+      creditos: { importado: creditos, resumen: totales.creditos, diferencia: difCreditos },
+      debitos: { importado: debitos, resumen: totales.debitos, diferencia: difDebitos },
+      saldo_inicial: totales.saldo_inicial,
+      saldo_final: totales.saldo_final,
+      conciliacion: totales.conciliacion
+    }
   };
 };
