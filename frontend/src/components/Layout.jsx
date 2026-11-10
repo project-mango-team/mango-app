@@ -5,6 +5,7 @@ import useBandejaPendientes from '../hooks/useBandejaPendientes'
 import useNotificacionesNoLeidas from '../hooks/useNotificacionesNoLeidas'
 import Icono from './nav/Icono'
 import UserMenu from './nav/UserMenu'
+import NotificationBell from './nav/NotificationBell'
 
 // Las rutas anidadas (/datos/historial) también dejan marcada la solapa
 const estaActivo = (pathname, path) => pathname === path || pathname.startsWith(path + '/')
@@ -31,7 +32,6 @@ const Layout = () => {
 
   const navItems = [
     { name: 'Inicio', path: '/inicio', icon: 'inicio' },
-    { name: 'Avisos', path: '/avisos', icon: 'campana', badge: avisosNoLeidos },
     { name: 'Datos', path: '/datos', icon: 'datos', badge: pendientesBandeja },
     { name: 'Inversiones', path: '/inversiones', icon: 'inversiones' }
   ]
@@ -63,6 +63,8 @@ const Layout = () => {
           <nav className="hidden md:flex items-center gap-1" aria-label="Principal">
             {navItems.map(renderItem)}
           </nav>
+
+          {isAuthenticated && user && <NotificationBell noLeidas={avisosNoLeidos} />}
 
           {isAuthenticated && user && <UserMenu user={user} onLogout={logout} />}
 
