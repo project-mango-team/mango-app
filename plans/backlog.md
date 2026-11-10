@@ -137,6 +137,20 @@ Los aportes y rescates a Fima caen en el extracto de la caja de ahorro de Galici
 
 ---
 
+## Épica UX — Navegación y Datos más simples
+Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campana, y Datos queda con una sola superficie de carga.
+
+| ID | Ticket | Depende de | Tam. | Estado |
+|---|---|---|---|---|
+| UX-01 | **Sidebar → barra de navegación superior.** Logo y nombre a la izquierda, solapas (icono + nombre) a la derecha; en celular, menú colapsable. Conserva `isActive` y el badge de pendientes en Datos. | — | M | pendiente |
+| UX-02 | **Avisos → campana de notificaciones.** Icono con contador de no leídas en la navbar y panel desplegable; al click marca leída y va al `link`. Reusa el centro de PLAT-02; `/avisos` queda como "ver todas". | UX-01 | M | pendiente |
+| UX-03 | **Calendario de cierres en "Configuración de datos".** Sale de la Bandeja; se abre con un engranaje a la derecha de las solapas de Datos (ING-09 intacto, con los avisos de faltantes). | — | S | pendiente |
+| UX-04 | **Bug: la fila de solapas de Datos tiene 1px de más y muestra scroll.** Arreglar la causa raíz (overflow/altura/borde). | — | S | pendiente |
+| UX-05 | **Unificar Bandeja y Cargar** en una sola solapa de carga de archivos: soltar/subir, carga manual (banco/tipo/cotización/tarjeta) y lista de pendientes, con la revisión de un import igual que hoy. Migración queda aparte. Diseño del architect. | UX-03, UX-04 | L | pendiente |
+| UX-06 | **Historial dentro de la solapa de carga**, paginado en el backend (`GET /api/operations` con `limit/skip`), con el detalle de ítems importados por operación (`GET /api/operations/:id/transactions`, filtrado por usuario) y revertir. | UX-05 | M | pendiente |
+
+---
+
 ## Ideas sueltas (sin épica todavía)
 - **Consumos en moneda extranjera mal importados antes del 20/10/2026**: el parser de Visa Galicia guardaba los consumos en reales (y otras monedas que no fueran USD) como pesos con el monto en dólares (por ejemplo, US$ 21,33 → $21,33). Ya está corregido para los imports nuevos (ING-13). Para los ya cargados haría falta una corrección puntual, con preview y confirmación del usuario: no se toca la DB sin que lo pida.
 - **Conciliación mensual**: para cada mes, comparar cuánto cambió el patrimonio contra ingresos − gastos + ganancia de inversiones, y mostrar lo "sin explicar" (lo que se pasó anotar). Requiere tener todas las cuentas y el efectivo cargados como activos.
