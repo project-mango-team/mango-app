@@ -3,169 +3,88 @@ import { useAuth } from '../contexts/AuthContext'
 import { useState, useEffect } from 'react'
 import useBandejaPendientes from '../hooks/useBandejaPendientes'
 import useNotificacionesNoLeidas from '../hooks/useNotificacionesNoLeidas'
+import Icono from './nav/Icono'
+import UserMenu from './nav/UserMenu'
+
+// Las rutas anidadas (/datos/historial) también dejan marcada la solapa
+const estaActivo = (pathname, path) => pathname === path || pathname.startsWith(path + '/')
+
+const Insignia = ({ cantidad, activo }) => (
+  <span className={`min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-semibold text-center ${
+    activo ? 'bg-white/20 text-white' : 'bg-primary text-white'
+  }`}>
+    {cantidad}
+  </span>
+)
 
 const Layout = () => {
   const location = useLocation()
   const { user, logout, isAuthenticated } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [menuAbierto, setMenuAbierto] = useState(false)
   const pendientesBandeja = useBandejaPendientes()
   const avisosNoLeidos = useNotificacionesNoLeidas()
 
-  // Cerrar el drawer al navegar
+  // Cerrar el menú del celular al navegar
   useEffect(() => {
-    setSidebarOpen(false)
+    setMenuAbierto(false)
   }, [location.pathname])
 
   const navItems = [
-    { name: 'Inicio', path: '/inicio' },
-    { name: 'Avisos', path: '/avisos', badge: avisosNoLeidos },
-    { name: 'Datos', path: '/datos', badge: pendientesBandeja },
-    { name: 'Inversiones', path: '/inversiones' }
+    { name: 'Inicio', path: '/inicio', icon: 'inicio' },
+    { name: 'Avisos', path: '/avisos', icon: 'campana', badge: avisosNoLeidos },
+    { name: 'Datos', path: '/datos', icon: 'datos', badge: pendientesBandeja },
+    { name: 'Inversiones', path: '/inversiones', icon: 'inversiones' }
   ]
 
-  // Las rutas anidadas (/datos/historial) también dejan marcado el ítem del menú
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
+  const itemClase = (activo) => `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+    activo ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-700'
+  }`
+
+  const renderItem = (item) => {
+    const activo = estaActivo(location.pathname, item.path)
+    return (
+      <Link key={item.path} to={item.path} className={itemClase(activo)} aria-current={activo ? 'page' : undefined}>
+        <Icono nombre={item.icon} className="w-5 h-5 flex-shrink-0" />
+        <span>{item.name}</span>
+        {item.badge > 0 && <Insignia cantidad={item.badge} activo={activo} />}
+      </Link>
+    )
+  }
 
   return (
-    <div className="h-screen flex bg-gray-900 overflow-hidden">
-      {/* Overlay del drawer en mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+    <div className="h-screen flex flex-col bg-gray-900 overflow-hidden">
+      <header className="relative z-40 flex-shrink-0 bg-gray-800 border-b border-gray-700">
+        <div className="flex items-center gap-3 px-4 md:px-8 h-16">
+          <Link to="/inicio" className="flex items-center gap-3 mr-auto min-w-0">
+            <img src="/logo.svg" alt="" className="w-9 h-9 flex-shrink-0" />
+            <span className="text-xl font-bold text-white">Mango</span>
+          </Link>
 
-      {/* Sidebar - drawer en mobile, fija en desktop */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col h-full transform transition-transform duration-200 md:static md:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-700 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="Mango" className="w-12 h-12" />
-            <div>
-              <h1 className="text-2xl font-bold text-white">Mango</h1>
-              <p className="text-sm text-gray-400">Gestor de Gastos</p>
-            </div>
-          </div>
-        </div>
+          <nav className="hidden md:flex items-center gap-1" aria-label="Principal">
+            {navItems.map(renderItem)}
+          </nav>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
-          <ul className="space-y-2">
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.path)
-                      ? 'bg-primary text-white'
-                      : 'text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  <span className="font-medium flex-1">{item.name}</span>
-                  {item.badge > 0 && (
-                    <span className={`min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-xs font-semibold text-center ${
-                      isActive(item.path) ? 'bg-white/20 text-white' : 'bg-primary text-white'
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          {isAuthenticated && user && <UserMenu user={user} onLogout={logout} />}
 
-        {/* User Info / Footer */}
-        <div className="p-4 border-t border-gray-700 flex-shrink-0">
-          {isAuthenticated && user ? (
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <img
-                  src={user.picture || '/default-avatar.png'}
-                  alt={user.name}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium text-white truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {user.email}
-                  </p>
-                </div>
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* User Menu Dropdown */}
-              {showUserMenu && (
-                <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-700 rounded-lg shadow-lg border border-gray-600 overflow-hidden">
-                  <Link
-                    to="/configuracion"
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-gray-600 transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Configuración
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false)
-                      logout()
-                    }}
-                    className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-gray-600 transition-colors flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Cerrar sesión
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500 text-center">
-              Mango v1.0.0
-            </p>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content - Scrollable area */}
-      <main className="flex-1 min-w-0 overflow-y-auto h-full">
-        {/* Barra superior mobile */}
-        <div className="md:hidden sticky top-0 z-20 flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700">
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-gray-300 hover:bg-gray-700"
-            aria-label="Abrir menú"
+            onClick={() => setMenuAbierto(a => !a)}
+            className="md:hidden p-2 -mr-2 rounded-lg text-gray-300 hover:bg-gray-700"
+            aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={menuAbierto}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Icono nombre={menuAbierto ? 'cerrar' : 'menu'} className="w-6 h-6" />
           </button>
-          <img src="/logo.svg" alt="Mango" className="w-8 h-8" />
-          <span className="text-lg font-bold text-white">Mango</span>
         </div>
+
+        {/* Menú desplegable en celular */}
+        {menuAbierto && (
+          <nav className="md:hidden absolute inset-x-0 top-full bg-gray-800 border-b border-gray-700 shadow-lg p-3 flex flex-col gap-1" aria-label="Principal">
+            {navItems.map(renderItem)}
+          </nav>
+        )}
+      </header>
+
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="p-4 md:p-8">
           <Outlet />
         </div>

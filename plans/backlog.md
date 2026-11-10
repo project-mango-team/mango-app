@@ -142,8 +142,8 @@ Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campa
 
 | ID | Ticket | Depende de | Tam. | Estado |
 |---|---|---|---|---|
-| UX-01 | **Sidebar → barra de navegación superior.** Logo y nombre a la izquierda, solapas (icono + nombre) a la derecha; en celular, menú colapsable. Conserva `isActive` y el badge de pendientes en Datos. | — | M | pendiente |
-| UX-02 | **Avisos → campana de notificaciones.** Icono con contador de no leídas en la navbar y panel desplegable; al click marca leída y va al `link`. Reusa el centro de PLAT-02; `/avisos` queda como "ver todas". | UX-01 | M | pendiente |
+| UX-01 | **Sidebar → barra de navegación superior.** Logo y nombre a la izquierda, solapas (icono + nombre) a la derecha; en celular, menú colapsable. Conserva `isActive` y el badge de pendientes en Datos. | — | M | hecho |
+| UX-02 | **Avisos → campana de notificaciones.** Icono con contador de no leídas en la navbar y panel desplegable; al click marca leída y va al `link`. Reusa el centro de PLAT-02; `/avisos` queda como "ver todas". | UX-01 | M | hecho |
 | UX-03 | **Calendario de cierres en "Configuración de datos".** Sale de la Bandeja; se abre con un engranaje a la derecha de las solapas de Datos (ING-09 intacto, con los avisos de faltantes). | — | S | pendiente |
 | UX-04 | **Bug: la fila de solapas de Datos tiene 1px de más y muestra scroll.** Arreglar la causa raíz (overflow/altura/borde). | — | S | pendiente |
 | UX-05 | **Unificar Bandeja y Cargar** en una sola solapa de carga de archivos: soltar/subir, carga manual (banco/tipo/cotización/tarjeta) y lista de pendientes, con la revisión de un import igual que hoy. Migración queda aparte. Diseño del architect. | UX-03, UX-04 | L | pendiente |
