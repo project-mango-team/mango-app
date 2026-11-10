@@ -43,7 +43,7 @@ const Layout = () => {
   const renderItem = (item) => {
     const activo = estaActivo(location.pathname, item.path)
     return (
-      <Link key={item.path} to={item.path} className={itemClase(activo)} aria-current={activo ? 'page' : undefined}>
+      <Link key={item.path} to={item.path} onClick={() => setMenuAbierto(false)} className={itemClase(activo)} aria-current={activo ? 'page' : undefined}>
         <Icono nombre={item.icon} className="w-5 h-5 flex-shrink-0" />
         <span>{item.name}</span>
         {item.badge > 0 && <Insignia cantidad={item.badge} activo={activo} />}

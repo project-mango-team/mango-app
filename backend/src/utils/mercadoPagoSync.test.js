@@ -102,7 +102,7 @@ describe('avisos y mensajes', () => {
       nivel: 'info',
       titulo: 'Movimientos de Mercado Pago en la Bandeja',
       mensaje: '3 movimientos del 16/10 al 19/10, listos para revisar.',
-      link: '/datos/bandeja',
+      link: '/datos/cargar',
       clave: 'mp-sync:2026-10-16:2026-10-19'
     });
     expect(avisoDeSync({ ...traidos, movimientos: 1 }, '2026-10-20').mensaje).toMatch(/^1 movimiento del/);

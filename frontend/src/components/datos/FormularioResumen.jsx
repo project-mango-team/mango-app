@@ -1,7 +1,7 @@
 import DeteccionResumenBadge from '../DeteccionResumenBadge'
 import TransactionEditor from '../TransactionEditor'
 
-// Formulario de la pestaña Cargar: origen de datos, archivo de resumen y carga manual
+// Formulario de carga a mano: archivo de resumen con banco/tipo/tarjetas a elegir, o carga manual (el origen lo elige CargarTab)
 const FormularioResumen = ({ carga }) => {
   const {
     origenDatos,
@@ -40,26 +40,6 @@ const FormularioResumen = ({ carga }) => {
   return (
     <div className={`card ${origenDatos === 'manual' ? '' : 'max-w-2xl'}`}>
       <div className="space-y-6">
-        {/* Origen de datos */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Origen de datos
-          </label>
-          <select
-            value={origenDatos}
-            onChange={(e) => {
-              setOrigenDatos(e.target.value)
-              setTipo('')
-              setMessage(null)
-            }}
-            className="input-field w-full"
-          >
-            <option value="">Seleccionar...</option>
-            <option value="manual">Carga manual</option>
-            <option value="resumen">Resumen de cuenta</option>
-          </select>
-        </div>
-
         {/* Resumen de cuenta form */}
         {origenDatos === 'resumen' && (
           <form onSubmit={handleSubmit} className="space-y-6">

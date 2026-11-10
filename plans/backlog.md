@@ -146,7 +146,7 @@ Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campa
 | UX-02 | **Avisos → campana de notificaciones.** Icono con contador de no leídas en la navbar y panel desplegable; al click marca leída y va al `link`. Reusa el centro de PLAT-02; `/avisos` queda como "ver todas". | UX-01 | M | hecho |
 | UX-03 | **Calendario de cierres en "Configuración de datos".** Sale de la Bandeja; se abre con un engranaje a la derecha de las solapas de Datos (ING-09 intacto, con los avisos de faltantes). | — | S | hecho |
 | UX-04 | **Bug: la fila de solapas de Datos tiene 1px de más y muestra scroll.** Arreglar la causa raíz (overflow/altura/borde). | — | S | hecho |
-| UX-05 | **Unificar Bandeja y Cargar** en una sola solapa de carga de archivos: soltar/subir, carga manual (banco/tipo/cotización/tarjeta) y lista de pendientes, con la revisión de un import igual que hoy. Migración queda aparte. Diseño del architect. | UX-03, UX-04 | L | pendiente |
+| UX-05 | **Unificar Bandeja y Cargar** en una sola solapa de carga de archivos: soltar/subir, carga manual (banco/tipo/cotización/tarjeta) y lista de pendientes, con la revisión de un import igual que hoy. Migración queda aparte. Diseño del architect. | UX-03, UX-04 | L | hecho |
 | UX-06 | **Historial dentro de la solapa de carga**, paginado en el backend (`GET /api/operations` con `limit/skip`), con el detalle de ítems importados por operación (`GET /api/operations/:id/transactions`, filtrado por usuario) y revertir. | UX-05 | M | pendiente |
 
 ---

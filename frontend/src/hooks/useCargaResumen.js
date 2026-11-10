@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useDeteccionResumen from './useDeteccionResumen'
 import { uploadService } from '../services/transactionService'
 import useCotizacionDolar from './useCotizacionDolar'
+import { BANDEJA_CAMBIO } from './useBandeja'
 
 // Estado y acciones de la pestaña Cargar de Datos: elegir origen, subir un resumen (con detección automática
 // de banco, tipo y tarjetas), revisar las transacciones en el editor y guardarlas, o cargarlas a mano.
@@ -224,6 +225,9 @@ const useCargaResumen = () => {
         text: response.message
       })
 
+      // Avisa al historial (y al badge) que hay una carga nueva
+      window.dispatchEvent(new Event(BANDEJA_CAMBIO))
+
       // Reset form and editor
       setFile(null)
       setTipo('')
@@ -279,6 +283,8 @@ const useCargaResumen = () => {
         type: 'success',
         text: response.message
       })
+
+      window.dispatchEvent(new Event(BANDEJA_CAMBIO))
 
       // Reset manual transactions by changing key
       setManualKey(prev => prev + 1)

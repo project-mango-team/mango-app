@@ -3,14 +3,12 @@ import useBandejaPendientes from '../hooks/useBandejaPendientes'
 import ConfiguracionDatos from '../components/datos/ConfiguracionDatos'
 
 const PESTANIAS = [
-  { nombre: 'Bandeja', ruta: '/datos/bandeja' },
   { nombre: 'Cargar', ruta: '/datos/cargar' },
-  { nombre: 'Historial', ruta: '/datos/historial' },
   { nombre: 'Migración', ruta: '/datos/migracion' }
 ]
 
-// Todas las formas de meter datos: la Bandeja (resúmenes que llegan solos), carga a mano o por archivo,
-// el historial de lo cargado y la migración desde Excel. Cada pestaña es una ruta anidada.
+// Cargar (archivos, resúmenes que llegan solos, carga a mano e historial) y Migración desde Excel.
+// Cada pestaña es una ruta anidada.
 const Datos = () => {
   const pendientes = useBandejaPendientes()
 
@@ -33,7 +31,7 @@ const Datos = () => {
               }`}
             >
               {nombre}
-              {nombre === 'Bandeja' && pendientes > 0 && (
+              {nombre === 'Cargar' && pendientes > 0 && (
                 <span className="min-w-[1.25rem] rounded-full bg-primary px-1.5 py-0.5 text-center text-xs font-semibold text-white">{pendientes}</span>
               )}
             </NavLink>

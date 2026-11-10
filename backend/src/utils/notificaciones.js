@@ -3,7 +3,7 @@ import { FUENTES, fuenteDeDeteccion, fuenteDeAviso } from './fuentesResumen.js';
 // Textos de las notificaciones que genera Mango. Devuelven el objeto que recibe notificar().
 
 // La Bandeja es una pestaña de Datos (DAT-03); /bandeja redirige acá, así que las notificaciones viejas siguen andando
-export const LINK_BANDEJA = '/datos/bandeja';
+export const LINK_BANDEJA = '/datos/cargar';
 
 const LARGO_TITULO = 120;
 const LARGO_MENSAJE = 500;

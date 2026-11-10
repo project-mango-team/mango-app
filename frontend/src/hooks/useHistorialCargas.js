@@ -24,6 +24,9 @@ const useHistorialCargas = () => {
 
   useEffect(() => {
     cargar()
+    // Una carga nueva o revertida desde otro lado de la pestaña refresca la lista
+    window.addEventListener(BANDEJA_CAMBIO, cargar)
+    return () => window.removeEventListener(BANDEJA_CAMBIO, cargar)
   }, [cargar])
 
   const revertir = async (operacion) => {

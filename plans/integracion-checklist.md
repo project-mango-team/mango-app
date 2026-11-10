@@ -51,7 +51,7 @@ Para probar: `npm run dev` (usa `Mango_dev`), entrar como invitado.
 
 ## DAT (la Bandeja dentro de Datos)
 Verificado en dev: pestañas, redirecciones, historial con Origen y Cuenta, revertir una carga de la Bandeja desde el Historial (el documento vuelve a pendiente y el badge sube), Cargar con Santander/Galicia (selects) y carga manual, sin scroll horizontal en 375 px.
-- [ ] `/bandeja` y `/migracion` redirigen a `/datos/bandeja` y `/datos/migracion`; un aviso viejo (guardado con link `/bandeja`) lleva a la Bandeja.
+- [ ] `/bandeja`, `/datos/bandeja` y `/datos/historial` redirigen a `/datos/cargar` (el historial, con `#historial`); `/migracion` a `/datos/migracion`. Un aviso viejo (link `/datos/bandeja`) lleva a Cargar (UX-05).
 - [ ] El menú lateral muestra Inicio, Avisos, Datos (con el badge de pendientes), Inversiones; "Datos" queda marcado en cualquier pestaña.
 - [ ] Historial: columna Origen (Bandeja, Mail, Mercado Pago (API), Archivo, Carga manual, Migración Excel, más "automático") y Cuenta; filtro por origen. Las cargas viejas de la Bandeja ya revertidas se ven como "Archivo" (limitación conocida).
 - [ ] Cargar un resumen real de Santander con tarjetas a mano en Datos → Cargar (detección, tarjetas, valor del dólar) y guardarlo; verlo en el Historial y revertirlo.

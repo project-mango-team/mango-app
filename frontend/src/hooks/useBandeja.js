@@ -26,6 +26,9 @@ const useBandeja = () => {
 
   useEffect(() => {
     recargar()
+    // Un documento que vuelve a la bandeja (revertir una carga desde el historial) o una carga nueva
+    window.addEventListener(BANDEJA_CAMBIO, recargar)
+    return () => window.removeEventListener(BANDEJA_CAMBIO, recargar)
   }, [recargar])
 
   // Corre una acción, muestra su resultado y recarga la lista

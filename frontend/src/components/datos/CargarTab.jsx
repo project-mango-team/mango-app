@@ -1,56 +1,76 @@
-import { Link } from 'react-router-dom'
+import useBandeja from '../../hooks/useBandeja'
 import useCargaResumen from '../../hooks/useCargaResumen'
-import TransactionEditor from '../TransactionEditor'
-import FormularioResumen from './FormularioResumen'
+import BandejaDropzone from '../bandeja/BandejaDropzone'
+import PendientesBandeja from './carga/PendientesBandeja'
+import CargaArchivoManual from './carga/CargaArchivoManual'
+import MensajeCarga from './carga/MensajeCarga'
+import HistorialTab from './HistorialTab'
 
+// Una sola superficie para cargar datos: soltar archivos (la detección arma la lista de pendientes), los
+// pendientes que llegan por mail o API y, abajo, el historial. "Carga manual" abre el flujo con banco,
+// tipo y tarjetas a mano.
 const CargarTab = () => {
+  const bandeja = useBandeja()
   const carga = useCargaResumen()
-  const {
-    message,
-    previewData,
-    showEditor,
-    saving,
-    handleSaveTransactions,
-    handleCancelEditor
-  } = carga
+  const { origenDatos, setOrigenDatos, setMessage, setFile, setTipo, handleCancelEditor, deteccion } = carga
+  const enModoManual = origenDatos !== ''
+  const listos = bandeja.documentos.filter(d => d.estado === 'listo')
+
+  const elegirOrigen = (origen) => {
+    setMessage(null)
+    setTipo('')
+    setOrigenDatos(origen)
+  }
+
+  const volver = () => {
+    handleCancelEditor()
+    setFile(null)
+    setTipo('')
+    deteccion.limpiar()
+    setOrigenDatos('')
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Importar transacciones</h2>
-        <p className="text-gray-400">Importá extractos bancarios o cargá transacciones manualmente</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Cargar</h2>
+          <p className="text-gray-400 mt-1">Soltá tus resúmenes, revisá los que llegan por mail e importalos</p>
+        </div>
+        {!enModoManual && (
+          <div className="flex flex-wrap gap-2">
+            {listos.length > 0 && (
+              <button onClick={bandeja.importarListos} disabled={bandeja.ocupado} className="btn-primary disabled:opacity-50">
+                Importar {listos.length} listo{listos.length === 1 ? '' : 's'}
+              </button>
+            )}
+            <button onClick={() => elegirOrigen('manual')} className="btn-secondary">Carga manual</button>
+          </div>
+        )}
       </div>
 
-      {/* Messages */}
-      {message && (
-        <div className={`card ${message.type === 'error' ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800'}`}>
-          <p className={message.type === 'error' ? 'text-red-400' : 'text-green-400'}>
-            {message.text}
-            {message.type !== 'error' && <> <Link to="/datos/historial" className="underline">Ver en el historial</Link></>}
-          </p>
-        </div>
+      <MensajeCarga mensaje={carga.message}>
+        {' '}<a href="#historial" className="underline">Ver en el historial</a>
+      </MensajeCarga>
+
+      {enModoManual ? (
+        <CargaArchivoManual carga={carga} onVolver={volver} />
+      ) : (
+        <>
+          <div>
+            <BandejaDropzone onArchivos={bandeja.subir} deshabilitado={bandeja.ocupado} />
+            <button onClick={() => elegirOrigen('resumen')} className="mt-2 text-sm text-gray-400 hover:text-white underline">
+              Elegir banco, tipo y tarjetas a mano
+            </button>
+          </div>
+          <MensajeCarga mensaje={bandeja.mensaje} />
+          <PendientesBandeja bandeja={bandeja} />
+        </>
       )}
 
-      {/* Transaction Editor */}
-      {showEditor && previewData && (
-        <div className="card">
-          {saving ? (
-            <div className="text-center py-8">
-              <div className="text-gray-400">Guardando transacciones...</div>
-            </div>
-          ) : (
-            <TransactionEditor
-              initialTransactions={previewData.transactions}
-              archivoYaImportado={previewData.archivoYaImportado}
-              limites={previewData.limites}
-              onSave={handleSaveTransactions}
-              onCancel={handleCancelEditor}
-            />
-          )}
-        </div>
-      )}
-
-      {!showEditor && <FormularioResumen carga={carga} />}
+      <section id="historial">
+        <HistorialTab />
+      </section>
     </div>
   )
 }

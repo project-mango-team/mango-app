@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import useCalendario from '../../hooks/useCalendario'
+import { BANDEJA_CAMBIO } from '../../hooks/useBandeja'
 import Modal from '../Modal'
 import CalendarioCierres from '../bandeja/CalendarioCierres'
 import Icono from '../nav/Icono'
@@ -8,8 +9,15 @@ import Icono from '../nav/Icono'
 // Un punto en el engranaje avisa si hay resúmenes que faltan.
 const ConfiguracionDatos = () => {
   const [abierto, setAbierto] = useState(false)
-  // Al abrir el panel se vuelve a pedir el calendario, así el estado es el de ahora
-  const calendario = useCalendario(abierto)
+  const [version, setVersion] = useState(0)
+  // Se vuelve a pedir el calendario al abrir el panel y cuando cambia la bandeja (llegó o se importó un resumen)
+  const calendario = useCalendario(`${abierto}-${version}`)
+
+  useEffect(() => {
+    const refrescar = () => setVersion(v => v + 1)
+    window.addEventListener(BANDEJA_CAMBIO, refrescar)
+    return () => window.removeEventListener(BANDEJA_CAMBIO, refrescar)
+  }, [])
 
   const faltan = calendario.fuentes.filter(f => f.configurada && f.activa && (f.estado === 'faltante' || f.estado === 'avisado')).length
 

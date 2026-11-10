@@ -17,6 +17,7 @@ const useAvisos = ({ activo = true } = {}) => {
       const res = await notificationService.listar()
       setAvisos(res.data)
       setNoLeidas(res.noLeidas)
+      setError(null)
     } catch (err) {
       setError(mensajeError(err, 'No se pudieron cargar los avisos'))
     }

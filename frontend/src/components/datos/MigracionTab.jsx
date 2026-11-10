@@ -135,7 +135,7 @@ const MigracionTab = () => {
         <div className={`card ${message.type === 'error' ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800'}`}>
           <p className={message.type === 'error' ? 'text-red-400' : 'text-green-400'}>
             {message.text}
-            {message.type !== 'error' && migrationResult && <> <Link to="/datos/historial" className="underline">Ver en el historial</Link></>}
+            {message.type !== 'error' && migrationResult && <> <Link to="/datos/cargar#historial" className="underline">Ver en el historial</Link></>}
           </p>
         </div>
       )}

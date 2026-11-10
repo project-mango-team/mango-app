@@ -66,7 +66,7 @@ const NotificationBell = ({ noLeidas: contador }) => {
             ) : avisos.length === 0 ? (
               <p className="p-4 text-sm text-gray-500">No tenés notificaciones.</p>
             ) : (
-              avisos.slice(0, MAX_EN_PANEL).map(a => <ItemAviso key={a._id} aviso={a} onAbrir={abrir} compacto />)
+              avisos.slice(0, MAX_EN_PANEL).map(a => <ItemAviso key={a._id} aviso={a} onAbrir={async (aviso) => { await abrir(aviso); setAbierto(false) }} compacto />)
             )}
           </div>
 
