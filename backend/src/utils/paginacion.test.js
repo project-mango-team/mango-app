@@ -13,6 +13,9 @@ describe('parsearPaginacion', () => {
     expect(parsearPaginacion({ limit: '5000' })).toEqual({ limit: 100, skip: 0 });
     expect(parsearPaginacion({}, { porDefecto: 20 })).toEqual({ limit: 20, skip: 0 });
   });
+  it('topea skip para que Mongo no rechace números enormes', () => {
+    expect(parsearPaginacion({ skip: '99999999999999999999' }).skip).toBe(1000000);
+  });
   it('ignora negativos, NaN, cero y valores que no son string', () => {
     expect(parsearPaginacion({ limit: '-3', skip: '-1' })).toEqual({ limit: 50, skip: 0 });
     expect(parsearPaginacion({ limit: 'abc', skip: 'x' })).toEqual({ limit: 50, skip: 0 });

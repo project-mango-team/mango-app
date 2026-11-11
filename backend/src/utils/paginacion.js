@@ -5,6 +5,6 @@ export const parsearPaginacion = (query = {}, { porDefecto = 50, maximo = 100 } 
   const skip = entero(query.skip);
   return {
     limit: limit === null || limit < 1 ? porDefecto : Math.min(limit, maximo),
-    skip: skip === null ? 0 : skip
+    skip: skip === null ? 0 : Math.min(skip, 1000000)
   };
 };

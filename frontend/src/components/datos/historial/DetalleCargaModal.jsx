@@ -23,7 +23,7 @@ const DetalleCargaModal = ({ operacion, onClose, onRevertir }) => {
     >
       {revertida ? (
         <p className="py-6 text-center text-gray-400">Esta carga fue revertida: sus movimientos se borraron.</p>
-      ) : error ? (
+      ) : error && transacciones.length === 0 ? (
         <p className="text-sm text-red-400">{error}</p>
       ) : transacciones.length === 0 && !cargando ? (
         <p className="py-6 text-center text-gray-400">Esta carga no tiene transacciones guardadas.</p>
@@ -55,9 +55,10 @@ const DetalleCargaModal = ({ operacion, onClose, onRevertir }) => {
               </tbody>
             </table>
           </div>
+          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
           <div className="mt-3 flex items-center justify-between gap-3 text-sm text-gray-400">
             <span>{cargando ? 'Cargando…' : `${transacciones.length} de ${total}`}</span>
-            {hasMore && !cargando && <button onClick={verMas} className="btn-secondary text-sm">Ver más</button>}
+            {(hasMore || error) && !cargando && <button onClick={verMas} className="btn-secondary text-sm">{error ? 'Reintentar' : 'Ver más'}</button>}
           </div>
         </>
       )}

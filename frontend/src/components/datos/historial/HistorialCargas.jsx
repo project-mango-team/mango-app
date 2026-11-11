@@ -24,8 +24,7 @@ const HistorialCargas = () => {
     const operacion = seleccionada
     setSeleccionada(null)
     if (operacion) {
-      await revertir(operacion)
-      setDetalle(null)
+      if (await revertir(operacion)) setDetalle(null)
     }
   }
 
