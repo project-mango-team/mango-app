@@ -8,7 +8,7 @@ const formatDate = (dateString) => new Date(dateString).toLocaleString('es-AR', 
   minute: '2-digit'
 })
 
-const HistorialCargasTable = ({ operaciones, onRevertir }) => (
+const HistorialCargasTable = ({ operaciones, onRevertir, onVerDetalle }) => (
   <div className="overflow-x-auto">
     <table className="w-full">
       <thead>
@@ -25,7 +25,7 @@ const HistorialCargasTable = ({ operaciones, onRevertir }) => (
       </thead>
       <tbody>
         {operaciones.map((op) => (
-          <tr key={op.operation_id} className={`border-b border-gray-700/50 hover:bg-gray-700/30 ${op.status === 'rolled_back' ? 'opacity-60' : ''}`}>
+          <tr key={op.operation_id} onClick={() => onVerDetalle(op)} title="Ver qué se importó" className={`border-b border-gray-700/50 hover:bg-gray-700/30 cursor-pointer ${op.status === 'rolled_back' ? 'opacity-60' : ''}`}>
             <td className="py-3 px-4 text-sm text-gray-300">{op.filename}</td>
             <td className="py-3 px-4 text-sm"><OrigenCarga canal={op.canal} automatica={op.automatica} /></td>
             <td className="py-3 px-4 text-sm text-gray-400">{op.origen}</td>
@@ -44,7 +44,7 @@ const HistorialCargasTable = ({ operaciones, onRevertir }) => (
             <td className="py-3 px-4 text-center">
               {op.status === 'completed' && (
                 <button
-                  onClick={() => onRevertir(op)}
+                  onClick={(e) => { e.stopPropagation(); onRevertir(op) }}
                   className="text-red-400 hover:text-red-300 text-sm font-medium transition-colors"
                 >
                   Eliminar

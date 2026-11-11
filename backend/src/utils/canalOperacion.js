@@ -5,6 +5,15 @@ export const CANALES = ['manual', 'archivo', 'bandeja', 'mail', 'api', 'migracio
 
 const CANAL_DE_FUENTE = { upload: 'bandeja', email: 'mail', email_aviso: 'mail', api: 'api' };
 
+// Filtro de Mongo para listar cargas de un canal. Las operaciones viejas de migración y carga manual no
+// guardaban el canal: se reconocen por su tipo. Nunca incluye user_id (lo agrega buildUserQuery).
+export const filtroPorCanal = (canal) => {
+  if (typeof canal !== 'string' || !CANALES.includes(canal)) return {};
+  if (canal === 'migracion') return { $or: [{ canal }, { canal: { $exists: false }, type: 'migration' }] };
+  if (canal === 'manual') return { $or: [{ canal }, { canal: { $exists: false }, 'metadata.tipo': 'manual' }] };
+  return { canal };
+};
+
 export const canalDeFuente = (fuente) => CANAL_DE_FUENTE[fuente] || 'bandeja';
 
 /**

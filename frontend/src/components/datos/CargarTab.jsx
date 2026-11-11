@@ -4,7 +4,7 @@ import BandejaDropzone from '../bandeja/BandejaDropzone'
 import PendientesBandeja from './carga/PendientesBandeja'
 import CargaArchivoManual from './carga/CargaArchivoManual'
 import MensajeCarga from './carga/MensajeCarga'
-import HistorialTab from './HistorialTab'
+import HistorialCargas from './historial/HistorialCargas'
 
 // Una sola superficie para cargar datos: soltar archivos (la detección arma la lista de pendientes), los
 // pendientes que llegan por mail o API y, abajo, el historial. "Carga manual" abre el flujo con banco,
@@ -12,7 +12,8 @@ import HistorialTab from './HistorialTab'
 const CargarTab = () => {
   const bandeja = useBandeja()
   const carga = useCargaResumen()
-  const { origenDatos, setOrigenDatos, setMessage, setFile, setTipo, handleCancelEditor, deteccion } = carga
+  const { origenDatos, setOrigenDatos, setMessage, setFile, setTipo, setCardType, setAvailableCards, setSelectedCards, setTipoResumen, handleCancelEditor, deteccion } = carga
+  const ocupadoManual = carga.loading || carga.saving || carga.detectingCards || Boolean(deteccion.detectando)
   const enModoManual = origenDatos !== ''
   const listos = bandeja.documentos.filter(d => d.estado === 'listo')
 
@@ -24,8 +25,13 @@ const CargarTab = () => {
 
   const volver = () => {
     handleCancelEditor()
+    setMessage(null)
     setFile(null)
     setTipo('')
+    setCardType('')
+    setAvailableCards([])
+    setSelectedCards([])
+    setTipoResumen('')
     deteccion.limpiar()
     setOrigenDatos('')
   }
@@ -54,7 +60,7 @@ const CargarTab = () => {
       </MensajeCarga>
 
       {enModoManual ? (
-        <CargaArchivoManual carga={carga} onVolver={volver} />
+        <CargaArchivoManual carga={carga} onVolver={volver} deshabilitado={ocupadoManual} />
       ) : (
         <>
           <div>
@@ -69,7 +75,7 @@ const CargarTab = () => {
       )}
 
       <section id="historial">
-        <HistorialTab />
+        <HistorialCargas />
       </section>
     </div>
   )

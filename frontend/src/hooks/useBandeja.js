@@ -45,7 +45,7 @@ const useBandeja = () => {
       return null
     } finally {
       setOcupado(false)
-      await recargar()
+      // El aviso recarga la lista (acá, el badge y el historial)
       avisarCambio()
     }
   }
@@ -74,7 +74,7 @@ const useBandeja = () => {
     importar: (id, transactions) => ejecutar(() => bandejaService.importar(id, transactions), (res) => res.message),
     importarListos: () => ejecutar(() => bandejaService.importarListos(), (res) => res.message),
     descartar: (id) => ejecutar(() => bandejaService.descartar(id), 'Documento descartado'),
-    deshacer: (operationId) => ejecutar(() => bandejaService.deshacer(operationId), 'Importación deshecha: el documento volvió a la bandeja'),
+    deshacer: (operationId) => ejecutar(() => bandejaService.deshacer(operationId), 'Importación deshecha: el documento volvió a la lista de pendientes'),
     actualizarParametros: (id, parametros) => ejecutar(() => bandejaService.actualizarParametros(id, parametros))
   }
 }

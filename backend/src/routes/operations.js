@@ -4,7 +4,9 @@ import Transaction from '../models/Transaction.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildUserQuery } from '../utils/userQuery.js';
 import IngestDocument from '../models/IngestDocument.js';
-import { canalDeOperacion } from '../utils/canalOperacion.js';
+import { canalDeOperacion, filtroPorCanal } from '../utils/canalOperacion.js';
+import { parsearPaginacion } from '../utils/paginacion.js';
+import { getTransaccionesDeOperacion } from '../controllers/operationController.js';
 import { revertirOperacion } from '../services/operationService.js';
 
 const router = express.Router();
@@ -14,21 +16,23 @@ router.use(requireAuth);
 
 /**
  * GET /api/operations
- * Get all operations (history of imports/migrations)
+ * Historial de cargas, paginado (limit/skip) y filtrable por canal, type y status
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { type, status, limit = 50 } = req.query;
-    
-    const filters = {};
-    if (type) filters.type = type;
-    if (status) filters.status = status;
+    const { type, status, canal } = req.query;
+    const { limit, skip } = parsearPaginacion(req.query);
+
+    // Solo strings: así no entran operadores tipo status[$ne]
+    const filters = { ...filtroPorCanal(canal) };
+    if (typeof type === 'string' && type) filters.type = type;
+    if (typeof status === 'string' && status) filters.status = status;
 
     const query = buildUserQuery(req, filters);
-    const operations = await Operation.find(query)
-      .sort({ created_at: -1 })
-      .limit(parseInt(limit))
-      .lean();
+    const [operations, total] = await Promise.all([
+      Operation.find(query).sort({ created_at: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+      Operation.countDocuments(query)
+    ]);
 
     // DAT-02: las operaciones viejas de la Bandeja se reconocen por el documento que las importó
     const documentos = await IngestDocument.find(buildUserQuery(req, { operation_id: { $in: operations.map(o => o.operation_id) } }))
@@ -40,12 +44,20 @@ router.get('/', async (req, res, next) => {
     res.json({
       success: true,
       count: data.length,
+      total,
+      hasMore: skip + data.length < total,
       data
     });
   } catch (error) {
     next(error);
   }
 });
+
+/**
+ * GET /api/operations/:operationId/transactions
+ * Ítems importados por una carga (paginado)
+ */
+router.get('/:operationId/transactions', getTransaccionesDeOperacion);
 
 /**
  * GET /api/operations/:operationId

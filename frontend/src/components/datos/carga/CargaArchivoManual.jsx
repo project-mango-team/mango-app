@@ -3,12 +3,12 @@ import FormularioResumen from '../FormularioResumen'
 
 // Carga a mano: un archivo con banco, tipo, cotización y tarjetas elegidos a mano, o transacciones tipeadas.
 // Tras elegir el archivo muestra el editor de vista previa; al guardar vuelve a la pantalla principal.
-const CargaArchivoManual = ({ carga, onVolver }) => {
+const CargaArchivoManual = ({ carga, onVolver, deshabilitado }) => {
   const { previewData, showEditor, saving, handleSaveTransactions, handleCancelEditor } = carga
 
   return (
     <div className="space-y-4">
-      <button onClick={onVolver} className="text-sm text-gray-400 hover:text-white">← Volver a cargar archivos</button>
+      <button onClick={onVolver} disabled={deshabilitado} className="text-sm text-gray-400 hover:text-white disabled:opacity-40">← Volver a cargar archivos</button>
 
       {showEditor && previewData ? (
         <div className="card">

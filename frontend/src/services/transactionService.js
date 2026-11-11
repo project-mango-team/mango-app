@@ -218,6 +218,20 @@ export const operationsService = {
     return response.data;
   },
 
+  // Historial paginado: { data, total, hasMore }
+  listar: async ({ limit = 20, skip = 0, canal = '' } = {}) => {
+    const params = new URLSearchParams({ limit, skip });
+    if (canal) params.append('canal', canal);
+    const response = await api.get(`/operations?${params.toString()}`);
+    return response.data;
+  },
+
+  // Ítems que importó una carga (paginado)
+  transacciones: async (operationId, { limit = 100, skip = 0 } = {}) => {
+    const response = await api.get(`/operations/${operationId}/transactions?limit=${limit}&skip=${skip}`);
+    return response.data;
+  },
+
   // Get single operation details
   getById: async (operationId) => {
     const response = await api.get(`/operations/${operationId}`);

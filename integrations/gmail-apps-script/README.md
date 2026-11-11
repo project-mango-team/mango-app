@@ -1,6 +1,6 @@
 # Mango · resúmenes desde Gmail
 
-Script de Google Apps Script que corre en tu cuenta de Gmail y manda a la **Bandeja** de Mango (en Datos → Bandeja) los resúmenes que te llegan por mail. No hay que mantener ningún servidor: Google lo ejecuta una vez por día, a las 9.
+Script de Google Apps Script que corre en tu cuenta de Gmail y manda a la **Bandeja** de Mango (en Datos → Cargar) los resúmenes que te llegan por mail. No hay que mantener ningún servidor: Google lo ejecuta una vez por día, a las 9.
 
 Qué hace con cada mail que tenga la etiqueta `Mango/Resumenes`:
 
@@ -44,7 +44,7 @@ Cuando sepas el remitente de otros bancos (Santander, el aviso de la caja de aho
    Va a aparecer *"Google no verificó esta app"*: es normal porque el script es tuyo. Tocá **Configuración avanzada → Ir a Mango resúmenes (no seguro) → Permitir**.
 3. En el registro tiene que aparecer `Conexión con Mango OK` y `Listo: todos los días a las 9 se van a mandar...`.
 
-Listo. Para probarlo sin esperar, ejecutá **`procesarResumenes`** y mirá Datos → Bandeja en Mango.
+Listo. Para probarlo sin esperar, ejecutá **`procesarResumenes`** y mirá Datos → Cargar en Mango.
 
 ## Fecha de corte
 `configurar` guarda la fecha del día en la propiedad `MANGO_DESDE`, y el script solo manda mails recibidos desde esa fecha. Si alguna vez querés mandar resúmenes anteriores, cambiá `MANGO_DESDE` a una fecha más vieja (formato `AAAA-MM-DD`) o borrala, y ejecutá `procesarResumenes`. Lo que ya estaba importado en Mango aparece marcado como "ya cargado" en la Bandeja.
