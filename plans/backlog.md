@@ -155,11 +155,11 @@ Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campa
 
 | ID | Ticket | Deps | Tam. | Estado |
 |---|---|---|---|---|
-| PUL-01 | **Historial único.** En la solapa Cargar hoy hay dos listas (cargas por mail y cargas manuales + mail): duplicadas. Una sola lista de historial con todas las cargas y toda su data (origen, cuenta, fecha, cantidad, estado). | UX-06 | S | pendiente |
-| PUL-02 | **Carga manual sin revisión de categorías.** Una carga manual (archivo elegido por el usuario) no debe mandar a "revisar" por categorías; solo los imports por Bandeja, mail o automáticos. Y el botón "OK" feo: tilde y cruz. | UX-05 | S | pendiente |
-| PUL-03 | **Modal de progreso/resultado reutilizable** (`ModalProgreso`): loading mientras corre, luego tilde verde + mensaje + botón OK. Usarlo en revertir carga, asociar categoría en la revisión, guardar import y todo caso parecido que se encuentre. Más un `ConfirmModal` custom en reemplazo de `window.confirm/alert` (ej. eliminar una regla). | — | M | pendiente |
-| PUL-04 | **Asociar categoría en la revisión**: con deshacer, resultado en el modal (no en la fila) y poder **crear una categoría nueva** desde ahí. | PUL-03 | M | pendiente |
-| PUL-05 | **Modal de revisión más ancho** para que se vea la tabla entera. | — | S | pendiente |
+| PUL-01 | **Historial único.** En la solapa Cargar hoy hay dos listas (cargas por mail y cargas manuales + mail): duplicadas. Una sola lista de historial con todas las cargas y toda su data (origen, cuenta, fecha, cantidad, estado). | UX-06 | S | hecho |
+| PUL-02 | **Carga manual sin revisión de categorías.** Una carga manual (archivo elegido por el usuario) no debe mandar a "revisar" por categorías; solo los imports por Bandeja, mail o automáticos. Y el botón "OK" feo: tilde y cruz. | UX-05 | S | hecho |
+| PUL-03 | **Modal de progreso/resultado reutilizable** (`ModalProgreso`): loading mientras corre, luego tilde verde + mensaje + botón OK. Usarlo en revertir carga, asociar categoría en la revisión, guardar import y todo caso parecido que se encuentre. Más un `ConfirmModal` custom en reemplazo de `window.confirm/alert` (ej. eliminar una regla). | — | M | hecho |
+| PUL-04 | **Asociar categoría en la revisión**: con deshacer, resultado en el modal (no en la fila) y poder **crear una categoría nueva** desde ahí. | PUL-03 | M | hecho |
+| PUL-05 | **Modal de revisión más ancho** para que se vea la tabla entera. | — | S | hecho |
 | PUL-06 | **Reglas del usuario con prioridad sobre las que ya matchearon.** Poder asociar una categoría aunque ya haya matcheado una regla o keyword (ej. "transferencia" → Transferencias pero "a Juan Perez" → Comida): orden/prioridad de reglas, gana la explícita y más específica del usuario, y se ve en la revisión por qué se eligió esa categoría. | REV-02 | M | pendiente |
 | PUL-07 | **Préstamos desde transferencias.** Marcar una fila como "Préstamo" (acción de regla y en la revisión) y que se registre en Préstamos de Inversiones (otorgado/devuelto), sin contar como gasto. | INV-03 | M | pendiente |
 | PUL-08 | **Pagos de tarjeta en la caja de ahorro como "ya importados"** cuando existe un import de esa tarjeta con el mismo total (±tolerancia, ±días): se marcan como movimiento interno/ya cubierto, sin duplicar. | REV-04, ING-12 | M | pendiente |

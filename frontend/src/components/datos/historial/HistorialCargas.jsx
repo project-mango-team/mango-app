@@ -6,11 +6,12 @@ import ConfirmModal from '../../ConfirmModal'
 import { ETIQUETAS_CANAL } from '../OrigenCarga'
 import Paginador from './Paginador'
 import DetalleCargaModal from './DetalleCargaModal'
+import ModalProgreso from '../../ModalProgreso'
 
 // Historial de cargas (de cualquier origen), paginado: click en una carga para ver qué importó o revertirla
 const HistorialCargas = () => {
   const historial = useHistorialCargas()
-  const { operaciones, cargando, mensaje, revertir, canal, cambiarCanal } = historial
+  const { operaciones, cargando, errorCarga, revertir, canal, cambiarCanal } = historial
   const [seleccionada, setSeleccionada] = useState(null)
   const [detalle, setDetalle] = useState(null)
   const { hash } = useLocation()
@@ -30,11 +31,7 @@ const HistorialCargas = () => {
 
   return (
     <div className="space-y-6">
-      {mensaje && (
-        <div className={`card ${mensaje.type === 'error' ? 'bg-red-900/20 border-red-800' : 'bg-green-900/20 border-green-800'}`}>
-          <p className={mensaje.type === 'error' ? 'text-red-400' : 'text-green-400'}>{mensaje.text}</p>
-        </div>
-      )}
+      {errorCarga && <p className="text-sm text-red-400">{errorCarga}</p>}
 
       <div className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -67,13 +64,15 @@ const HistorialCargas = () => {
 
       <DetalleCargaModal operacion={detalle} onClose={() => setDetalle(null)} onRevertir={setSeleccionada} />
 
+      <ModalProgreso progreso={historial.progreso} />
+
       <ConfirmModal
         isOpen={Boolean(seleccionada)}
         onClose={() => setSeleccionada(null)}
         onConfirm={confirmar}
-        title="Confirmar Eliminación"
+        title="Revertir carga"
         message={`¿Estás seguro de eliminar todas las transacciones de "${seleccionada?.filename}"? Esta acción no se puede deshacer.`}
-        confirmText="Eliminar"
+        confirmText="Revertir"
         cancelText="Cancelar"
         type="danger"
       />

@@ -3,7 +3,9 @@ import { useEffect } from 'react'
 const SIZES = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
-  xl: 'max-w-4xl'
+  xl: 'max-w-4xl',
+  // Casi pantalla completa (revisión de un import): la tabla se ve entera sin scroll horizontal
+  full: 'max-w-[96vw] 2xl:max-w-[1600px]'
 }
 
 // Modal genérico: backdrop, título, contenido scrolleable y footer opcional
@@ -24,10 +26,10 @@ const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md'
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${size === 'full' ? 'p-2 sm:p-4' : 'p-4'}`}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className={`relative bg-gray-800 rounded-lg shadow-2xl w-full ${SIZES[size]} max-h-[90vh] flex flex-col border border-gray-700 animate-modal-enter`}>
+      <div className={`relative bg-gray-800 rounded-lg shadow-2xl w-full ${SIZES[size]} max-h-[92vh] flex flex-col border border-gray-700 animate-modal-enter`}>
         <div className="px-6 py-4 border-b border-gray-700 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-xl font-bold text-white">{title}</h3>
@@ -44,7 +46,7 @@ const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md'
           </button>
         </div>
 
-        <div className="px-6 py-4 overflow-y-auto">{children}</div>
+        <div className={`overflow-y-auto ${size === 'full' ? 'px-3 sm:px-6 py-4' : 'px-6 py-4'}`}>{children}</div>
 
         {footer && (
           <div className="px-6 py-4 border-t border-gray-700 flex gap-3 justify-end">{footer}</div>

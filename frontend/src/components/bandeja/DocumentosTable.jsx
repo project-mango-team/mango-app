@@ -34,12 +34,12 @@ const Boton = ({ children, onClick, variante = 'secundario', disabled }) => (
   </button>
 )
 
-// Documentos de la bandeja con su detección, vista previa y acciones según el estado
-const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescartar, onElegirTipo, onDeshacer }) => {
+// Documentos pendientes de la bandeja (lo importado vive en el historial) con su detección, vista previa y acciones según el estado
+const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescartar, onElegirTipo }) => {
   if (documentos.length === 0) {
     return (
       <div className="card text-center py-10 text-gray-400">
-        La bandeja está vacía. Soltá los resúmenes del mes arriba.
+        No hay resúmenes pendientes. Los que lleguen por mail o Mercado Pago aparecen acá; lo ya importado está en el historial.
       </div>
     )
   }
@@ -71,9 +71,6 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     <p className="text-xs text-gray-400 mt-1 max-w-[18rem]">
                       Bajalo del homebanking y soltalo arriba: este aviso se cierra solo.
                     </p>
-                  )}
-                  {doc.auto_importado && doc.estado === 'importado' && (
-                    <p className="text-xs text-green-400 mt-1">Importado automáticamente · podés deshacerlo</p>
                   )}
                   {doc.estado === 'listo' && doc.auto_motivos?.length > 0 && (
                     <p className="text-xs text-yellow-400 mt-1 max-w-[18rem]">
@@ -130,9 +127,6 @@ const DocumentosTable = ({ documentos, ocupado, onRevisar, onImportar, onDescart
                     )}
                     {['no_reconocido', 'error'].includes(doc.estado) && (
                       <Boton onClick={() => onElegirTipo(doc)} disabled={ocupado}>Elegir banco</Boton>
-                    )}
-                    {doc.estado === 'importado' && (
-                      <Boton onClick={() => onDeshacer(doc)} disabled={ocupado}>Deshacer</Boton>
                     )}
                     {!['importado', 'resuelto'].includes(doc.estado) && (
                       <Boton variante="peligro" onClick={() => onDescartar(doc)} disabled={ocupado}>Descartar</Boton>

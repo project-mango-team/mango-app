@@ -16,6 +16,7 @@ const CargaArchivoManual = ({ carga, onVolver, deshabilitado }) => {
             <div className="text-center py-8 text-gray-400">Guardando transacciones...</div>
           ) : (
             <TransactionEditor
+              sinRevision
               initialTransactions={previewData.transactions}
               archivoYaImportado={previewData.archivoYaImportado}
               limites={previewData.limites}

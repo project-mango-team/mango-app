@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { migrateService } from '../../services/transactionService'
 import ConfirmModal from '../ConfirmModal'
+import ModalProgreso from '../ModalProgreso'
+import useProgreso from '../../hooks/useProgreso'
 
 const MigracionTab = () => {
+  const progreso = useProgreso()
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -87,30 +90,19 @@ const MigracionTab = () => {
   }
 
   const confirmMigration = async () => {
-    try {
-      setMigrating(true)
-      setMessage(null)
+    setMigrating(true)
+    setMessage(null)
+    await progreso.ejecutar('Migrar desde Excel', async () => {
       const response = await migrateService.migrate(file)
-      
       setMigrationResult(response.data)
-      setMessage({ 
-        type: 'success', 
-        text: response.message
-      })
-      
+
       // Reset form
       setFile(null)
       setPreview(null)
       document.getElementById('file-upload-migrate').value = ''
-
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.message || 'Error durante la migración'
-      })
-    } finally {
-      setMigrating(false)
-    }
+      return response.message
+    }, { cargando: 'Migrando las hojas del Excel… puede tardar un momento.', errorPorDefecto: 'Error durante la migración' })
+    setMigrating(false)
   }
 
   const formatNumber = (num) => {
@@ -348,6 +340,8 @@ const MigracionTab = () => {
         type="warning"
       />
 
+
+      <ModalProgreso progreso={progreso} />
     </div>
   )
 }
