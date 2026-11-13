@@ -60,6 +60,8 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.inversion?.error && t.categoria === 'Inversión') motivos.push('inversion');
   // PUL-07: un préstamo sin deudor o que no se puede registrar
   if (t.categoria === 'Préstamo' && (!t.prestamo?.deudor || t.prestamo?.error)) motivos.push('prestamo');
+  // PUL-08: parece el pago de una tarjeta y su resumen todavía no está importado
+  if (t.pago_tarjeta?.estado === 'pendiente') motivos.push('pago_tarjeta');
   const limite = limites[t.categoria];
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto');
   return motivos;

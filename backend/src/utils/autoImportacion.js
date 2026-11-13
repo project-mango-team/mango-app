@@ -35,6 +35,10 @@ export const evaluarAutoImportacion = ({ deteccion, transacciones = [], control 
   const prestamosConError = aImportar.filter(t => t.prestamo && (!t.prestamo.deudor || t.prestamo.error)).length;
   if (prestamosConError > 0) motivos.push(`${prestamosConError} transacciones de préstamo que no se pueden registrar en Préstamos`);
 
+  // PUL-08: un pago de tarjeta sin su resumen importado se contaría dos veces al importarlo después
+  const pagosPendientes = aImportar.filter(t => t.pago_tarjeta?.estado === 'pendiente').length;
+  if (pagosPendientes > 0) motivos.push(`${pagosPendientes} pagos de tarjeta sin su resumen importado`);
+
   const internos = aImportar.filter(t => t.interno_sugerido).length;
   if (internos > 0) motivos.push(`${internos} posibles movimientos internos para confirmar`);
 

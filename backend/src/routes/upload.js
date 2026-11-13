@@ -18,6 +18,7 @@ import {
 import { revertirOperacion } from '../services/operationService.js';
 import { marcarInversionesSugeridas, textoAvisoInversiones } from '../services/investmentLinkService.js';
 import { marcarPrestamosSugeridos, textoAvisoPrestamos } from '../services/loanLinkService.js';
+import { marcarPagosTarjeta } from '../services/pagoTarjetaService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
@@ -129,6 +130,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
     const sha256 = hashArchivo(req.file.buffer);
     const [{ transactions: conDuplicados, limites }, archivoYaImportado] = await Promise.all([
       marcarDuplicados(req, transactions)
+        .then(ts => marcarPagosTarjeta(req, ts))
         .then(ts => marcarInternosSugeridos(req, ts))
         .then(ts => marcarInversionesSugeridas(req, ts))
         .then(ts => marcarPrestamosSugeridos(req, ts))

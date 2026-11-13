@@ -43,7 +43,7 @@ const montoComparable = (t) => {
 
 // INV: lo que va a una inversión (categoría Inversión o regla 'inversion') es neutro por otro motivo y no es una transferencia entre cuentas
 const esCandidata = (t) => !t.duplicado && !t.ignorada && !t.inversion?.activo_id && t.categoria !== CATEGORIA_INVERSION &&
-  !t.prestamo && t.categoria !== CATEGORIA_PRESTAMO &&
+  !t.prestamo && t.categoria !== CATEGORIA_PRESTAMO && !t.pago_tarjeta &&
   (t.tipo === 'Gasto' || t.tipo === 'Ingreso');
 
 const resumen = (t) => ({
