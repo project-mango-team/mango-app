@@ -140,6 +140,33 @@ describe('parseo', () => {
   });
 });
 
+describe('casos de borde del reviewer', () => {
+  const con = (linea) => PDF.replace('4/oct KIOSCO$ 21.000,00', linea);
+
+  it('un comercio que termina en "US" con el monto pegado es un monto en pesos', () => {
+    const t = new MercadoPagoTarjetaParser(Buffer.from(''), 1000, null, referencia).parsearTexto(con('21/sep DISNEYPLUS$ 5.000,00')).find(x => /DISNEY/.test(x.detalle));
+    expect(t).toMatchObject({ detalle: 'DISNEYPLUS', moneda: 'ARS', importe: 5000 });
+  });
+
+  it('un movimiento del mismo mes del cierre pero con día posterior es del año anterior', () => {
+    const t = new MercadoPagoTarjetaParser(Buffer.from(''), 1000, null, referencia).parsearTexto(con('21/oct MERPAGO*COMPRA 12 de 12 $ 1.000,00')).find(x => /COMPRA/.test(x.detalle));
+    expect(t.fecha).toBe('21/10/2025');
+  });
+
+  it('el encabezado de impuestos con nota al pie en superíndice o con espacio', () => {
+    for (const marca of ['¹', ' ¹', ' 1', '1']) {
+      const n = new MercadoPagoTarjetaParser(Buffer.from(''), 1000, null, referencia).parsearTexto(PDF.replace('Impuestos e intereses1', `Impuestos e intereses${marca}`))
+        .filter(x => x.categoria === 'Impuestos').length;
+      expect(n).toBe(1);
+    }
+  });
+
+  it('los pagos anticipados cuentan igual si el PDF los trae con signo negativo', () => {
+    const texto = PDF.replace('Pagos anticipados $ 0,00 US$ 0,00', 'Pagos anticipados -$ 5.000,00 US$ 0,00');
+    expect(extraerTotalesTarjetaMP(texto).pagos.ars).toBe(-5000);
+  });
+});
+
 describe('totales (misma forma que extraerTotalesTarjeta)', () => {
   it('lee el consolidado y no la portada', () => {
     const t = extraerTotalesTarjetaMP(PDF);

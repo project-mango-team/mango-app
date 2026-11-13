@@ -2,14 +2,14 @@ import { BaseParser } from './BaseParser.js';
 import { PDFParse } from 'pdf-parse';
 import iconv from 'iconv-lite';
 import { CATEGORIA_IMPUESTOS } from '../models/User.js';
-import { extraerTotalesTarjetaMP, cierreDelResumen, mesDeAbreviatura, montosDeLinea } from '../utils/totalesTarjetaMP.js';
+import { extraerTotalesTarjetaMP, cierreDelResumen, mesDeAbreviatura, montosDeLinea, MONTO_USD_G, MONTO_ARS_G } from '../utils/totalesTarjetaMP.js';
 
 export const ORIGEN_TARJETA_MP = 'Mercado Pago Tarjeta';
 
 const SECCIONES = [
   { clave: 'anterior', re: /^Composici[oó]n del saldo del periodo anterior/i },
   { clave: 'consumos', re: /^Consumos$/i },
-  { clave: 'impuestos', re: /^Impuestos e intereses\d?$/i },
+  { clave: 'impuestos', re: /^Impuestos e intereses[\s\d¹²³]*$/i },
   { clave: 'pagos', re: /^Pagos anticipados$/i },
   { clave: 'ajustes', re: /^Ajustes y reembolsos$/i }
 ];
@@ -78,7 +78,7 @@ export class MercadoPagoTarjetaParser extends BaseParser {
   parsearTexto(texto) {
     const cierre = cierreDelResumen(texto, this.referencia);
     if (!cierre) throw new Error('No se encontró la fecha de cierre del resumen de la tarjeta de Mercado Pago');
-    const [anioCierre, mesCierre] = cierre.split('-').map(Number);
+    const [anioCierre, mesCierre, diaCierre] = cierre.split('-').map(Number);
 
     const lineas = texto.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
     const inicio = lineas.findIndex(l => /^DETALLE DE MOVIMIENTOS$/.test(l));
@@ -98,7 +98,7 @@ export class MercadoPagoTarjetaParser extends BaseParser {
       if (!fila) continue;
       const mes = mesDeAbreviatura(fila[2]);
       if (!mes) continue;
-      const tx = this.filaATransaccion({ dia: Number(fila[1]), mes, resto: fila[3], seccion, anio: mes > mesCierre ? anioCierre - 1 : anioCierre });
+      const tx = this.filaATransaccion({ dia: Number(fila[1]), mes, resto: fila[3], seccion, anio: mes > mesCierre || (mes === mesCierre && Number(fila[1]) > diaCierre) ? anioCierre - 1 : anioCierre });
       if (tx) transacciones.push(tx);
     }
     return transacciones;
@@ -113,9 +113,7 @@ export class MercadoPagoTarjetaParser extends BaseParser {
     if (!valor) return null;
 
     // Descripción: lo que queda sin los montos, la cuota y el número de operación
-    let detalle = resto
-      .replace(/-?\s*US\$\s*-?[\d.]+,\d{2}/g, ' ')
-      .replace(/-?\s*(?<!US)\$\s*-?[\d.]+,\d{2}/g, ' ');
+    let detalle = resto.replace(MONTO_USD_G, ' ').replace(MONTO_ARS_G, ' ');
     const cuota = CUOTA.exec(detalle);
     if (cuota) detalle = detalle.replace(CUOTA, ' ');
     detalle = detalle.replace(OPERACION, ' ').replace(/\s+/g, ' ').trim();

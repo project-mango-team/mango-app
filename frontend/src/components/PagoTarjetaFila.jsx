@@ -21,7 +21,7 @@ const PagoTarjetaFila = ({ fila }) => {
 
   return (
     <p className="mt-1 text-xs text-amber-400">
-      Parece el pago de la tarjeta {nombreTarjeta(p.producto)} y ese resumen no está importado: si lo dejás como gasto y después
+      Parece el pago de {p.producto === 'tarjeta' ? 'la tarjeta de crédito' : `la tarjeta ${nombreTarjeta(p.producto)}`} y ese resumen no está importado: si lo dejás como gasto y después
       importás el resumen, se cuenta dos veces. Importá primero el resumen de la tarjeta.
     </p>
   )

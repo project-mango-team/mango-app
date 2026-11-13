@@ -22,8 +22,11 @@ const aNumero = (texto) => {
   return Number.isFinite(valor) ? (negativo ? -valor : valor) : 0;
 };
 
-const MONTO_ARS = /(-?)\s*(?<!US)\$\s*(-?[\d.]+,\d{2})/;
-const MONTO_USD = /(-?)\s*US\$\s*(-?[\d.]+,\d{2})/;
+// US$ solo si el "US" no es el final de una palabra (un comercio como "DISNEYPLUS$ 5.000,00" es un monto en pesos)
+export const MONTO_USD_G = /-?\s*(?<![A-Za-z])US\$\s*-?[\d.]+,\d{2}/g;
+export const MONTO_ARS_G = /-?\s*(?<!(?<![A-Za-z])US)\$\s*-?[\d.]+,\d{2}/g;
+const MONTO_ARS = /(-?)\s*(?<!(?<![A-Za-z])US)\$\s*(-?[\d.]+,\d{2})/;
+const MONTO_USD = /(-?)\s*(?<![A-Za-z])US\$\s*(-?[\d.]+,\d{2})/;
 
 /**
  * Pesos y dólares de una línea del consolidado ("Consumos $ 10,00 US$ 2,00"). Falta una columna → 0.
@@ -96,7 +99,7 @@ export const extraerTotalesTarjetaMP = (texto) => {
 
   // Cargos del detalle (impuestos e intereses): sirven para explicar la diferencia si no se importan
   const cargos = [];
-  const desde = lineas.findIndex(l => /^Impuestos e intereses\d?$/i.test(l));
+  const desde = lineas.findIndex(l => /^Impuestos e intereses[\s\d¹²³]*$/i.test(l));
   if (desde >= 0) {
     for (const linea of lineas.slice(desde + 1)) {
       if (/^Subtotal/i.test(linea) || /^Pagos anticipados$/i.test(linea)) break;
@@ -110,7 +113,7 @@ export const extraerTotalesTarjetaMP = (texto) => {
     pago_minimo: pagoMinimo,
     saldo_anterior: { ars: redondear(saldo.ars), usd: redondear(saldo.usd) },
     // Los pagos anticipados no son transacciones del resumen: explican la diferencia con lo importado
-    pagos: { ars: redondear(-pagosAnticipados.ars) || 0, usd: redondear(-pagosAnticipados.usd) || 0 },
+    pagos: { ars: -Math.abs(redondear(pagosAnticipados.ars)) || 0, usd: -Math.abs(redondear(pagosAnticipados.usd)) || 0 },
     consumos: consumos ? { ars: redondear(consumos.ars), usd: redondear(consumos.usd) } : null,
     cargos,
     ajustes: { ars: redondear(ajustes.ars), usd: redondear(ajustes.usd) },
