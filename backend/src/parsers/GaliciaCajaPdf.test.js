@@ -214,3 +214,31 @@ describe('Control de totales de la caja de ahorro', () => {
     expect(control.ars.sin_explicar).not.toBe(0);
   });
 });
+
+describe('PUL-09: línea de montos con un dato del detalle delante', () => {
+  const TEXTO = [
+    'Resumen de Caja de Ahorro en Pesos',
+    'Fecha Descripción Origen Crédito Débito Saldo',
+    '09/10/26 PAGO DE SERVICIOS',
+    'ORGANISMO EJEMPLO AUT.',
+    '123456789012',
+    '1234567890123456',
+    '4321 -95.396,30 9.000,00',
+    '10/10/26 RESCATE FIMA',
+    'Fima Ejemplo Clase A',
+    '50.000,00 59.000,00',
+    'Total $ 50.000,00 -$ 95.396,30 $ 0,00'
+  ].join('\n');
+
+  it('no descarta el movimiento: el código queda en el detalle y el importe es el del débito', async () => {
+    const tx = await parsear(TEXTO);
+    expect(tx).toHaveLength(2);
+    expect(tx[0]).toMatchObject({ fecha: '09/10/2026', tipo: 'Gasto', importe: 95396.3 });
+    expect(tx[0].detalle).toBe('PAGO DE SERVICIOS ORGANISMO EJEMPLO AUT. 123456789012 1234567890123456 4321');
+  });
+
+  it('el control de totales cierra con ese movimiento', async () => {
+    const control = compararTotales(extraerTotalesCuenta(TEXTO), await parsear(TEXTO));
+    expect(control.cuenta.debitos).toMatchObject({ importado: 95396.3, diferencia: 0 });
+  });
+});
