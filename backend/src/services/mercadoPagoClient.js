@@ -113,7 +113,7 @@ export const CONFIG_REPORTE = {
   file_name_prefix: 'mango',
   display_timezone: 'GMT-03',
   report_translation: 'en',
-  include_withdrawal_at_end: false,
+  execute_after_withdrawal: false,
   columns: ['DATE', 'SOURCE_ID', 'RECORD_TYPE', 'DESCRIPTION', 'NET_CREDIT_AMOUNT', 'NET_DEBIT_AMOUNT', 'BALANCE_AMOUNT', 'CURRENCY', 'PAYMENT_METHOD']
     .map(key => ({ key })),
   frequency: { hour: 6, type: 'daily', value: 1 }
