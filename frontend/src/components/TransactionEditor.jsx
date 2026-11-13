@@ -6,6 +6,7 @@ import SugerenciaIAFila from './SugerenciaIAFila'
 import AsociarDetalleFila from './reglas/AsociarDetalleFila'
 import InversionSugerida from './InversionSugerida'
 import PrestamoSugerido from './PrestamoSugerido'
+import PagoTarjetaFila from './PagoTarjetaFila'
 import MotivoCategoria from './reglas/MotivoCategoria'
 
 const MONEDAS = ['ARS', 'USD']
@@ -163,7 +164,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     const cleanTransactions = transactions
       .filter(t => t.incluir)
       // regla_motivo y categoria_fija son solo para mostrar en la revisión
-      .map(({ _id, incluir, duplicado, ignorada, regla, regla_motivo, categoria_fija, interno_sugerido, inversion, prestamo, ...rest }) => ({
+      .map(({ _id, incluir, duplicado, ignorada, regla, regla_motivo, categoria_fija, interno_sugerido, pago_tarjeta, inversion, prestamo, ...rest }) => ({
         ...rest,
         // INV: del cliente solo viaja la inversión elegida y si se tildó cargarla; el servidor recalcula el resto
         // PUL-07: del cliente solo viaja el deudor y si se tildó registrarlo; el servidor recalcula el resto
@@ -355,6 +356,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     fila={t}
                     onCambiar={(crear) => handleCellChange(t._id, 'inversion', { ...t.inversion, crear })}
                   />
+                  <PagoTarjetaFila fila={t} />
                   <PrestamoSugerido
                     fila={t}
                     onCambiar={(prestamo) => handleCellChange(t._id, 'prestamo', prestamo)}
