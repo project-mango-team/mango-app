@@ -151,6 +151,25 @@ Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campa
 
 ---
 
+## Épica PUL — Pulido de cargas, revisión y reglas (pedidos del 13/11/2026)
+
+| ID | Ticket | Deps | Tam. | Estado |
+|---|---|---|---|---|
+| PUL-01 | **Historial único.** En la solapa Cargar hoy hay dos listas (cargas por mail y cargas manuales + mail): duplicadas. Una sola lista de historial con todas las cargas y toda su data (origen, cuenta, fecha, cantidad, estado). | UX-06 | S | pendiente |
+| PUL-02 | **Carga manual sin revisión de categorías.** Una carga manual (archivo elegido por el usuario) no debe mandar a "revisar" por categorías; solo los imports por Bandeja, mail o automáticos. Y el botón "OK" feo: tilde y cruz. | UX-05 | S | pendiente |
+| PUL-03 | **Modal de progreso/resultado reutilizable** (`ModalProgreso`): loading mientras corre, luego tilde verde + mensaje + botón OK. Usarlo en revertir carga, asociar categoría en la revisión, guardar import y todo caso parecido que se encuentre. Más un `ConfirmModal` custom en reemplazo de `window.confirm/alert` (ej. eliminar una regla). | — | M | pendiente |
+| PUL-04 | **Asociar categoría en la revisión**: con deshacer, resultado en el modal (no en la fila) y poder **crear una categoría nueva** desde ahí. | PUL-03 | M | pendiente |
+| PUL-05 | **Modal de revisión más ancho** para que se vea la tabla entera. | — | S | pendiente |
+| PUL-06 | **Reglas del usuario con prioridad sobre las que ya matchearon.** Poder asociar una categoría aunque ya haya matcheado una regla o keyword (ej. "transferencia" → Transferencias pero "a Juan Perez" → Comida): orden/prioridad de reglas, gana la explícita y más específica del usuario, y se ve en la revisión por qué se eligió esa categoría. | REV-02 | M | pendiente |
+| PUL-07 | **Préstamos desde transferencias.** Marcar una fila como "Préstamo" (acción de regla y en la revisión) y que se registre en Préstamos de Inversiones (otorgado/devuelto), sin contar como gasto. | INV-03 | M | pendiente |
+| PUL-08 | **Pagos de tarjeta en la caja de ahorro como "ya importados"** cuando existe un import de esa tarjeta con el mismo total (±tolerancia, ±días): se marcan como movimiento interno/ya cubierto, sin duplicar. | REV-04, ING-12 | M | pendiente |
+| PUL-09 | **Revisar el import de la caja de ahorro del 30/10/2026**: el usuario ve ~95k para revisar; analizar qué es y corregir el parser o el control si hace falta. | ING-15 | S | pendiente |
+| PUL-10 | **Calendario de cierres: replantear.** El cierre cambia entre el 2 y el 8 de cada mes. A evaluar: avisar por rango de días esperados, o por "no llegó el resumen del mes" sin día fijo; o eliminarlo si no aporta. | ING-09 | S | pendiente |
+| PUL-11 | **Valuación automática: explicarla en la UI** (dónde se ve la valuación actual y qué hay que cargar: cuotapartes/unidades en vez de monto en pesos para activos con precio automático) y ayuda contextual. | VAL-01 | S | pendiente |
+| PUL-12 | **Guía de conexión de MP y de la API key de IA** en Configuración (dónde sacar el token de MP y la `ANTHROPIC_API_KEY`; alternativas de modelo más barato) y estudio de si la API de MP permite pedir el resumen de la tarjeta en PDF. | MP-02 | S | pendiente |
+
+---
+
 ## Ideas sueltas (sin épica todavía)
 - **Consumos en moneda extranjera mal importados antes del 20/10/2026**: el parser de Visa Galicia guardaba los consumos en reales (y otras monedas que no fueran USD) como pesos con el monto en dólares (por ejemplo, US$ 21,33 → $21,33). Ya está corregido para los imports nuevos (ING-13). Para los ya cargados haría falta una corrección puntual, con preview y confirmación del usuario: no se toca la DB sin que lo pida.
 - **Conciliación mensual**: para cada mes, comparar cuánto cambió el patrimonio contra ingresos − gastos + ganancia de inversiones, y mostrar lo "sin explicar" (lo que se pasó anotar). Requiere tener todas las cuentas y el efectivo cargados como activos.
