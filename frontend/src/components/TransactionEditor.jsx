@@ -344,6 +344,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                       fila={t}
                       transacciones={transactions}
                       categorias={categories}
+                      onCategoriasChange={setCategories}
                       onAplicar={(ids, categoria) => setTransactions(prev => prev.map(x => (ids.includes(x._id) ? { ...x, categoria } : x)))}
                     />
                   )}

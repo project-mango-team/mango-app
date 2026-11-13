@@ -49,7 +49,7 @@ const RevisarDocumentoModal = ({ documento, onClose, onImportar }) => {
     <Modal
       isOpen={Boolean(documento)}
       onClose={onClose}
-      size="xl"
+      size="full"
       title={`Revisar · ${documento?.deteccion?.descripcion || documento?.filename || ''}`}
       subtitle={documento?.filename}
     >
