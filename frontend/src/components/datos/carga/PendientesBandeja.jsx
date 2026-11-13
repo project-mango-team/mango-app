@@ -2,26 +2,26 @@ import { useState } from 'react'
 import DocumentosTable from '../../bandeja/DocumentosTable'
 import RevisarDocumentoModal from '../../bandeja/RevisarDocumentoModal'
 import ElegirTipoModal from '../../bandeja/ElegirTipoModal'
-import ConfirmModal from '../../ConfirmModal'
 
-// Lista de resúmenes pendientes (llegados por mail, API o subidos acá) con revisar, importar, descartar y deshacer
+// Resúmenes pendientes (llegados por mail, API o subidos acá): revisar, importar o descartar.
+// Lo ya importado no se repite acá: vive en el historial de cargas.
+const ESTADOS_CERRADOS = ['importado', 'resuelto', 'descartado']
+
 const PendientesBandeja = ({ bandeja }) => {
   const [revisando, setRevisando] = useState(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(null)
-  const [deshaciendo, setDeshaciendo] = useState(null)
 
   if (bandeja.loading) return <p className="text-gray-400">Cargando pendientes...</p>
 
   return (
     <>
       <DocumentosTable
-        documentos={bandeja.documentos}
+        documentos={bandeja.documentos.filter(d => !ESTADOS_CERRADOS.includes(d.estado))}
         ocupado={bandeja.ocupado}
         onRevisar={setRevisando}
         onImportar={(doc) => bandeja.importar(doc._id)}
         onDescartar={(doc) => bandeja.descartar(doc._id)}
         onElegirTipo={setEligiendoTipo}
-        onDeshacer={setDeshaciendo}
       />
 
       <RevisarDocumentoModal
@@ -40,16 +40,6 @@ const PendientesBandeja = ({ bandeja }) => {
           setEligiendoTipo(null)
           await bandeja.actualizarParametros(doc._id, parametros)
         }}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(deshaciendo)}
-        onClose={() => setDeshaciendo(null)}
-        onConfirm={() => bandeja.deshacer(deshaciendo.operation_id)}
-        type="danger"
-        title="Deshacer importación"
-        message={deshaciendo && `Se van a borrar las transacciones importadas de "${deshaciendo.filename}". El documento vuelve a la lista para importarlo de nuevo.`}
-        confirmText="Deshacer"
       />
     </>
   )
