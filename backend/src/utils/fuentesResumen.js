@@ -13,7 +13,8 @@ export const FUENTES = {
   galicia_mastercard: { banco: 'galicia', nombre: 'Mastercard Galicia' },
   santander_visa: { banco: 'santander', nombre: 'Visa Santander' },
   santander_amex: { banco: 'santander', nombre: 'Amex Santander' },
-  mercadopago_cuenta: { banco: 'mercadopago', nombre: 'Mercado Pago' }
+  mercadopago_cuenta: { banco: 'mercadopago', nombre: 'Mercado Pago' },
+  mercadopago_tarjeta: { banco: 'mercadopago', nombre: 'Mercado Pago · tarjeta' }
 };
 
 // Un aviso se cierra con un archivo cuyo cierre caiga entre 20 días antes y 15 días después del mail
@@ -43,7 +44,8 @@ export const fuenteDeAviso = ({ from = '', subject = '' } = {}) => {
   if (!banco) return { banco: null, fuente: null };
 
   const asunto = subject.toLowerCase();
-  const producto = /visa/.test(asunto) ? 'visa'
+  const producto = banco === 'mercadopago' && /tarjeta/.test(asunto) ? 'tarjeta'
+    : /visa/.test(asunto) ? 'visa'
     : /master/.test(asunto) ? 'mastercard'
       : /amex|american express/.test(asunto) ? 'amex'
         : banco === 'mercadopago' ? 'cuenta'
