@@ -7,6 +7,7 @@ describe('grupoNeutro', () => {
   it('separa inversiones y movimientos internos', () => {
     expect(grupoNeutro(t('Gasto', 'Inversión', 1))).toBe('inversiones');
     expect(grupoNeutro(t('Gasto', 'Movimiento interno', 1))).toBe('internos');
+    expect(grupoNeutro(t('Gasto', 'Préstamo', 1))).toBe('prestamos');
     expect(grupoNeutro(t('Gasto', 'Transferencia', 1))).toBeNull();
     expect(esNeutro(t('Ingreso', 'Movimiento interno', 1))).toBe(true);
     expect(esNeutro(t('Ingreso', 'Ingreso', 1))).toBe(false);
@@ -28,7 +29,8 @@ describe('resumirMovimientos', () => {
       gastos: 150,
       ingresos: 1000,
       inversiones: { enviado: 300, recibido: 20 },
-      internos: { enviado: 400, recibido: 400 }
+      internos: { enviado: 400, recibido: 400 },
+      prestamos: { enviado: 0, recibido: 0 }
     });
   });
 

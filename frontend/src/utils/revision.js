@@ -12,6 +12,8 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.duplicado) motivos.push('duplicado')
   if (t.interno_sugerido && t.categoria !== INTERNO) motivos.push('interno')
   if (t.inversion?.error && t.categoria === 'Inversión') motivos.push('inversion')
+  if (t.categoria === 'Préstamo' && (!t.prestamo?.deudor?.trim() || t.prestamo?.error)) motivos.push('prestamo')
+  if (t.pago_tarjeta?.estado === 'pendiente') motivos.push('pago_tarjeta')
   const limite = limites?.[t.categoria]
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto')
   return motivos
@@ -21,6 +23,8 @@ export const motivosDeRevision = (t, limites = {}) => {
 export const etiquetaMotivo = (motivo, t, limites = {}) => ({
   otros: 'Sin categoría',
   inversion: 'No se carga en Inversiones',
+  prestamo: 'Préstamo sin deudor o con error',
+  pago_tarjeta: 'Pago de tarjeta sin su resumen',
   nuevo: 'Comercio nuevo',
   monto: `Monto alto para ${t.categoria} (suele ser hasta ${formatImporte(limites?.[t.categoria])})`
 }[motivo] || null)

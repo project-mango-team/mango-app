@@ -19,10 +19,12 @@ const categoryRuleSchema = new mongoose.Schema({
     montoMax: { type: Number, default: null }
   },
   accion: {
-    tipo: { type: String, enum: ['categoria', 'ignorar', 'inversion'], required: true },
+    tipo: { type: String, enum: ['categoria', 'ignorar', 'inversion', 'prestamo'], required: true },
     categoria: String,
     // INV-03: activo de Inversiones al que va la transacción (solo en la acción 'inversion')
-    activo_id: { type: mongoose.Schema.Types.ObjectId, ref: 'InvestmentAsset' }
+    activo_id: { type: mongoose.Schema.Types.ObjectId, ref: 'InvestmentAsset' },
+    // PUL-07: a quién se le prestó (solo en la acción 'prestamo')
+    deudor: String
   },
   activa: { type: Boolean, default: true },
   // Se evalúan de menor a mayor y gana la primera que coincide

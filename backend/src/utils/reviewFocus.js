@@ -7,7 +7,7 @@ import { CATEGORIA_INVERSION, CATEGORIA_INTERNO } from '../models/User.js';
 const MIN_MUESTRAS = 5;
 const FACTOR_LIMITE = 2;
 // Movimientos grandes por naturaleza: no se marcan por monto
-const SIN_LIMITE = new Set([CATEGORIA_INVERSION, CATEGORIA_INTERNO, 'Otros']);
+const SIN_LIMITE = new Set([CATEGORIA_INVERSION, CATEGORIA_INTERNO, 'Préstamo', 'Otros']);
 
 // Comercio comparable: el patrón del detalle (sin números de operación ni cuotas) en mayúsculas
 export const claveComercio = (detalle) => patronDeDetalle(detalle).toUpperCase();
@@ -43,7 +43,7 @@ export const armarContextoRevision = (historial) => {
 export const marcarComerciosNuevos = (transactions, comercios) => transactions.map(t => ({
   ...t,
   // Lo que una regla manda a una inversión no es un comercio
-  comercio_nuevo: comercios.size > 0 && !t.inversion?.activo_id && !comercios.has(claveComercio(t.detalle))
+  comercio_nuevo: comercios.size > 0 && !t.inversion?.activo_id && !t.prestamo && !comercios.has(claveComercio(t.detalle))
 }));
 
 /**
@@ -58,6 +58,10 @@ export const motivosDeRevision = (t, limites = {}) => {
   if (t.interno_sugerido && t.categoria !== CATEGORIA_INTERNO) motivos.push('interno');
   // INV: una inversión elegida por regla que no se puede cargar (moneda distinta, activo borrado)
   if (t.inversion?.error && t.categoria === 'Inversión') motivos.push('inversion');
+  // PUL-07: un préstamo sin deudor o que no se puede registrar
+  if (t.categoria === 'Préstamo' && (!t.prestamo?.deudor || t.prestamo?.error)) motivos.push('prestamo');
+  // PUL-08: parece el pago de una tarjeta y su resumen todavía no está importado
+  if (t.pago_tarjeta?.estado === 'pendiente') motivos.push('pago_tarjeta');
   const limite = limites[t.categoria];
   if (t.tipo === 'Gasto' && limite && Number(t.importe) > limite) motivos.push('monto');
   return motivos;

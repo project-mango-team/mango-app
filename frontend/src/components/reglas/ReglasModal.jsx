@@ -9,6 +9,9 @@ import useProgreso from '../../hooks/useProgreso'
 import ModalProgreso from '../ModalProgreso'
 import { describirCondiciones, describirAccion } from './reglaTexto'
 
+// PUL-06: las del usuario van antes que las asociaciones anteriores y no se pueden mezclar
+const esAnterior = (r) => r?.creada_por === 'keywords'
+
 const BotonIcono = ({ onClick, title, disabled, children, className = '' }) => (
   <button
     type="button"
@@ -63,7 +66,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
       onClose={onClose}
       size="xl"
       title="Reglas de categorización"
-      subtitle="Se aplican al importar, de arriba hacia abajo: gana la primera que coincide. Las nuevas van primero."
+      subtitle="Se aplican al importar, de arriba hacia abajo: gana la primera que coincide. Tus reglas siempre van antes que las asociaciones anteriores, y una nueva que tape a otra más específica queda después de ella."
     >
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -127,8 +130,8 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
                   </p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <BotonIcono title="Subir" disabled={indice === 0 || !!q} onClick={() => accion(() => mover(r._id, -1))}>↑</BotonIcono>
-                  <BotonIcono title="Bajar" disabled={indice === reglas.length - 1 || !!q} onClick={() => accion(() => mover(r._id, 1))}>↓</BotonIcono>
+                  <BotonIcono title="Subir" disabled={indice === 0 || !!q || esAnterior(reglas[indice - 1]) !== esAnterior(r)} onClick={() => accion(() => mover(r._id, -1))}>↑</BotonIcono>
+                  <BotonIcono title="Bajar" disabled={indice === reglas.length - 1 || !!q || esAnterior(reglas[indice + 1]) !== esAnterior(r)} onClick={() => accion(() => mover(r._id, 1))}>↓</BotonIcono>
                   <BotonIcono
                     title={r.activa ? 'Pausar' : 'Activar'}
                     onClick={() => accion(() => actualizar(r._id, { ...r, activa: !r.activa }))}

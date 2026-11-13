@@ -7,12 +7,13 @@ import useProgreso from '../../hooks/useProgreso'
 const NUEVA = '__nueva__'
 
 // Filas que una regla "detalle contiene <texto>" (del mismo tipo y origen que la fila) categorizaría:
-// las que siguen en "Otros". Misma lógica que el backend (mayúsculas, sin regex).
+// las que siguen en "Otros" o que solo tienen una asociación anterior (PUL-06: la regla nueva del usuario gana).
+// Misma lógica que el backend (mayúsculas, sin regex).
 export const filasParecidas = (transacciones, fila, texto) => {
   const buscado = texto.trim().toUpperCase()
   if (!buscado) return []
   return transacciones.filter(t =>
-    t.categoria === 'Otros' &&
+    (t.categoria === 'Otros' || (t.regla_motivo?.creada_por === 'keywords' && t.categoria === t.regla_motivo.categoria)) &&
     t.tipo === fila.tipo &&
     (t.origen || null) === (fila.origen || null) &&
     String(t.detalle || '').toUpperCase().includes(buscado))
@@ -64,17 +65,22 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar, onCate
     })
     // La fila de origen siempre pasa a la categoría, aunque la palabra clave editada no esté en su detalle
     const ids = [...new Set([fila._id, ...coinciden.map(t => t._id)])]
+    // Categorías previas, para que Deshacer devuelva cada fila a lo que tenía (PUL-06: no siempre era “Otros”)
+    const previas = {}
+    ;[fila, ...coinciden].forEach(t => { previas[t._id] ??= t.categoria })
     onAplicar(ids, nombre)
-    setHecho({ reglaId: res.data?._id, ids })
+    setHecho({ reglaId: res.data?._id, ids, previas })
     setAbierto(false)
     return `Regla creada: “${texto.trim()}” → ${nombre}. Se aplicó a ${ids.length} ${ids.length === 1 ? 'fila' : 'filas'} de este import y vale para las próximas importaciones.`
   }, { cargando: 'Creando la regla y categorizando las filas…', errorPorDefecto: 'No se pudo crear la regla' })
 
   const deshacer = () => progreso.ejecutar('Deshacer asociación', async () => {
     if (hecho.reglaId) await ruleService.remove(hecho.reglaId)
-    onAplicar(hecho.ids, 'Otros')
+    const porCategoria = {}
+    hecho.ids.forEach(id => { (porCategoria[hecho.previas?.[id] || 'Otros'] ||= []).push(id) })
+    Object.entries(porCategoria).forEach(([cat, ids]) => onAplicar(ids, cat))
     setHecho(null)
-    return 'Se borró la regla y las filas volvieron a “Otros”.'
+    return 'Se borró la regla y las filas volvieron a su categoría anterior.'
   }, { cargando: 'Deshaciendo…', errorPorDefecto: 'No se pudo deshacer' })
 
   const modal = (
@@ -86,14 +92,15 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar, onCate
     />
   )
 
-  const puedeAsociar = fila.detalle?.trim() && fila.categoria === 'Otros' && !fila.duplicado && !fila.ignorada && fila.incluir
+  // PUL-06: también las filas ya categorizadas por una asociación anterior; no las que tienen un destino propio
+  const puedeAsociar = fila.detalle?.trim() && !fila.duplicado && !fila.ignorada && fila.incluir && !fila.categoria_fija && !fila.inversion?.activo_id
   if (!puedeAsociar) return modal
 
   if (!abierto) {
     return (
       <>
         <button type="button" onClick={abrir} className="mt-1 block text-xs text-primary hover:underline">
-          Asociar a una categoría…
+          {fila.categoria === 'Otros' ? 'Asociar a una categoría…' : 'Asociar a otra categoría…'}
         </button>
         {modal}
       </>

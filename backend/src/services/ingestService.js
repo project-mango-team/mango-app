@@ -7,6 +7,8 @@ import { DolarService } from './dolarService.js';
 import { compararTotales } from '../utils/totalesResumen.js';
 import { canalDeFuente } from '../utils/canalOperacion.js';
 import { marcarInversionesSugeridas } from './investmentLinkService.js';
+import { marcarPrestamosSugeridos } from './loanLinkService.js';
+import { marcarPagosTarjeta } from './pagoTarjetaService.js';
 import { reglasDelUsuario } from './ruleService.js';
 import { autoImportarActivo } from './calendarioService.js';
 import { evaluarAutoImportacion } from '../utils/autoImportacion.js';
@@ -103,8 +105,10 @@ const transaccionesDe = async (req, doc) => {
     reglas: await reglasDelUsuario(req)
   });
   // { transactions, limites } (REV-05)
-  const conInternos = await marcarInternosSugeridos(req, await marcarDuplicados(req, transactions));
-  return prepararRevision(req, await marcarInversionesSugeridas(req, conInternos));
+  const conPagos = await marcarPagosTarjeta(req, await marcarDuplicados(req, transactions));
+  const conInternos = await marcarInternosSugeridos(req, conPagos);
+  const conInversiones = await marcarInversionesSugeridas(req, conInternos);
+  return prepararRevision(req, await marcarPrestamosSugeridos(req, conInversiones));
 };
 
 /**

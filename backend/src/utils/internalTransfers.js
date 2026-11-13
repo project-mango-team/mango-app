@@ -1,5 +1,5 @@
 import { normalizarFecha } from './transactionDedup.js';
-import { CATEGORIA_INTERNO, CATEGORIA_INVERSION } from '../models/User.js';
+import { CATEGORIA_INTERNO, CATEGORIA_INVERSION, CATEGORIA_PRESTAMO } from '../models/User.js';
 
 // Detección de transferencias entre cuentas propias (REV-04): un egreso en una cuenta y un ingreso
 // del mismo monto en otra, con pocos días de diferencia. Funciones puras.
@@ -43,6 +43,7 @@ const montoComparable = (t) => {
 
 // INV: lo que va a una inversión (categoría Inversión o regla 'inversion') es neutro por otro motivo y no es una transferencia entre cuentas
 const esCandidata = (t) => !t.duplicado && !t.ignorada && !t.inversion?.activo_id && t.categoria !== CATEGORIA_INVERSION &&
+  !t.prestamo && t.categoria !== CATEGORIA_PRESTAMO && !t.pago_tarjeta &&
   (t.tipo === 'Gasto' || t.tipo === 'Ingreso');
 
 const resumen = (t) => ({

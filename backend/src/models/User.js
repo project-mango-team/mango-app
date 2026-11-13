@@ -10,6 +10,9 @@ export const CATEGORIA_IMPUESTOS = 'Impuestos';
 // tampoco cuentan como gasto ni ingreso
 export const CATEGORIA_INTERNO = 'Movimiento interno';
 
+// Plata prestada a terceros o que vuelve (PUL-07): se registra en Préstamos y tampoco cuenta como gasto ni ingreso
+export const CATEGORIA_PRESTAMO = 'Préstamo';
+
 export const DEFAULT_CATEGORIES = [
   'Transferencia',
   'Transporte',
@@ -24,6 +27,7 @@ export const DEFAULT_CATEGORIES = [
   CATEGORIA_INVERSION,
   CATEGORIA_IMPUESTOS,
   CATEGORIA_INTERNO,
+  CATEGORIA_PRESTAMO,
   'Otros'
 ];
 
@@ -70,6 +74,11 @@ const userSchema = new mongoose.Schema({
   },
   // Igual para Movimiento interno (REV-01)
   categoriaInternoAgregada: {
+    type: Boolean,
+    default: false
+  },
+  // Igual para Préstamo (PUL-07)
+  categoriaPrestamoAgregada: {
     type: Boolean,
     default: false
   },
