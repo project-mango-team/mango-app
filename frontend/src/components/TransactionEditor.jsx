@@ -5,6 +5,7 @@ import useSugerenciasIA from '../hooks/useSugerenciasIA'
 import SugerenciaIAFila from './SugerenciaIAFila'
 import AsociarDetalleFila from './reglas/AsociarDetalleFila'
 import InversionSugerida from './InversionSugerida'
+import MotivoCategoria from './reglas/MotivoCategoria'
 
 const MONEDAS = ['ARS', 'USD']
 const INTERNO = 'Movimiento interno'
@@ -160,7 +161,8 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     // Solo las incluidas, sin los campos de la vista previa
     const cleanTransactions = transactions
       .filter(t => t.incluir)
-      .map(({ _id, incluir, duplicado, ignorada, regla, interno_sugerido, inversion, ...rest }) => ({
+      // regla_motivo y categoria_fija son solo para mostrar en la revisión
+      .map(({ _id, incluir, duplicado, ignorada, regla, regla_motivo, categoria_fija, interno_sugerido, inversion, ...rest }) => ({
         ...rest,
         // INV: del cliente solo viaja la inversión elegida y si se tildó cargarla; el servidor recalcula el resto
         ...(inversion?.activo_id && { inversion: { activo_id: inversion.activo_id, crear: Boolean(inversion.crear) && rest.categoria === 'Inversión' } }),
@@ -337,6 +339,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     onUsar={(categoria) => handleCellChange(t._id, 'categoria', categoria)}
                     crearRegla={ia.crearRegla}
                   />
+                  <MotivoCategoria fila={t} />
                   {!isManualMode && (
                     <AsociarDetalleFila
                       fila={t}

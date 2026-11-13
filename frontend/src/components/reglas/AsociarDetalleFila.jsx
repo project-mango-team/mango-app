@@ -3,12 +3,13 @@ import { ruleService } from '../../services/ruleService'
 import { mensajeError } from '../../utils/format'
 
 // Filas que una regla "detalle contiene <texto>" (del mismo tipo y origen que la fila) categorizaría:
-// las que siguen en "Otros". Misma lógica que el backend (mayúsculas, sin regex).
+// las que siguen en "Otros" o que solo tienen una asociación anterior (PUL-06: la regla nueva del usuario gana).
+// Misma lógica que el backend (mayúsculas, sin regex).
 export const filasParecidas = (transacciones, fila, texto) => {
   const buscado = texto.trim().toUpperCase()
   if (!buscado) return []
   return transacciones.filter(t =>
-    t.categoria === 'Otros' &&
+    (t.categoria === 'Otros' || t.regla_motivo?.creada_por === 'keywords') &&
     t.tipo === fila.tipo &&
     (t.origen || null) === (fila.origen || null) &&
     String(t.detalle || '').toUpperCase().includes(buscado))
@@ -24,9 +25,10 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar }) => {
   const [error, setError] = useState(null)
   const [hecho, setHecho] = useState(null)
 
-  if (!fila.detalle?.trim() || (fila.categoria !== 'Otros' && !hecho)) return null
-  // Las filas excluidas (duplicadas, ignoradas por una regla) no se categorizan acá
-  if (!hecho && (fila.duplicado || fila.ignorada || !fila.incluir)) return null
+  if (!fila.detalle?.trim()) return null
+  // Las filas excluidas (duplicadas, ignoradas por una regla) y las que ya tienen un destino propio (inversión,
+  // categoría fijada por el resumen) no se categorizan acá. PUL-06: una fila con categoría también se puede cambiar.
+  if (!hecho && (fila.duplicado || fila.ignorada || !fila.incluir || fila.categoria_fija || fila.inversion?.activo_id)) return null
 
   if (hecho) {
     return (
@@ -77,7 +79,7 @@ const AsociarDetalleFila = ({ fila, transacciones, categorias, onAplicar }) => {
   if (!abierto) {
     return (
       <button type="button" onClick={abrir} className="mt-1 block text-xs text-primary hover:underline">
-        Asociar a una categoría…
+        {fila.categoria === 'Otros' ? 'Asociar a una categoría…' : 'Asociar a otra categoría…'}
       </button>
     )
   }
