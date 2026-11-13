@@ -116,5 +116,8 @@ export const CONFIG_REPORTE = {
   execute_after_withdrawal: false,
   columns: ['DATE', 'SOURCE_ID', 'RECORD_TYPE', 'DESCRIPTION', 'NET_CREDIT_AMOUNT', 'NET_DEBIT_AMOUNT', 'BALANCE_AMOUNT', 'CURRENCY', 'PAYMENT_METHOD']
     .map(key => ({ key })),
-  frequency: { hour: 6, type: 'daily', value: 1 }
+  // Mango pide cada reporte por su cuenta (POST /release_report con fechas): la config solo define columnas e idioma, y
+  // la frecuencia no se activa sin el schedule. MP exige el campo y rechaza 'daily' con value 1 (Invalid frequency);
+  // se usa la forma que trae su documentación.
+  frequency: { hour: 0, type: 'monthly', value: 1 }
 };
