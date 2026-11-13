@@ -26,7 +26,8 @@ const periodoDelConsolidado = (texto) => {
 };
 
 // Línea de montos de un movimiento del consolidado: "<crédito> <saldo>" o "-<débito> <saldo>"
-const MONTOS_CONSOLIDADO = /^(-?\d{1,3}(?:\.\d{3})*,\d{2}) (-?\d{1,3}(?:\.\d{3})*,\d{2})$/;
+// puede traer delante un dato del detalle en la misma línea (por ejemplo un código: "1234 -5.000,00 9.000,00")
+const MONTOS_CONSOLIDADO = /^(?:(\S.*?) )?(-?\d{1,3}(?:\.\d{3})*,\d{2}) (-?\d{1,3}(?:\.\d{3})*,\d{2})$/;
 // Paginado y encabezados repetidos del PDF
 const RUIDO_CONSOLIDADO = /^(-- \d+ of \d+ --|P.gina \d+ \/ \d+|Resumen de Caja de Ahorro|\d{10,}[A-Z]$|Movimientos$|Fecha Descripci\S+ Origen)/;
 
@@ -202,7 +203,8 @@ export class GaliciaParser extends BaseParser {
         actual.detalle.push(linea);
         continue;
       }
-      const transaccion = this.crearTransaccionConsolidado(actual, montos[1]);
+      if (montos[1]) actual.detalle.push(montos[1]);
+      const transaccion = this.crearTransaccionConsolidado(actual, montos[2]);
       if (transaccion) transactions.push(transaccion);
       actual = null;
     }
