@@ -4,6 +4,9 @@ import ReglaForm from './ReglaForm'
 import useReglas from '../../hooks/useReglas'
 import useActivosInversion from '../../hooks/useActivosInversion'
 import { mensajeError } from '../../utils/format'
+import useConfirmar from '../../hooks/useConfirmar'
+import useProgreso from '../../hooks/useProgreso'
+import ModalProgreso from '../ModalProgreso'
 import { describirCondiciones, describirAccion } from './reglaTexto'
 
 const BotonIcono = ({ onClick, title, disabled, children, className = '' }) => (
@@ -26,6 +29,18 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
   const [busqueda, setBusqueda] = useState('')
   const [aviso, setAviso] = useState(null)
   const activos = useActivosInversion(isOpen)
+  const { confirmar, dialogo } = useConfirmar()
+  const progreso = useProgreso()
+
+  const eliminarRegla = async (regla) => {
+    const ok = await confirmar({
+      title: 'Eliminar regla',
+      message: '¿Eliminar esta regla? Las transacciones ya cargadas no cambian.',
+      confirmText: 'Eliminar',
+      type: 'danger'
+    })
+    if (ok) await progreso.ejecutar('Eliminar regla', async () => { await eliminar(regla._id); return 'La regla se eliminó.' }, { cargando: 'Eliminando la regla…', errorPorDefecto: 'No se pudo eliminar la regla' })
+  }
 
   const accion = async (fn) => {
     try {
@@ -42,6 +57,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
     : reglas
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -123,7 +139,7 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
                   <BotonIcono title="Editar" onClick={() => setEditando(r._id)} className="text-xs px-2">Editar</BotonIcono>
                   <BotonIcono
                     title="Eliminar"
-                    onClick={() => window.confirm('¿Eliminar esta regla?') && accion(() => eliminar(r._id))}
+                    onClick={() => eliminarRegla(r)}
                     className="text-xs px-2 hover:text-red-400"
                   >
                     Eliminar
@@ -135,6 +151,9 @@ const ReglasModal = ({ isOpen, onClose, categorias }) => {
         </ol>
       </div>
     </Modal>
+    {dialogo}
+    <ModalProgreso progreso={progreso} />
+    </>
   )
 }
 

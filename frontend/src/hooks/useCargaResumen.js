@@ -3,12 +3,14 @@ import useDeteccionResumen from './useDeteccionResumen'
 import { uploadService } from '../services/transactionService'
 import useCotizacionDolar from './useCotizacionDolar'
 import { BANDEJA_CAMBIO } from './useBandeja'
+import useProgreso from './useProgreso'
 
 // Estado y acciones de la pestaña Cargar de Datos: elegir origen, subir un resumen (con detección automática
 // de banco, tipo y tarjetas), revisar las transacciones en el editor y guardarlas, o cargarlas a mano.
 const useCargaResumen = () => {
   // Origen selection
   const [origenDatos, setOrigenDatos] = useState('') // 'manual' or 'resumen'
+  const progreso = useProgreso()
 
   // File upload states
   const [file, setFile] = useState(null)
@@ -206,10 +208,9 @@ const useCargaResumen = () => {
   }
 
   const handleSaveTransactions = async (editedTransactions) => {
-    try {
-      setSaving(true)
-      setMessage(null)
-
+    setSaving(true)
+    setMessage(null)
+    await progreso.ejecutar('Guardar transacciones', async () => {
       const response = await uploadService.saveTransactions(
         editedTransactions,
         previewData.tipo,
@@ -219,11 +220,6 @@ const useCargaResumen = () => {
         previewData.tipoResumen,
         previewData.sha256
       )
-
-      setMessage({
-        type: 'success',
-        text: response.message
-      })
 
       // Avisa al historial (y al badge) que hay una carga nueva
       window.dispatchEvent(new Event(BANDEJA_CAMBIO))
@@ -243,14 +239,9 @@ const useCargaResumen = () => {
       const fileInput = document.getElementById('file-upload')
       if (fileInput) fileInput.value = ''
 
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.message || error.message || 'Error al guardar transacciones'
-      })
-    } finally {
-      setSaving(false)
-    }
+      return response.message
+    }, { cargando: 'Guardando las transacciones…', errorPorDefecto: 'Error al guardar transacciones' })
+    setSaving(false)
   }
 
   const handleCancelEditor = () => {
@@ -269,37 +260,25 @@ const useCargaResumen = () => {
       return
     }
 
-    try {
-      setSaving(true)
-      setMessage(null)
-
+    setSaving(true)
+    setMessage(null)
+    await progreso.ejecutar('Guardar transacciones', async () => {
       const response = await uploadService.saveTransactions(
         validTransactions,
         'manual',
         'Carga Manual'
       )
-
-      setMessage({
-        type: 'success',
-        text: response.message
-      })
-
       window.dispatchEvent(new Event(BANDEJA_CAMBIO))
 
       // Reset manual transactions by changing key
       setManualKey(prev => prev + 1)
-
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.message || error.message || 'Error al guardar transacciones'
-      })
-    } finally {
-      setSaving(false)
-    }
+      return response.message
+    }, { cargando: 'Guardando las transacciones…', errorPorDefecto: 'Error al guardar transacciones' })
+    setSaving(false)
   }
 
   return {
+    progreso,
     origenDatos,
     setOrigenDatos,
     file,

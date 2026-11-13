@@ -4,6 +4,7 @@ import BandejaDropzone from '../bandeja/BandejaDropzone'
 import PendientesBandeja from './carga/PendientesBandeja'
 import CargaArchivoManual from './carga/CargaArchivoManual'
 import MensajeCarga from './carga/MensajeCarga'
+import ModalProgreso from '../ModalProgreso'
 import HistorialCargas from './historial/HistorialCargas'
 
 // Una sola superficie para cargar datos: soltar archivos (la detección arma la lista de pendientes), los
@@ -55,9 +56,7 @@ const CargarTab = () => {
         )}
       </div>
 
-      <MensajeCarga mensaje={carga.message}>
-        {' '}<a href="#historial" className="underline">Ver en el historial</a>
-      </MensajeCarga>
+      <MensajeCarga mensaje={carga.message} />
 
       {enModoManual ? (
         <CargaArchivoManual carga={carga} onVolver={volver} deshabilitado={ocupadoManual} />
@@ -69,10 +68,12 @@ const CargarTab = () => {
               Elegir banco, tipo y tarjetas a mano
             </button>
           </div>
-          <MensajeCarga mensaje={bandeja.mensaje} />
           <PendientesBandeja bandeja={bandeja} />
         </>
       )}
+
+      <ModalProgreso progreso={bandeja.progreso} />
+      <ModalProgreso progreso={carga.progreso} />
 
       <section id="historial">
         <HistorialCargas />

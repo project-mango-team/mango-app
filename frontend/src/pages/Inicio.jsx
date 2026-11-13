@@ -9,8 +9,13 @@ import AprenderCorreccionModal from '../components/reglas/AprenderCorreccionModa
 import MonedaToggle from '../components/MonedaToggle'
 import useMonedaPreferida from '../hooks/useMonedaPreferida'
 import { formatImporte } from '../utils/format'
+import useConfirmar from '../hooks/useConfirmar'
+import useProgreso from '../hooks/useProgreso'
+import ModalProgreso from '../components/ModalProgreso'
 
 const Inicio = () => {
+  const { confirmar, dialogo } = useConfirmar()
+  const progreso = useProgreso()
   const [stats, setStats] = useState(null)
   const [categoriesData, setCategoriesData] = useState([])
   const [monthlyData, setMonthlyData] = useState([])
@@ -180,7 +185,12 @@ const Inicio = () => {
   }
 
   const handleDeleteCategory = async (name) => {
-    if (!confirm(`¿Eliminar la categoría "${name}"? Las transacciones con esta categoría no se eliminarán.`)) {
+    if (!(await confirmar({
+      title: 'Eliminar categoría',
+      message: `¿Eliminar la categoría "${name}"? Las transacciones con esta categoría no se eliminarán.`,
+      confirmText: 'Eliminar',
+      type: 'danger'
+    }))) {
       return
     }
 
@@ -281,12 +291,17 @@ const Inicio = () => {
       }, 100)
     } catch (err) {
       console.error('Error updating transaction:', err)
-      alert(err.response?.data?.message || 'Error al actualizar transacción')
+      progreso.mostrar('error', 'No se pudo actualizar', err.response?.data?.message || 'Error al actualizar transacción')
     }
   }
 
   const handleDeleteTransaction = async (transactionId) => {
-    if (!confirm('¿Estás seguro de eliminar esta transacción?')) {
+    if (!(await confirmar({
+      title: 'Eliminar transacción',
+      message: '¿Estás seguro de eliminar esta transacción?',
+      confirmText: 'Eliminar',
+      type: 'danger'
+    }))) {
       return
     }
 
@@ -311,7 +326,7 @@ const Inicio = () => {
       }, 100)
     } catch (err) {
       console.error('Error deleting transaction:', err)
-      alert(err.response?.data?.message || 'Error al eliminar transacción')
+      progreso.mostrar('error', 'No se pudo eliminar', err.response?.data?.message || 'Error al eliminar transacción')
     }
   }
 
@@ -1026,6 +1041,9 @@ const Inicio = () => {
           </div>
         </div>
       )}
+
+      {dialogo}
+      <ModalProgreso progreso={progreso} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { bandejaService } from '../services/bandejaService'
-import { mensajeError } from '../utils/format'
+import useProgreso from './useProgreso'
 
 // Avisa a otros componentes (el badge del menú) que la bandeja cambió
 export const BANDEJA_CAMBIO = 'mango:bandeja-cambio'
@@ -11,14 +11,15 @@ const useBandeja = () => {
   const [documentos, setDocumentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [ocupado, setOcupado] = useState(false)
-  const [mensaje, setMensaje] = useState(null) // { tipo: 'ok' | 'error', texto }
+  const progreso = useProgreso()
 
   const recargar = useCallback(async () => {
     try {
       const res = await bandejaService.listar()
       setDocumentos(res.data)
     } catch (err) {
-      setMensaje({ tipo: 'error', texto: mensajeError(err, 'No se pudo cargar la bandeja') })
+      // Se recarga seguido y solo: un error acá no abre ningún cartel
+      console.error('Error cargando la bandeja:', err)
     } finally {
       setLoading(false)
     }
@@ -31,33 +32,30 @@ const useBandeja = () => {
     return () => window.removeEventListener(BANDEJA_CAMBIO, recargar)
   }, [recargar])
 
-  // Corre una acción, muestra su resultado y recarga la lista
-  const ejecutar = async (accion, textoOk) => {
+  // Corre una acción mostrando el modal de progreso (cargando y después el resultado) y recarga la lista.
+  // Sin `textoOk` el modal se cierra solo al terminar. Devuelve lo que devolvió la acción, o null si falló.
+  const ejecutar = async (titulo, cargando, accion, textoOk) => {
     setOcupado(true)
-    setMensaje(null)
-    try {
-      const res = await accion()
-      const texto = typeof textoOk === 'function' ? textoOk(res) : textoOk
-      if (texto) setMensaje({ tipo: 'ok', texto })
-      return res
-    } catch (err) {
-      setMensaje({ tipo: 'error', texto: mensajeError(err, 'No se pudo completar la acción') })
-      return null
-    } finally {
-      setOcupado(false)
-      // El aviso recarga la lista (acá, el badge y el historial)
-      avisarCambio()
-    }
+    let data = null
+    const res = await progreso.ejecutar(titulo, async () => {
+      data = await accion()
+      const texto = typeof textoOk === 'function' ? textoOk(data) : textoOk
+      return texto || null
+    }, { cargando, errorPorDefecto: 'No se pudo completar la acción' })
+    setOcupado(false)
+    // El aviso recarga la lista (acá, el badge y el historial)
+    avisarCambio()
+    return res === undefined ? null : data
   }
 
-  const subir = (files) => ejecutar(() => bandejaService.subir(files), (res) => {
+  const subir = (files) => ejecutar('Subir archivos', 'Leyendo y detectando los resúmenes…', () => bandejaService.subir(files), (res) => {
     const nuevos = res.data.filter(r => r.ok && !r.existente).length
     const repetidos = res.data.filter(r => r.ok && r.existente).length
     const fallidos = res.data.filter(r => !r.ok)
     const avisos = res.data.filter(r => r.ok && !r.existente && r.documento?.cierra_aviso).length
     return [
       `${nuevos} archivo(s) agregados`,
-      repetidos && `${repetidos} ya estaban en la bandeja`,
+      repetidos && `${repetidos} ya estaban en la lista`,
       avisos && `${avisos === 1 ? 'se cerró 1 aviso' : `se cerraron ${avisos} avisos`} de resumen pendiente`,
       fallidos.length && `no se pudieron leer: ${fallidos.map(f => f.filename).join(', ')}`
     ].filter(Boolean).join(' · ')
@@ -67,15 +65,14 @@ const useBandeja = () => {
     documentos,
     loading,
     ocupado,
-    mensaje,
-    setMensaje,
+    progreso,
     recargar,
     subir,
-    importar: (id, transactions) => ejecutar(() => bandejaService.importar(id, transactions), (res) => res.message),
-    importarListos: () => ejecutar(() => bandejaService.importarListos(), (res) => res.message),
-    descartar: (id) => ejecutar(() => bandejaService.descartar(id), 'Documento descartado'),
-    deshacer: (operationId) => ejecutar(() => bandejaService.deshacer(operationId), 'Importación deshecha: el documento volvió a la lista de pendientes'),
-    actualizarParametros: (id, parametros) => ejecutar(() => bandejaService.actualizarParametros(id, parametros))
+    importar: (id, transactions) => ejecutar('Importar resumen', 'Importando las transacciones…', () => bandejaService.importar(id, transactions), (res) => res.message),
+    importarListos: () => ejecutar('Importar resúmenes listos', 'Importando los resúmenes…', () => bandejaService.importarListos(), (res) => res.message),
+    descartar: (id) => ejecutar('Descartar resumen', 'Descartando…', () => bandejaService.descartar(id), 'Documento descartado'),
+    deshacer: (operationId) => ejecutar('Deshacer importación', 'Deshaciendo la importación…', () => bandejaService.deshacer(operationId), 'Importación deshecha: el documento volvió a la lista de pendientes'),
+    actualizarParametros: (id, parametros) => ejecutar('Actualizar resumen', 'Volviendo a leer el resumen…', () => bandejaService.actualizarParametros(id, parametros))
   }
 }
 

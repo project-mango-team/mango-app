@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { operationsService } from '../services/transactionService'
 import { BANDEJA_CAMBIO } from './useBandeja'
+import useProgreso from './useProgreso'
 
 export const POR_PAGINA = 20
 
@@ -12,7 +13,8 @@ const useHistorialCargas = () => {
   const [pagina, setPagina] = useState(0)
   const [canal, setCanalState] = useState('')
   const [cargando, setCargando] = useState(true)
-  const [mensaje, setMensaje] = useState(null)
+  const [errorCarga, setErrorCarga] = useState(null)
+  const progreso = useProgreso()
 
   const cargar = useCallback(async () => {
     try {
@@ -23,11 +25,12 @@ const useHistorialCargas = () => {
         setPagina(p => p - 1)
         return
       }
+      setErrorCarga(null)
       setOperaciones(res.data)
       setTotal(res.total)
     } catch (error) {
       console.error('Error loading history:', error)
-      setMensaje({ type: 'error', text: 'No se pudo cargar el historial' })
+      setErrorCarga('No se pudo cargar el historial')
     } finally {
       setCargando(false)
     }
@@ -45,21 +48,16 @@ const useHistorialCargas = () => {
     setPagina(0)
   }
 
+  // Revierte una carga con el modal de progreso. Devuelve true si salió bien.
   const revertir = async (operacion) => {
-    try {
-      const res = await operationsService.rollback(operacion.operation_id)
-      const vuelveABandeja = ['bandeja', 'mail', 'api'].includes(operacion.canal) && res.data?.reabierto !== false
-      setMensaje({
-        type: 'success',
-        text: vuelveABandeja ? `${res.message}. El documento volvió a la lista de pendientes para revisar.` : res.message
-      })
+    const res = await progreso.ejecutar('Revertir carga', async () => {
+      const r = await operationsService.rollback(operacion.operation_id)
+      const vuelveABandeja = ['bandeja', 'mail', 'api'].includes(operacion.canal) && r.data?.reabierto !== false
       // Actualiza el badge y la lista de pendientes (y recarga este historial)
       window.dispatchEvent(new Event(BANDEJA_CAMBIO))
-      return true
-    } catch (error) {
-      setMensaje({ type: 'error', text: error.response?.data?.message || 'Error al hacer rollback' })
-      return false
-    }
+      return vuelveABandeja ? `${r.message}. El documento volvió a la lista de pendientes para revisar.` : r.message
+    }, { cargando: 'Revirtiendo la carga y restaurando lo que había antes…', errorPorDefecto: 'Error al revertir la carga' })
+    return res !== undefined
   }
 
   return {
@@ -74,7 +72,8 @@ const useHistorialCargas = () => {
     canal,
     cambiarCanal,
     cargando,
-    mensaje,
+    errorCarga,
+    progreso,
     revertir
   }
 }
