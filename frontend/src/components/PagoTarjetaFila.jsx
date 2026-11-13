@@ -14,7 +14,7 @@ const PagoTarjetaFila = ({ fila }) => {
     return (
       <p className="mt-1 text-xs text-sky-300">
         Pago del resumen {nombreTarjeta(r.producto)} Galicia{r.cierre ? ` (cierre ${fechaCorta(r.cierre)}` : ' ('}
-        {r.total ? `, ${formatImporte(r.total)}` : ''}{r.filename ? `, ${r.filename}` : ''}): ya importado, queda como movimiento interno.
+        {r.total ? `, ${formatImporte(r.total)}` : ''}{r.filename ? `, ${r.filename}` : ''}): ya importado{fila.categoria === 'Movimiento interno' ? ', queda como movimiento interno' : ''}.
       </p>
     )
   }

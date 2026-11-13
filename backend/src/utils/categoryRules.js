@@ -113,7 +113,7 @@ export const nivelDeRegla = (r) => (r?.creada_por === 'keywords' ? 1 : 0);
 export const ordenarReglas = (reglas = []) => [...reglas].sort((a, b) =>
   nivelDeRegla(a) - nivelDeRegla(b)
   || (a.orden ?? 0) - (b.orden ?? 0)
-  || String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')));
+  || (new Date(a.created_at ?? 0).getTime() || 0) - (new Date(b.created_at ?? 0).getTime() || 0));
 
 /**
  * Prepara las reglas para evaluarlas muchas veces: activas, en orden y con el texto ya en mayúsculas

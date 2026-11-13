@@ -31,6 +31,7 @@ export const planDePrestamos = (transacciones, existentes = [], cotizacionDe = (
     const base = { deudor, movimiento: null, crear: false, duplicado: null, error: null };
     plan[i] = base;
     if (!deudor) { base.error = 'Falta el nombre de quien recibió el préstamo'; return; }
+    if (deudor.length > 80) { base.error = 'El nombre del deudor no puede superar 80 caracteres'; return; }
     const tipo = TIPO_DE_TRANSACCION[t.tipo];
     if (!tipo) { base.error = 'Solo los gastos y los ingresos pueden registrarse como préstamo'; return; }
     const fecha = fechaISO(t.fecha);

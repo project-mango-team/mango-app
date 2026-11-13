@@ -9,7 +9,7 @@ export const filasParecidas = (transacciones, fila, texto) => {
   const buscado = texto.trim().toUpperCase()
   if (!buscado) return []
   return transacciones.filter(t =>
-    (t.categoria === 'Otros' || t.regla_motivo?.creada_por === 'keywords') &&
+    (t.categoria === 'Otros' || (t.regla_motivo?.creada_por === 'keywords' && t.categoria === t.regla_motivo.categoria)) &&
     t.tipo === fila.tipo &&
     (t.origen || null) === (fila.origen || null) &&
     String(t.detalle || '').toUpperCase().includes(buscado))
