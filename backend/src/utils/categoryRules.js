@@ -95,11 +95,24 @@ export const validarRegla = (datos, categorias = []) => {
 };
 
 /**
+ * PUL-06: nivel de una regla. Las del usuario (creadas a mano o aprendidas) van en el nivel 0 y las asociaciones
+ * anteriores (keywords migradas, que incluyen las default) en el nivel 1: una regla explícita del usuario siempre
+ * se evalúa antes que una asociación anterior, aunque tenga un `orden` mayor.
+ */
+export const nivelDeRegla = (r) => (r?.creada_por === 'keywords' ? 1 : 0);
+
+/**
+ * Reglas en orden de evaluación: por nivel, después por `orden` y después por fecha de creación
+ */
+export const ordenarReglas = (reglas = []) => [...reglas].sort((a, b) =>
+  nivelDeRegla(a) - nivelDeRegla(b)
+  || (a.orden ?? 0) - (b.orden ?? 0)
+  || String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')));
+
+/**
  * Prepara las reglas para evaluarlas muchas veces: activas, en orden y con el texto ya en mayúsculas
  */
-export const compilarReglas = (reglas = []) => [...reglas]
-  .filter(r => r && r.activa !== false)
-  .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+export const compilarReglas = (reglas = []) => ordenarReglas(reglas.filter(r => r && r.activa !== false))
   .map(r => {
     const d = r.condiciones?.detalle || {};
     const valores = d.valores || [];
@@ -113,29 +126,78 @@ export const compilarReglas = (reglas = []) => [...reglas]
   // Una regex que dejó de compilar no coincide con nada (en vez de romper la importación)
   .filter(c => c.textos || c.regex);
 
-const cumple = ({ regla, textos, regex }, t) => {
+/**
+ * Si la regla coincide, devuelve el texto que coincidió ('' si coincidió solo por origen, tipo o monto); si no, null
+ */
+const coincidencia = ({ regla, textos, regex }, t) => {
   const c = regla.condiciones || {};
-  if (c.tipo && t.tipo !== c.tipo) return false;
-  if (c.origen && t.origen !== c.origen) return false;
+  if (c.tipo && t.tipo !== c.tipo) return null;
+  if (c.origen && t.origen !== c.origen) return null;
   const importe = Number(t.importe) || 0;
-  if (c.montoMin !== null && c.montoMin !== undefined && importe < c.montoMin) return false;
-  if (c.montoMax !== null && c.montoMax !== undefined && importe > c.montoMax) return false;
+  if (c.montoMin !== null && c.montoMin !== undefined && importe < c.montoMin) return null;
+  if (c.montoMax !== null && c.montoMax !== undefined && importe > c.montoMax) return null;
   const detalle = String(t.detalle || '');
   // Tope de largo del texto: acota el peor caso de una regex con varias repeticiones
-  if (regex) return regex.test(detalle.slice(0, MAX_TEXTO_REGEX));
-  if (textos.length === 0) return true;
+  if (regex) return regex.test(detalle.slice(0, MAX_TEXTO_REGEX)) ? regex.source : null;
+  if (textos.length === 0) return '';
   const upper = detalle.toUpperCase();
-  return textos.some(texto => upper.includes(texto));
+  const i = textos.findIndex(texto => upper.includes(texto));
+  return i >= 0 ? String(regla.condiciones.detalle.valores[i]) : null;
+};
+
+/**
+ * Primera regla que coincide con el movimiento y el texto que coincidió: { regla, texto } o null
+ */
+export const buscarCoincidencia = (t, compiladas) => {
+  for (const c of compiladas) {
+    const texto = coincidencia(c, t);
+    if (texto !== null) return { regla: c.regla, texto };
+  }
+  return null;
 };
 
 /**
  * Primera regla que coincide con el movimiento, o null. Acepta reglas crudas o compiladas.
  */
-export const buscarRegla = (t, compiladas) => {
-  for (const c of compiladas) {
-    if (cumple(c, t)) return c.regla;
+export const buscarRegla = (t, compiladas) => buscarCoincidencia(t, compiladas)?.regla ?? null;
+
+/**
+ * PUL-06: ¿la regla `general` tapa a la `especifica`? (todo lo que matchea la específica matchea también la
+ * general, así que si va primera la específica nunca se aplica). Es una heurística: con regex da false.
+ */
+export const pisaA = (general, especifica) => {
+  const g = general.condiciones || {};
+  const e = especifica.condiciones || {};
+  const gv = (g.detalle?.valores || []).map(v => String(v).toUpperCase());
+  const ev = (e.detalle?.valores || []).map(v => String(v).toUpperCase());
+  if (g.detalle?.modo === 'regex' && gv.length) return false;
+  if (e.detalle?.modo === 'regex' && ev.length) return false;
+  if (gv.length) {
+    if (!ev.length || !ev.every(t => gv.some(x => t.includes(x)))) return false;
   }
-  return null;
+  if (g.origen && g.origen !== e.origen) return false;
+  if (g.tipo && g.tipo !== e.tipo) return false;
+  const hay = (v) => v !== null && v !== undefined;
+  if (hay(g.montoMin) && !(hay(e.montoMin) && g.montoMin <= e.montoMin)) return false;
+  if (hay(g.montoMax) && !(hay(e.montoMax) && e.montoMax <= g.montoMax)) return false;
+  return true;
+};
+
+/**
+ * PUL-06: ids de las reglas en el orden que queda al sumar `nueva`: va primera de las del usuario, salvo que
+ * tape a una regla explícita más específica; en ese caso queda justo después de la última que taparía.
+ * @param {Array} existentes - reglas ya guardadas (sin la nueva)
+ * @param {Object} nueva
+ */
+export const ordenConNuevaRegla = (existentes, nueva) => {
+  const ordenadas = ordenarReglas(existentes);
+  let despuesDe = -1;
+  ordenadas.forEach((e, i) => {
+    if (nivelDeRegla(e) === 0 && pisaA(nueva, e) && !pisaA(e, nueva)) despuesDe = i;
+  });
+  const ids = ordenadas.map(r => String(r._id));
+  ids.splice(despuesDe + 1, 0, String(nueva._id));
+  return ids;
 };
 
 /**
@@ -146,16 +208,25 @@ export const buscarRegla = (t, compiladas) => {
 export const aplicarReglas = (transactions, reglas) => {
   const compiladas = compilarReglas(reglas);
   return transactions.map(t => {
-    const regla = buscarRegla(t, compiladas);
-    if (!regla) return t;
+    const coincide = buscarCoincidencia(t, compiladas);
+    if (!coincide) return t;
+    const { regla, texto } = coincide;
     const id = regla._id ? String(regla._id) : null;
     if (regla.accion?.tipo === 'ignorar') return { ...t, ignorada: true, regla: id };
-    if (t.categoria && t.categoria !== CATEGORIA_SIN_REGLA) return t;
+    // La categoría que fijó el parser (Impuestos...) no se pisa; se marca para explicarlo en la revisión
+    if (t.categoria && t.categoria !== CATEGORIA_SIN_REGLA) return { ...t, categoria_fija: true };
+    // PUL-06: por qué se eligió esa categoría (se muestra en la revisión; no se guarda en la transacción)
+    const motivo = (categoria) => ({
+      texto: texto || null,
+      modo: regla.condiciones?.detalle?.modo || 'contiene',
+      creada_por: regla.creada_por || 'usuario',
+      categoria
+    });
     // La inversión solo marca a qué activo iría; el servidor recalcula y valida todo al previsualizar y al guardar
     if (regla.accion?.tipo === 'inversion') {
-      return { ...t, categoria: CATEGORIA_INVERSION, regla: id, inversion: { activo_id: String(regla.accion.activo_id) } };
+      return { ...t, categoria: CATEGORIA_INVERSION, regla: id, regla_motivo: motivo(CATEGORIA_INVERSION), inversion: { activo_id: String(regla.accion.activo_id) } };
     }
-    return { ...t, categoria: regla.accion.categoria, regla: id };
+    return { ...t, categoria: regla.accion.categoria, regla: id, regla_motivo: motivo(regla.accion.categoria) };
   });
 };
 

@@ -6,7 +6,7 @@ import InvestmentAsset from '../models/InvestmentAsset.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { buildUserQuery, addUserToData } from '../utils/userQuery.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
-import { reglasDesdeKeywords, validarRegla } from '../utils/categoryRules.js';
+import { reglasDesdeKeywords, validarRegla, ordenarReglas, ordenConNuevaRegla, nivelDeRegla } from '../utils/categoryRules.js';
 import { transaccionesACambiar, validarDeshacer } from '../utils/ruleLearning.js';
 
 /**
@@ -40,7 +40,8 @@ const migrarKeywords = async (req) => {
  */
 export const reglasDelUsuario = async (req) => {
   await migrarKeywords(req);
-  return CategoryRule.find(buildUserQuery(req)).sort({ orden: 1, created_at: 1 }).lean();
+  // PUL-06: las del usuario antes que las asociaciones anteriores (keywords)
+  return ordenarReglas(await CategoryRule.find(buildUserQuery(req)).lean());
 };
 
 const categoriasDelUsuario = async (req) => {
@@ -71,11 +72,16 @@ export const crearRegla = async (req, datos, { creadaPor = 'usuario' } = {}) => 
   if (error) throw new AppError(error, 400);
   await validarActivoDeLaRegla(req, regla);
   const primera = await CategoryRule.findOne(buildUserQuery(req)).sort({ orden: 1 }).select('orden').lean();
-  return CategoryRule.create(addUserToData(req, {
+  const existentes = await reglasDelUsuario(req);
+  const creada = await CategoryRule.create(addUserToData(req, {
     ...regla,
     orden: primera ? primera.orden - 1 : 0,
     creada_por: creadaPor
   }));
+  // PUL-06: si tapa a una regla explícita más específica, queda después de ella (la más específica gana)
+  const ids = ordenConNuevaRegla(existentes, creada);
+  if (ids.indexOf(String(creada._id)) !== 0) await reordenarReglas(req, ids);
+  return creada;
 };
 
 export const actualizarRegla = async (req, id, datos) => {
@@ -99,8 +105,10 @@ export const reordenarReglas = async (req, ids) => {
   if (!Array.isArray(ids)) throw new AppError('Se espera la lista de ids en orden', 400);
   const reglas = await reglasDelUsuario(req);
   const posicion = new Map(ids.map((id, i) => [String(id), i]));
+  // PUL-06: la posición pedida no puede subir una asociación anterior (keywords) por encima de una regla del usuario
   const ordenadas = [...reglas].sort((a, b) =>
-    (posicion.get(String(a._id)) ?? Infinity) - (posicion.get(String(b._id)) ?? Infinity) || a.orden - b.orden);
+    nivelDeRegla(a) - nivelDeRegla(b)
+    || (posicion.get(String(a._id)) ?? Infinity) - (posicion.get(String(b._id)) ?? Infinity) || a.orden - b.orden);
   await CategoryRule.bulkWrite(ordenadas.map((r, orden) => ({
     updateOne: { filter: buildUserQuery(req, { _id: r._id }), update: { $set: { orden } } }
   })));
