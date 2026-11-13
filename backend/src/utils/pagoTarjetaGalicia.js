@@ -1,8 +1,10 @@
-// Pago de la tarjeta de Galicia desde la caja de ahorro (PUL-08).
+// Pago de la tarjeta de Galicia desde la caja de ahorro (PUL-08) y de la tarjeta de Mercado Pago desde la cuenta (MP-11).
 // En el extracto de la caja de ahorro el pago del resumen cae como "PAGO TARJETA VISA ..." (o MASTER). Si el resumen de
 // esa tarjeta ya se importó (mismo total, unos días después del cierre), el pago es plata que ya está contada en sus
 // consumos: se marca como movimiento interno. Si el resumen todavía no está importado, queda "pendiente" y NO se toca
 // (no se neutraliza un pago sin los consumos cargados: se perdería el gasto).
+
+import { esPagoTarjetaMP } from './pagoTarjeta.js';
 
 const sinTildes = (texto) => String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -17,6 +19,23 @@ export const esPagoTarjetaGalicia = (detalle) => {
   const m = PAGO_TARJETA_GALICIA.exec(limpio);
   if (!m) return null;
   return { producto: m[1] === 'VISA' ? 'visa' : 'mastercard' };
+};
+
+/**
+ * ¿Es un pago de tarjeta de Galicia hecho desde la caja de ahorro? (gasto en pesos de Banco Galicia que no sea
+ * duplicado ni ignorado). Devuelve { producto } o null.
+ */
+export const reconocerPagoGalicia = (t) => {
+  if (!t || t.tipo !== 'Gasto' || t.origen !== 'Banco Galicia' || (t.moneda && t.moneda !== 'ARS') || t.duplicado || t.ignorada) return null;
+  return esPagoTarjetaGalicia(t.detalle);
+};
+
+/**
+ * MP-11: ¿es el pago automático de la tarjeta de Mercado Pago desde la cuenta de MP? Devuelve { producto: 'tarjeta' } o null.
+ */
+export const reconocerPagoMP = (t) => {
+  if (!t || t.tipo !== 'Gasto' || t.origen !== 'Mercado Pago' || (t.moneda && t.moneda !== 'ARS') || t.duplicado || t.ignorada) return null;
+  return esPagoTarjetaMP(t.detalle) ? { producto: 'tarjeta' } : null;
 };
 
 const DIA_MS = 86400000;
@@ -38,11 +57,10 @@ const fechaDeTransaccion = (fecha) => {
  * @param {Array} transacciones
  * @param {Array<{ ingest_document_id, operation_id, filename, producto, cierre: string|null, total: number }>} resumenes
  */
-export const emparejarPagosConResumenes = (transacciones, resumenes, { tolerancia = 1, dias = 30 } = {}) => {
+export const emparejarPagosConResumenes = (transacciones, resumenes, { tolerancia = 1, dias = 30, reconocer = reconocerPagoGalicia } = {}) => {
   const usados = new Set();
   return transacciones.map(t => {
-    if (!t || t.tipo !== 'Gasto' || t.origen !== 'Banco Galicia' || (t.moneda && t.moneda !== 'ARS') || t.duplicado || t.ignorada) return null;
-    const pago = esPagoTarjetaGalicia(t.detalle);
+    const pago = reconocer(t);
     if (!pago) return null;
     const fecha = fechaDeTransaccion(t.fecha);
     const importe = Math.abs(Number(t.importe) || 0);
