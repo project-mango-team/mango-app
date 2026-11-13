@@ -28,7 +28,10 @@ export const validarFormatoToken = (token) => {
 export const errorDeMercadoPago = (error) => {
   if (!(error instanceof MercadoPagoError)) return error;
   if (error.status === 401 || error.status === 403) return new AppError(error.message, 400);
-  return new AppError('No se pudo contactar a Mercado Pago, probá de nuevo en un rato', 502);
+  // El mensaje del cliente no lleva el token ni la query (solo método, ruta, status y el texto de MP): se loguea
+  // y se muestra para poder diagnosticar qué paso del reporte falló
+  console.error('[mercadopago]', error.message);
+  return new AppError(`No se pudo contactar a Mercado Pago, probá de nuevo en un rato (${error.message})`, 502);
 };
 
 // Lo que se muestra de la cuenta: el alias y el país, nada más
