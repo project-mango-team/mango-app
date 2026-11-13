@@ -19,14 +19,18 @@ const ConfirmModal = ({
 }) => {
   useEffect(() => {
     if (!isOpen) return undefined
+    // En captura y frenando el evento: si hay otro modal debajo, Esc cierra solo este
     const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      onClose()
     }
-    document.addEventListener('keydown', handleEsc)
+    window.addEventListener('keydown', handleEsc, true)
+    const overflowPrevio = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      document.removeEventListener('keydown', handleEsc)
-      document.body.style.overflow = 'unset'
+      window.removeEventListener('keydown', handleEsc, true)
+      document.body.style.overflow = overflowPrevio
     }
   }, [isOpen, onClose])
 

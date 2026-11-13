@@ -10,6 +10,7 @@ const useConfirmar = () => {
   const resolver = useRef(null)
 
   const confirmar = useCallback((config) => new Promise((resolve) => {
+    resolver.current?.(false)
     resolver.current = resolve
     setOpciones(config)
   }), [])

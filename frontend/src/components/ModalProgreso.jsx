@@ -9,9 +9,14 @@ const ModalProgreso = ({ progreso, acciones = null }) => {
 
   useEffect(() => {
     if (!abierto || cargando) return undefined
-    const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') cerrar() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // En captura y frenando el evento: si hay otro modal debajo, Esc cierra solo este
+    const onKey = (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter') return
+      e.stopPropagation()
+      cerrar()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [abierto, cargando, cerrar])
 
   if (!abierto) return null
