@@ -5,6 +5,7 @@ import useSugerenciasIA from '../hooks/useSugerenciasIA'
 import SugerenciaIAFila from './SugerenciaIAFila'
 import AsociarDetalleFila from './reglas/AsociarDetalleFila'
 import InversionSugerida from './InversionSugerida'
+import PrestamoSugerido from './PrestamoSugerido'
 import MotivoCategoria from './reglas/MotivoCategoria'
 
 const MONEDAS = ['ARS', 'USD']
@@ -162,9 +163,11 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     const cleanTransactions = transactions
       .filter(t => t.incluir)
       // regla_motivo y categoria_fija son solo para mostrar en la revisión
-      .map(({ _id, incluir, duplicado, ignorada, regla, regla_motivo, categoria_fija, interno_sugerido, inversion, ...rest }) => ({
+      .map(({ _id, incluir, duplicado, ignorada, regla, regla_motivo, categoria_fija, interno_sugerido, inversion, prestamo, ...rest }) => ({
         ...rest,
         // INV: del cliente solo viaja la inversión elegida y si se tildó cargarla; el servidor recalcula el resto
+        // PUL-07: del cliente solo viaja el deudor y si se tildó registrarlo; el servidor recalcula el resto
+        ...(rest.categoria === 'Préstamo' && prestamo?.deudor?.trim() && { prestamo: { deudor: prestamo.deudor.trim(), crear: prestamo.crear ?? true } }),
         ...(inversion?.activo_id && { inversion: { activo_id: inversion.activo_id, crear: Boolean(inversion.crear) && rest.categoria === 'Inversión' } }),
         // REV-04: al guardarla como interna, la contraparte ya cargada también pasa a interna
         ...(rest.categoria === INTERNO && interno_sugerido?.con?._id && { interno_con: interno_sugerido.con._id })
@@ -351,6 +354,10 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                   <InversionSugerida
                     fila={t}
                     onCambiar={(crear) => handleCellChange(t._id, 'inversion', { ...t.inversion, crear })}
+                  />
+                  <PrestamoSugerido
+                    fila={t}
+                    onCambiar={(prestamo) => handleCellChange(t._id, 'prestamo', prestamo)}
                   />
                   <MotivosRevision
                     t={t}

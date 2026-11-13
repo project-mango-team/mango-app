@@ -15,6 +15,7 @@ const formDesdeRegla = (regla) => {
     accion: regla ? accionDeRegla(regla.accion) : 'categoria',
     categoria: regla?.accion?.tipo === 'categoria' ? regla.accion.categoria : '',
     activoId: regla?.accion?.tipo === 'inversion' ? String(regla.accion.activo_id || '') : '',
+    deudor: regla?.accion?.tipo === 'prestamo' ? (regla.accion.deudor || '') : '',
     activa: regla?.activa !== false
   }
 }
@@ -34,6 +35,8 @@ const reglaDesdeForm = (f) => ({
     ? { tipo: 'ignorar' }
     : f.accion === 'inversion'
     ? { tipo: 'inversion', activo_id: f.activoId }
+    : f.accion === 'prestamo'
+    ? { tipo: 'prestamo', deudor: f.deudor.trim() }
     : { tipo: 'categoria', categoria: f.accion === 'interno' ? CATEGORIA_INTERNO : f.categoria },
   activa: f.activa
 })
@@ -114,9 +117,16 @@ const ReglaForm = ({ regla, categorias, activos = [], onGuardar, onCancelar }) =
             <option value="categoria">Asignar categoría</option>
             <option value="interno">Marcar como movimiento interno</option>
             {(activos.length > 0 || form.accion === 'inversion') && <option value="inversion">Cargar en una inversión</option>}
+            <option value="prestamo">Registrar como préstamo</option>
             <option value="ignorar">No importar</option>
           </select>
         </Campo>
+        {form.accion === 'prestamo' && (
+          <Campo label="Deudor (a quién se le prestó)" className="sm:col-span-2">
+            <input type="text" value={form.deudor} onChange={set('deudor')} maxLength={80} placeholder="Nombre" className="input-field w-full" />
+            <span className="mt-1 block text-xs text-gray-500">La transacción queda como Préstamo (no cuenta como gasto ni ingreso) y, al revisar, se ofrece registrarla en Inversiones → Préstamos: un gasto es un préstamo y un ingreso es una devolución.</span>
+          </Campo>
+        )}
         {form.accion === 'inversion' && (
           <Campo label="Inversión" className="sm:col-span-2">
             <select value={form.activoId} onChange={set('activoId')} className="input-field w-full">
@@ -130,7 +140,7 @@ const ReglaForm = ({ regla, categorias, activos = [], onGuardar, onCancelar }) =
           <Campo label="Categoría">
             <select value={form.categoria} onChange={set('categoria')} className="input-field w-full">
               <option value="">Elegir…</option>
-              {categorias.filter(c => c !== CATEGORIA_INTERNO).map(c => <option key={c} value={c}>{c}</option>)}
+              {categorias.filter(c => c !== CATEGORIA_INTERNO && c !== 'Préstamo').map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </Campo>
         )}

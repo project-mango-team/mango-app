@@ -8,6 +8,7 @@ export const ORIGENES = ['Mercado Pago', 'Santander', 'Banco Galicia', 'Banco Ga
 export const accionDeRegla = (accion) => {
   if (accion?.tipo === 'ignorar') return 'ignorar'
   if (accion?.tipo === 'inversion') return 'inversion'
+  if (accion?.tipo === 'prestamo') return 'prestamo'
   if (accion?.categoria === CATEGORIA_INTERNO) return 'interno'
   return 'categoria'
 }
@@ -32,6 +33,7 @@ export const describirCondiciones = ({ condiciones: c = {} }) => {
 export const describirAccion = ({ accion }, activos = []) => {
   const tipo = accionDeRegla(accion)
   if (tipo === 'ignorar') return 'No importar'
+  if (tipo === 'prestamo') return `Préstamo a ${accion.deudor || '…'}`
   if (tipo === 'inversion') {
     const activo = activos.find(a => a._id === String(accion.activo_id))
     return activo ? `Cargar en ${activo.nombre}` : 'Cargar en una inversión'
