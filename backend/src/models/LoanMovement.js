@@ -52,6 +52,15 @@ const loanMovementSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // PUL-07: 'extracto' = lo creó Mango al importar una transferencia marcada como préstamo (trae operación y transacción
+  // para poder revertirlo). Los cargados en Inversiones → Préstamos son 'app'.
+  origen: {
+    type: String,
+    enum: ['app', 'extracto'],
+    default: 'app'
+  },
+  operation_id: { type: String, index: true },
+  transaction_id: { type: mongoose.Schema.Types.ObjectId },
   created_at: {
     type: Date,
     default: Date.now

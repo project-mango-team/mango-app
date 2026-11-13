@@ -1,5 +1,5 @@
 import express from 'express';
-import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS, CATEGORIA_INTERNO } from '../models/User.js';
+import User, { CATEGORIA_INVERSION, CATEGORIA_IMPUESTOS, CATEGORIA_INTERNO, CATEGORIA_PRESTAMO } from '../models/User.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadDefaultCategoryKeywords } from '../utils/categoryInference.js';
 import { renombrarCategoriaEnReglas, eliminarReglasDeCategoria } from '../services/ruleService.js';
@@ -53,6 +53,11 @@ router.get('/', async (req, res, next) => {
     await User.updateOne(
       { _id: req.user._id, categoriaInternoAgregada: { $ne: true } },
       { $addToSet: { categories: CATEGORIA_INTERNO }, $set: { categoriaInternoAgregada: true } }
+    );
+    // Y PUL-07: Préstamo
+    await User.updateOne(
+      { _id: req.user._id, categoriaPrestamoAgregada: { $ne: true } },
+      { $addToSet: { categories: CATEGORIA_PRESTAMO }, $set: { categoriaPrestamoAgregada: true } }
     );
 
     const user = await User.findById(req.user._id).select('categories');

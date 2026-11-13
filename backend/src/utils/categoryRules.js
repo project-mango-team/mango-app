@@ -7,19 +7,20 @@
  *     origen: String | null, tipo: 'Gasto' | 'Ingreso' | null,
  *     montoMin: Number | null, montoMax: Number | null              // sobre el importe en ARS
  *   }
- *   accion: { tipo: 'categoria', categoria } | { tipo: 'ignorar' } | { tipo: 'inversion', activo_id }
+ *   accion: { tipo: 'categoria', categoria } | { tipo: 'ignorar' } | { tipo: 'inversion', activo_id } | { tipo: 'prestamo', deudor }
  *   (inversion: la transacción queda en la categoría Inversión y se ofrece cargarla como aporte o retiro del activo, INV-03)
  *
  * Todas las condiciones presentes se tienen que cumplir. Las reglas se evalúan en orden y gana la
  * primera que coincide, igual que las keywords que reemplazan.
  */
 
-import { CATEGORIA_INVERSION } from '../models/User.js';
+import { CATEGORIA_INVERSION, CATEGORIA_PRESTAMO } from '../models/User.js';
 import { analizarRegex, esRegexSegura, MAX_TEXTO_REGEX } from './regexSegura.js';
 
 export const CATEGORIA_SIN_REGLA = 'Otros';
 export const MODOS_DETALLE = ['contiene', 'regex'];
-export const TIPOS_ACCION = ['categoria', 'ignorar', 'inversion'];
+export const TIPOS_ACCION = ['categoria', 'ignorar', 'inversion', 'prestamo'];
+const MAX_DEUDOR = 80;
 const ID_RE = /^[a-f0-9]{24}$/i;
 const MAX_REGEX = 200;
 
@@ -79,6 +80,11 @@ export const validarRegla = (datos, categorias = []) => {
     if (!categoria) return { error: 'Elegí una categoría' };
     if (categorias.length && !categorias.includes(categoria)) return { error: 'La categoría no existe' };
     accion = { tipo: 'categoria', categoria };
+  } else if (a.tipo === 'prestamo') {
+    const deudor = String(a.deudor || '').trim().replace(/\s+/g, ' ');
+    if (!deudor) return { error: 'Escribí a quién le prestaste' };
+    if (deudor.length > MAX_DEUDOR) return { error: `El nombre no puede superar ${MAX_DEUDOR} caracteres` };
+    accion = { tipo: 'prestamo', categoria: CATEGORIA_PRESTAMO, deudor };
   } else if (a.tipo === 'inversion') {
     const activoId = String(a.activo_id || '').trim();
     if (!ID_RE.test(activoId)) return { error: 'Elegí la inversión' };
@@ -225,6 +231,10 @@ export const aplicarReglas = (transactions, reglas) => {
     // La inversión solo marca a qué activo iría; el servidor recalcula y valida todo al previsualizar y al guardar
     if (regla.accion?.tipo === 'inversion') {
       return { ...t, categoria: CATEGORIA_INVERSION, regla: id, regla_motivo: motivo(CATEGORIA_INVERSION), inversion: { activo_id: String(regla.accion.activo_id) } };
+    }
+    // PUL-07: marca a quién se le prestó; el servidor recalcula y valida al previsualizar y al guardar
+    if (regla.accion?.tipo === 'prestamo') {
+      return { ...t, categoria: CATEGORIA_PRESTAMO, regla: id, regla_motivo: motivo(CATEGORIA_PRESTAMO), prestamo: { deudor: String(regla.accion.deudor || '') } };
     }
     return { ...t, categoria: regla.accion.categoria, regla: id, regla_motivo: motivo(regla.accion.categoria) };
   });

@@ -1,6 +1,7 @@
 import { AppError } from '../middleware/errorHandler.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { textoAvisoInversiones } from '../services/investmentLinkService.js';
+import { textoAvisoPrestamos } from '../services/loanLinkService.js';
 import {
   recibirDocumento,
   listarDocumentos,
@@ -81,7 +82,7 @@ export const postImportar = async (req, res, next) => {
       throw new AppError('Las transacciones tienen que ser una lista', 400);
     }
     const data = await importarDocumento(req, req.params.id, { transactions });
-    res.json({ success: true, message: `Se importaron ${data.resultado.transacciones_guardadas} transacciones${textoAvisoInversiones(data.resultado.aviso_inversiones)}`, data });
+    res.json({ success: true, message: `Se importaron ${data.resultado.transacciones_guardadas} transacciones${textoAvisoInversiones(data.resultado.aviso_inversiones)}${textoAvisoPrestamos(data.resultado.aviso_prestamos)}`, data });
   } catch (error) {
     next(error);
   }

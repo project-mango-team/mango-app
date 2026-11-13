@@ -31,6 +31,10 @@ export const evaluarAutoImportacion = ({ deteccion, transacciones = [], control 
   const inversionesConError = aImportar.filter(t => t.inversion?.error).length;
   if (inversionesConError > 0) motivos.push(`${inversionesConError} transacciones de inversión que no se pueden cargar en Inversiones`);
 
+  // PUL-07: un préstamo sin deudor o que no se puede registrar necesita revisión
+  const prestamosConError = aImportar.filter(t => t.prestamo && (!t.prestamo.deudor || t.prestamo.error)).length;
+  if (prestamosConError > 0) motivos.push(`${prestamosConError} transacciones de préstamo que no se pueden registrar en Préstamos`);
+
   const internos = aImportar.filter(t => t.interno_sugerido).length;
   if (internos > 0) motivos.push(`${internos} posibles movimientos internos para confirmar`);
 

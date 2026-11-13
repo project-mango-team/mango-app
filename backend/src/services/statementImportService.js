@@ -17,6 +17,7 @@ import { aplicarReglas } from '../utils/categoryRules.js';
 import { sugerirInternos, fechasCandidatas, contrapartesAMarcar } from '../utils/internalTransfers.js';
 import { CATEGORIA_INTERNO } from '../models/User.js';
 import { crearMovimientosDeExtracto } from './investmentLinkService.js';
+import { crearPrestamosDeExtracto } from './loanLinkService.js';
 import { armarContextoRevision, marcarComerciosNuevos } from '../utils/reviewFocus.js';
 
 // Importación de resúmenes bancarios: parseo por banco y guardado como Operation + Transactions.
@@ -389,6 +390,12 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
     transactions.map((t, i) => ({ ...t, _id: transactionsToSave[i]._id })).filter(t => guardadas.has(String(t._id))),
     operationId
   );
+  // PUL-07: préstamos y devoluciones en Préstamos para las transferencias marcadas (mejor esfuerzo)
+  const avisoPrestamos = await crearPrestamosDeExtracto(
+    req,
+    transactions.map((t, i) => ({ ...t, _id: transactionsToSave[i]._id })).filter(t => guardadas.has(String(t._id))),
+    operationId
+  );
   const internosVinculados = await vincularContrapartes(req, transactions);
 
   // Create operation record with safe numeric values
@@ -411,7 +418,8 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
       transacciones_procesadas: transactions.length,
       ...(sha256 && { sha256 }),
       ...(internosVinculados.length && { internos_vinculados: internosVinculados }),
-      ...(avisoInversiones?.creados && { inversiones_creadas: avisoInversiones.creados })
+      ...(avisoInversiones?.creados && { inversiones_creadas: avisoInversiones.creados }),
+      ...(avisoPrestamos?.creados && { prestamos_creados: avisoPrestamos.creados })
     },
     created_at: timestamp
   }));
@@ -424,6 +432,7 @@ export const guardarImportacion = async ({ req, transactions, tipo, filename, sh
     transacciones_procesadas: transactions.length,
     transacciones_guardadas: result.length,
     ...(avisoInversiones && { aviso_inversiones: avisoInversiones }),
+    ...(avisoPrestamos && { aviso_prestamos: avisoPrestamos }),
     timestamp
   };
 };

@@ -17,6 +17,7 @@ import {
 } from '../services/statementImportService.js';
 import { revertirOperacion } from '../services/operationService.js';
 import { marcarInversionesSugeridas, textoAvisoInversiones } from '../services/investmentLinkService.js';
+import { marcarPrestamosSugeridos, textoAvisoPrestamos } from '../services/loanLinkService.js';
 import { nombreArchivo } from '../utils/uploadFilename.js';
 import { reglasDelUsuario } from '../services/ruleService.js';
 import { contarDudosas } from '../utils/reviewFocus.js';
@@ -130,6 +131,7 @@ router.post('/preview', upload.single('file'), async (req, res, next) => {
       marcarDuplicados(req, transactions)
         .then(ts => marcarInternosSugeridos(req, ts))
         .then(ts => marcarInversionesSugeridas(req, ts))
+        .then(ts => marcarPrestamosSugeridos(req, ts))
         .then(ts => prepararRevision(req, ts)),
       buscarImportacionDelArchivo(req, sha256)
     ]);
@@ -227,7 +229,7 @@ router.post('/', upload.single('file'), async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `Se importaron ${data.transacciones_guardadas} transacciones exitosamente${textoAvisoInversiones(data.aviso_inversiones)}`,
+      message: `Se importaron ${data.transacciones_guardadas} transacciones exitosamente${textoAvisoInversiones(data.aviso_inversiones)}${textoAvisoPrestamos(data.aviso_prestamos)}`,
       data
     });
   } catch (error) {

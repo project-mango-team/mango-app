@@ -1,4 +1,4 @@
-import { CATEGORIA_INVERSION, CATEGORIA_INTERNO } from '../models/User.js';
+import { CATEGORIA_INVERSION, CATEGORIA_INTERNO, CATEGORIA_PRESTAMO } from '../models/User.js';
 
 /**
  * Movimientos que no son gasto ni ingreso: la plata que va o vuelve de inversiones y los
@@ -8,6 +8,7 @@ import { CATEGORIA_INVERSION, CATEGORIA_INTERNO } from '../models/User.js';
 export const grupoNeutro = (t) => {
   if (t.categoria === CATEGORIA_INVERSION) return 'inversiones';
   if (t.categoria === CATEGORIA_INTERNO) return 'internos';
+  if (t.categoria === CATEGORIA_PRESTAMO) return 'prestamos';
   return null;
 };
 
@@ -22,7 +23,8 @@ export const resumirMovimientos = (transactions, monto = (t) => t.importe) => {
     gastos: 0,
     ingresos: 0,
     inversiones: { enviado: 0, recibido: 0 },
-    internos: { enviado: 0, recibido: 0 }
+    internos: { enviado: 0, recibido: 0 },
+    prestamos: { enviado: 0, recibido: 0 }
   };
   for (const t of transactions) {
     if (t.tipo !== 'Gasto' && t.tipo !== 'Ingreso') continue;
