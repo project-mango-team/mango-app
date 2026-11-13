@@ -156,7 +156,7 @@ Pedidos de uso: la navegación pasa a una barra superior, los avisos a una campa
 | ID | Ticket | Deps | Tam. | Estado |
 |---|---|---|---|---|
 | PUL-01 | **Historial único.** En la solapa Cargar hoy hay dos listas (cargas por mail y cargas manuales + mail): duplicadas. Una sola lista de historial con todas las cargas y toda su data (origen, cuenta, fecha, cantidad, estado). | UX-06 | S | hecho |
-| PUL-02 | **Carga manual sin revisión de categorías.** Una carga manual (archivo elegido por el usuario) no debe mandar a "revisar" por categorías; solo los imports por Bandeja, mail o automáticos. Y el botón "OK" feo: tilde y cruz. | UX-05 | S | pendiente |
+| PUL-02 | **Carga manual sin revisión de categorías.** Una carga manual (archivo elegido por el usuario) no debe mandar a "revisar" por categorías; solo los imports por Bandeja, mail o automáticos. Y el botón "OK" feo: tilde y cruz. | UX-05 | S | hecho |
 | PUL-03 | **Modal de progreso/resultado reutilizable** (`ModalProgreso`): loading mientras corre, luego tilde verde + mensaje + botón OK. Usarlo en revertir carga, asociar categoría en la revisión, guardar import y todo caso parecido que se encuentre. Más un `ConfirmModal` custom en reemplazo de `window.confirm/alert` (ej. eliminar una regla). | — | M | hecho |
 | PUL-04 | **Asociar categoría en la revisión**: con deshacer, resultado en el modal (no en la fila) y poder **crear una categoría nueva** desde ahí. | PUL-03 | M | hecho |
 | PUL-05 | **Modal de revisión más ancho** para que se vea la tabla entera. | — | S | pendiente |

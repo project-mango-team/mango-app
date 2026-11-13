@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { categoryService } from '../services/transactionService'
-import { motivosDeRevision, etiquetaMotivo } from '../utils/revision'
+import { motivosDeRevision } from '../utils/revision'
+import MotivosRevision from './revision/MotivosRevision'
 import useSugerenciasIA from '../hooks/useSugerenciasIA'
 import SugerenciaIAFila from './SugerenciaIAFila'
 import AsociarDetalleFila from './reglas/AsociarDetalleFila'
@@ -12,7 +13,7 @@ const INTERNO = 'Movimiento interno'
 // Transacciones con `duplicado: true` (ya cargadas) o `ignorada: true` (una regla dice no importarlas) arrancan
 // excluidas: se ven atenuadas y no se guardan salvo que se tilden.
 // REV-05: arranca mostrando solo las que vale la pena mirar (`limites` = monto alto por categoría)
-const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, archivoYaImportado = null, limites = {} }) => {
+const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode = false, sinRevision = false, archivoYaImportado = null, limites = {} }) => {
   const [transactions, setTransactions] = useState([])
   const [paraRevisar, setParaRevisar] = useState(new Set())
   const [soloRevisar, setSoloRevisar] = useState(false)
@@ -57,9 +58,10 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
     setTransactions(transactionsWithId)
     // Las que arrancan dudosas siguen en el filtro aunque se corrijan (no desaparecen mientras se editan)
     const dudosas = new Set(transactionsWithId.filter(t => motivosDeRevision(t, limites).length > 0).map(t => t._id))
-    setParaRevisar(dudosas)
+    // Una carga manual (el usuario eligió el archivo) no manda a revisar categorías: eso es para lo que llega solo
+    setParaRevisar(sinRevision ? new Set() : dudosas)
     setRevisadas(new Set())
-    setSoloRevisar(!isManualMode && dudosas.size > 0)
+    setSoloRevisar(!isManualMode && !sinRevision && dudosas.size > 0)
     setShowUndo(false)
     setUndoState(null)
   }, [initialTransactions])
@@ -355,6 +357,7 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
                     revisar={paraRevisar.has(t._id)}
                     revisada={revisadas.has(t._id)}
                     onRevisada={() => marcarRevisada(t._id)}
+                    onDescartar={() => { handleCellChange(t._id, 'incluir', false); marcarRevisada(t._id) }}
                   />
                   {t.duplicado && (
                     <label className="mt-1 flex items-center gap-2 text-xs text-yellow-400 cursor-pointer">
@@ -483,24 +486,6 @@ const TransactionEditor = ({ initialTransactions, onSave, onCancel, isManualMode
           </button>
         </div>
       )}
-    </div>
-  )
-}
-
-// Chips con lo que hay que mirar de la fila (duplicada e interna sugerida tienen su propio aviso)
-const MotivosRevision = ({ t, limites, revisar, revisada, onRevisada }) => {
-  if (!revisar) return null
-  const motivos = motivosDeRevision(t, limites)
-  if (revisada || motivos.length === 0) return <p className="mt-1 text-xs text-green-400">✓ Revisada</p>
-  const etiquetas = motivos.map(m => etiquetaMotivo(m, t, limites)).filter(Boolean)
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
-      {etiquetas.map(e => (
-        <span key={e} className="rounded bg-amber-900/40 px-1.5 py-0.5 text-xs text-amber-300">{e}</span>
-      ))}
-      <button type="button" onClick={onRevisada} className="text-xs text-gray-400 hover:text-white underline" title="Está bien así">
-        OK
-      </button>
     </div>
   )
 }
