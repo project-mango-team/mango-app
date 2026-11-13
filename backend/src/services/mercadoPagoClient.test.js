@@ -47,7 +47,7 @@ describe('crearClienteMercadoPago', () => {
     const mp = crearClienteMercadoPago(TOKEN, { http });
     expect(await mp.pedirReporte('2026-10-01T00:00:00Z', '2026-10-19T00:00:00Z')).toBe(true);
     expect(http.request.mock.calls[0][0].data).toEqual({
-      begin_date: '2026-10-01T00:00:00.000Z', end_date: '2026-10-19T00:00:00.000Z'
+      begin_date: '2026-10-01T00:00:00Z', end_date: '2026-10-19T00:00:00Z'
     });
 
     const mp203 = crearClienteMercadoPago(TOKEN, { http: httpFalso({ 'POST /v1/account/release_report': { status: 203 } }) });

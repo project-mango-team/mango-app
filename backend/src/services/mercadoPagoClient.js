@@ -19,6 +19,8 @@ export class MercadoPagoError extends Error {
   }
 }
 
+const sinMilisegundos = (fecha) => fecha.toISOString().replace(/\.\d{3}Z$/, 'Z');
+
 const describirError = (error, metodo, ruta) => {
   const status = error.response?.status ?? null;
   const detalle = error.response?.data?.message || error.response?.data?.error || error.code || error.message;
@@ -85,7 +87,8 @@ export const crearClienteMercadoPago = (accessToken, { http = axios } = {}) => {
         throw new MercadoPagoError(`El reporte de Mercado Pago cubre como máximo ${MAX_DIAS_REPORTE} días`);
       }
       const { status } = await llamar('POST', '/v1/account/release_report', {
-        data: { begin_date: inicio.toISOString(), end_date: fin.toISOString() }
+        // Formato de la doc de MP: ISO 8601 UTC con Z y sin milisegundos (con milisegundos responde 400 'You must specify begin_date')
+        data: { begin_date: sinMilisegundos(inicio), end_date: sinMilisegundos(fin) }
       });
       return status !== 203;
     },
