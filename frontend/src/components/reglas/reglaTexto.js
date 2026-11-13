@@ -2,7 +2,7 @@ import { formatImporte } from '../../utils/format'
 
 export const CATEGORIA_INTERNO = 'Movimiento interno'
 
-export const ORIGENES = ['Mercado Pago', 'Santander', 'Banco Galicia', 'Banco Galicia Tarjeta', 'Banco Galicia Mastercard']
+export const ORIGENES = ['Mercado Pago', 'Mercado Pago Tarjeta', 'Santander', 'Banco Galicia', 'Banco Galicia Tarjeta', 'Banco Galicia Mastercard']
 
 // Acción tal como se elige en el formulario: "interno" es asignar la categoría Movimiento interno
 export const accionDeRegla = (accion) => {

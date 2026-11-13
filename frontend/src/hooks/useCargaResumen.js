@@ -181,7 +181,7 @@ const useCargaResumen = () => {
         valorDolar,
         tipo === 'santander' ? cardType : null,
         tipo === 'santander' ? selectedCards : null,
-        tipo === 'galicia' ? tipoResumen : null
+        tipo === 'galicia' || tipo === 'mercadopago' ? tipoResumen || null : null
       )
 
       setPreviewData({
@@ -190,7 +190,7 @@ const useCargaResumen = () => {
         tipo: response.data.tipo,
         cardType: response.data.cardType,
         selectedCards: response.data.selectedCards,
-        tipoResumen: tipo === 'galicia' ? tipoResumen : null,
+        tipoResumen: tipo === 'galicia' || tipo === 'mercadopago' ? tipoResumen || null : null,
         sha256: response.data.sha256,
         archivoYaImportado: response.data.archivoYaImportado,
         limites: response.data.limites

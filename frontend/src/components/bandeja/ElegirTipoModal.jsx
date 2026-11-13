@@ -22,7 +22,7 @@ const ElegirTipoModal = ({ documento, onClose, onGuardar }) => {
         <>
           <button onClick={onClose} className="btn-secondary">Cancelar</button>
           <button
-            onClick={() => onGuardar(documento, { tipo, ...(tipo === 'galicia' && { tipoResumen }) })}
+            onClick={() => onGuardar(documento, { tipo, ...((tipo === 'galicia' || tipo === 'mercadopago') && { tipoResumen }) })}
             disabled={!tipo}
             className="btn-primary disabled:opacity-50"
           >
@@ -47,6 +47,15 @@ const ElegirTipoModal = ({ documento, onClose, onGuardar }) => {
             <select value={tipoResumen} onChange={(e) => setTipoResumen(e.target.value)} className="input-field w-full mt-1">
               <option value="cuenta">Caja de ahorro (XLSX o CSV)</option>
               <option value="tarjeta">Tarjeta Visa o Mastercard (PDF o TXT)</option>
+            </select>
+          </label>
+        )}
+        {tipo === 'mercadopago' && (
+          <label className="block">
+            <span className="text-sm text-gray-400">Tipo de resumen</span>
+            <select value={tipoResumen} onChange={(e) => setTipoResumen(e.target.value)} className="input-field w-full mt-1">
+              <option value="cuenta">Cuenta (CSV del reporte)</option>
+              <option value="tarjeta">Tarjeta de crédito (PDF)</option>
             </select>
           </label>
         )}

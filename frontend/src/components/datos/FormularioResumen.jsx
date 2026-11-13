@@ -131,6 +131,23 @@ const FormularioResumen = ({ carga }) => {
               </div>
             )}
 
+            {/* MP-10: Mercado Pago puede ser la cuenta (CSV) o la tarjeta de crédito (PDF) */}
+            {tipo === 'mercadopago' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Tipo de resumen
+                </label>
+                <select
+                  value={tipoResumen}
+                  onChange={(e) => setTipoResumen(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="">Cuenta (CSV del reporte)</option>
+                  <option value="tarjeta">Tarjeta de crédito (PDF)</option>
+                </select>
+              </div>
+            )}
+
             {/* Tarjetas detectadas (solo para Santander) */}
             {tipo === 'santander' && cardType && (
               <div>
@@ -160,7 +177,7 @@ const FormularioResumen = ({ carga }) => {
             )}
 
             {/* Valor dólar (solo para Santander y Galicia Tarjeta) */}
-            {(tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta')) && (
+            {(tipo === 'santander' || ((tipo === 'galicia' || tipo === 'mercadopago') && tipoResumen === 'tarjeta')) && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Cotización del dólar
@@ -196,6 +213,16 @@ const FormularioResumen = ({ carga }) => {
                 <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar resumen Galicia</h4>
                 <p className="text-sm text-gray-300">
                   Podés subir directamente el archivo <strong>.pdf</strong> descargado de Home Banking o un <strong>.txt</strong> si copiaste el texto del resumen.
+                </p>
+              </div>
+            )}
+
+            {tipo === 'mercadopago' && tipoResumen === 'tarjeta' && (
+              <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-blue-400 mb-2">💡 Cómo importar el resumen de la tarjeta de Mercado Pago</h4>
+                <p className="text-sm text-gray-300">
+                  Subí el <strong>.pdf</strong> del resumen (Tarjeta de crédito → Resúmenes en la app). Cada consumo entra con su categoría y,
+                  una vez importado, el pago automático de la tarjeta que aparece en la cuenta de Mercado Pago se marca como movimiento interno.
                 </p>
               </div>
             )}
