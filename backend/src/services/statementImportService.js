@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import iconv from 'iconv-lite';
 import { PDFParse } from 'pdf-parse';
 import { MercadoPagoParser } from '../parsers/MercadoPagoParser.js';
+import { MercadoPagoTarjetaParser } from '../parsers/MercadoPagoTarjetaParser.js';
 import { SantanderParser } from '../parsers/SantanderParser.js';
 import { GaliciaParser } from '../parsers/GaliciaParser.js';
 import { DolarService } from './dolarService.js';
@@ -140,7 +141,9 @@ export const detectarDocumento = async ({ buffer }) => {
     return { soportado: false, confianza: 'baja', archivo, motivo: `No se pudo leer el archivo: ${error.message}` };
   }
 
-  const deteccion = MercadoPagoParser.detectar(texto)
+  // La tarjeta de Mercado Pago va primero: tiene firmas propias y no se confunde con la cuenta ni con Galicia
+  const deteccion = MercadoPagoTarjetaParser.detectar(texto)
+    || MercadoPagoParser.detectar(texto)
     || SantanderParser.detectar(texto)
     || GaliciaParser.detectar(texto);
 
@@ -192,6 +195,13 @@ export const parsearDocumento = async ({ reglas = null, ...params }) => {
 const parsearConParser = async ({ buffer, filename, tipo, tipoResumen, valorDolar, selectedCards, categoryKeywords = null }) => {
   validarTipo(tipo);
   const fileBuffer = await normalizarArchivo({ buffer, filename }, tipo, tipoResumen);
+
+  // MP-09: resumen PDF de la tarjeta de crédito de Mercado Pago (consumos en USD con la cotización indicada o la del día)
+  if (tipo === 'mercadopago' && tipoResumen === 'tarjeta') {
+    const dolarVal = await resolverDolar(valorDolar);
+    const parser = new MercadoPagoTarjetaParser(fileBuffer, dolarVal, categoryKeywords);
+    return { transactions: await parser.parse(), valorDolar: dolarVal, cardFilter: null };
+  }
 
   if (tipo === 'mercadopago') {
     const parser = new MercadoPagoParser(fileBuffer, categoryKeywords);

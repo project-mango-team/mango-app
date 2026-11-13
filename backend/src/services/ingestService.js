@@ -45,7 +45,7 @@ export const parametrosDesdeDeteccion = (deteccion) => ({
  * ¿Este resumen tiene consumos que se pesifican con una cotización? (tarjetas)
  */
 export const necesitaDolar = ({ tipo, tipoResumen }) =>
-  tipo === 'santander' || (tipo === 'galicia' && tipoResumen === 'tarjeta');
+  tipo === 'santander' || (['galicia', 'mercadopago'].includes(tipo) && tipoResumen === 'tarjeta');
 
 /**
  * Resumen de la vista previa: cantidad, duplicados, totales de lo nuevo y rango de fechas (YYYY-MM-DD)

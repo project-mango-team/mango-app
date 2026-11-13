@@ -107,3 +107,11 @@ Ninguno modifica `transactions`. Colecciones nuevas (las crea Mongoose al arranc
 - Al probar el token real de MP en dev, usá un `SECRETS_KEY` propio en `.env`: la de `nodemon.json` es pública y `Mango_dev` está en el mismo cluster.
 - "Movimiento interno" se guarda como categoría en `transactions` y se agrega a las categorías del usuario: un lector viejo (mango-py) lo contaría como gasto o ingreso.
 - Sugerencias con IA sin tope de pedidos por usuario (opt-in; el costo corre por tu clave).
+
+## MP · tarjeta de crédito de Mercado Pago (MP-08 a MP-11 y MP-14)
+Probado con un texto sintético y contra el resumen real de octubre (solo conteos): el parser lo detecta solo, lee el consolidado y el detalle, y el control de totales da diferencia 0 en pesos y en dólares. Ver el detalle en el reporte de la rama `mp-tarjeta`.
+- [ ] Cargar el PDF de la tarjeta por Datos → Cargar (Mercado Pago → Tipo de resumen → Tarjeta de crédito) o soltándolo en la Bandeja: se reconoce como "Mercado Pago · tarjeta de crédito", cada consumo entra con su categoría (las cuotas como "… Cuota NN/MM"), los impuestos como Impuestos y el control de totales dice que cierra.
+- [ ] Importar también la cuenta de Mercado Pago (CSV) del mismo mes: el pago automático de la tarjeta debe salir como "Movimiento interno" con el aviso de a qué resumen corresponde. Si la cuenta se importa ANTES que el resumen de la tarjeta, el pago queda en ámbar como pendiente y sigue siendo gasto (para no perderlo); importá primero el resumen.
+- [ ] El año de los consumos se infiere del cierre del resumen (el PDF solo dice "9 de octubre"): para un resumen muy viejo importado mucho después, revisar las fechas.
+- [ ] Calendario de cierres: aparece la fuente "Mercado Pago · tarjeta".
+- Pendiente tuyo (MP-05): el mail del resumen (remitente, asunto, si trae el PDF adjunto o un link). Hasta entonces el README del script dice cómo se comporta en cada caso.

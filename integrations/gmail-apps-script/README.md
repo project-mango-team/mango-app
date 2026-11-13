@@ -9,6 +9,7 @@ Qué hace con cada mail que tenga la etiqueta `Mango/Resumenes`:
 | Un PDF, XLSX, CSV o TXT adjunto (ej. Mastercard Galicia) | Lo sube a la Bandeja, que lo detecta y lo deja listo para importar |
 | Un botón "Conocer resumen" (ej. Visa Galicia) | Abre el link, baja el PDF de eresumen.com.ar y lo sube |
 | Solo un aviso, sin archivo (ej. caja de ahorro Galicia) | Lo registra en la Bandeja como "Falta el archivo" |
+| El resumen de la tarjeta de crédito de Mercado Pago (PDF) | Si el PDF viene adjunto entra como cualquier adjunto y Mango lo reconoce solo. Si el mail trae solo un aviso o un link, queda como "Falta el archivo" (si el asunto dice "tarjeta", Mango lo asocia a la fuente "Mercado Pago · tarjeta" del calendario de cierres): bajá el PDF de la app (Tarjeta de crédito → Resúmenes) y soltalo en la Bandeja |
 
 Después etiqueta el hilo `Mango/Procesado`, o `Mango/Error` si algo falló, así no se procesa dos veces. Aunque lo procese de nuevo, Mango no duplica nada.
 
